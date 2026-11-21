@@ -1,0 +1,2551 @@
+/* ============================================================================
+   Komari Data Center Hall — React Three Fiber WebGL 3D & Quiet Precision HUD
+   Zero dissolve-ui · GPU-Accelerated 3D Racks · 4 Switchable Data Center Scenes
+   ============================================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'PingFang SC', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* ============================================================================
+   Room Atmospheres (Variables driving Room, Lighting, Floor & Floating Glass)
+   ============================================================================ */
+.dc-app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--room-bg);
+  color: var(--hud-ink);
+  transition: background-color 0.45s ease;
+}
+
+/* 1. Cold Aisle (Default): Architectural Slate-Indigo Data Center */
+.dc-app.atmo-cold-aisle {
+  --room-bg: #0c121d;
+  --room-bg-radial: radial-gradient(ellipse 78% 58% at 50% 18%, #1a2942 0%, #0e1624 52%, #080c14 100%);
+  --room-ceiling-glow: radial-gradient(ellipse 64% 30% at 50% 0%, rgba(56, 189, 248, 0.2), transparent 72%);
+  --room-vignette: radial-gradient(ellipse 90% 85% at 50% 50%, transparent 52%, rgba(4, 7, 13, 0.72) 100%);
+
+  --floor-base: #111824;
+  --floor-tile-line: rgba(148, 179, 214, 0.11);
+  --floor-tile-sub: rgba(148, 179, 214, 0.045);
+  --floor-aisle-glow: rgba(56, 189, 248, 0.42);
+  --floor-ink: rgba(160, 194, 228, 0.44);
+  --backwall-bg: linear-gradient(180deg, rgba(17, 25, 39, 0.1) 0%, rgba(12, 18, 30, 0.85) 100%);
+  --backwall-rib: rgba(148, 179, 214, 0.07);
+  --truss-metal: #232d3d;
+  --truss-edge: rgba(148, 179, 214, 0.16);
+  --ceiling-bar: #bae6fd;
+  --ceiling-bar-glow: rgba(56, 189, 248, 0.55);
+
+  --hud-glass: rgba(15, 22, 34, 0.72);
+  --hud-glass-solid: rgba(14, 20, 31, 0.86);
+  --hud-border: rgba(255, 255, 255, 0.1);
+  --hud-border-strong: rgba(255, 255, 255, 0.18);
+  --hud-highlight: rgba(255, 255, 255, 0.07);
+  --hud-ink: #edf2f8;
+  --hud-ink-muted: #93a2b8;
+  --hud-ink-subtle: #64748b;
+  --hud-chip-bg: rgba(255, 255, 255, 0.055);
+  --hud-chip-hover: rgba(255, 255, 255, 0.1);
+  --hud-active-bg: rgba(255, 255, 255, 0.94);
+  --hud-active-ink: #0f172a;
+  --hud-accent: #38bdf8;
+  --chart-cpu: #268ed4;
+  --chart-ram: #dc6b20;
+  --hud-input-bg: rgba(7, 11, 18, 0.65);
+  --hud-shadow: 0 18px 44px -16px rgba(0, 0, 0, 0.65), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* 2. Cleanroom: Swiss Daylight Architectural Lab */
+.dc-app.atmo-cleanroom {
+  --room-bg: #dde2ea;
+  --room-bg-radial: radial-gradient(ellipse 80% 62% at 50% 14%, #f4f6fa 0%, #e1e6ef 56%, #cdd4e0 100%);
+  --room-ceiling-glow: radial-gradient(ellipse 68% 28% at 50% 0%, rgba(255, 255, 255, 0.85), transparent 72%);
+  --room-vignette: radial-gradient(ellipse 92% 88% at 50% 50%, transparent 58%, rgba(148, 160, 180, 0.35) 100%);
+
+  --floor-base: #d4dbe5;
+  --floor-tile-line: rgba(30, 41, 59, 0.12);
+  --floor-tile-sub: rgba(30, 41, 59, 0.04);
+  --floor-aisle-glow: rgba(29, 111, 216, 0.38);
+  --floor-ink: rgba(51, 65, 85, 0.52);
+  --backwall-bg: linear-gradient(180deg, rgba(241, 245, 249, 0.2) 0%, rgba(203, 213, 225, 0.72) 100%);
+  --backwall-rib: rgba(30, 41, 59, 0.08);
+  --truss-metal: #9ca7b8;
+  --truss-edge: rgba(255, 255, 255, 0.65);
+  --ceiling-bar: #ffffff;
+  --ceiling-bar-glow: rgba(148, 163, 184, 0.55);
+
+  --hud-glass: rgba(248, 250, 253, 0.76);
+  --hud-glass-solid: rgba(248, 250, 253, 0.9);
+  --hud-border: rgba(15, 23, 42, 0.1);
+  --hud-border-strong: rgba(15, 23, 42, 0.2);
+  --hud-highlight: rgba(255, 255, 255, 0.85);
+  --hud-ink: #141923;
+  --hud-ink-muted: #525f73;
+  --hud-ink-subtle: #7c889b;
+  --hud-chip-bg: rgba(15, 23, 42, 0.045);
+  --hud-chip-hover: rgba(15, 23, 42, 0.09);
+  --hud-active-bg: #181d27;
+  --hud-active-ink: #f8fafc;
+  --hud-accent: #d95b1e;
+  --chart-cpu: #0369a1;
+  --chart-ram: #c2410c;
+  --hud-input-bg: rgba(255, 255, 255, 0.85);
+  --hud-shadow: 0 18px 40px -16px rgba(15, 23, 42, 0.2), 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+/* 3. Obsidian NOC: Stealth Carbon Control Hall */
+.dc-app.atmo-obsidian-noc {
+  --room-bg: #07080b;
+  --room-bg-radial: radial-gradient(ellipse 75% 55% at 50% 20%, #15181f 0%, #0b0d12 56%, #050608 100%);
+  --room-ceiling-glow: radial-gradient(ellipse 62% 28% at 50% 0%, rgba(249, 115, 22, 0.13), transparent 72%);
+  --room-vignette: radial-gradient(ellipse 90% 85% at 50% 50%, transparent 50%, rgba(0, 0, 0, 0.82) 100%);
+
+  --floor-base: #0c0e13;
+  --floor-tile-line: rgba(255, 255, 255, 0.07);
+  --floor-tile-sub: rgba(255, 255, 255, 0.025);
+  --floor-aisle-glow: rgba(249, 115, 22, 0.44);
+  --floor-ink: rgba(161, 161, 170, 0.36);
+  --backwall-bg: linear-gradient(180deg, rgba(18, 20, 26, 0.1) 0%, rgba(8, 9, 13, 0.92) 100%);
+  --backwall-rib: rgba(255, 255, 255, 0.045);
+  --truss-metal: #1c1f26;
+  --truss-edge: rgba(255, 255, 255, 0.1);
+  --ceiling-bar: #fed7aa;
+  --ceiling-bar-glow: rgba(249, 115, 22, 0.45);
+
+  --hud-glass: rgba(14, 15, 19, 0.76);
+  --hud-glass-solid: rgba(13, 14, 18, 0.9);
+  --hud-border: rgba(255, 255, 255, 0.09);
+  --hud-border-strong: rgba(255, 255, 255, 0.16);
+  --hud-highlight: rgba(255, 255, 255, 0.06);
+  --hud-ink: #f4f4f5;
+  --hud-ink-muted: #989ba6;
+  --hud-ink-subtle: #666973;
+  --hud-chip-bg: rgba(255, 255, 255, 0.05);
+  --hud-chip-hover: rgba(255, 255, 255, 0.1);
+  --hud-active-bg: #f4f4f5;
+  --hud-active-ink: #090a0d;
+  --hud-accent: #f97316;
+  --chart-cpu: #268ed4;
+  --chart-ram: #dc6b20;
+  --hud-input-bg: rgba(6, 7, 10, 0.72);
+  --hud-shadow: 0 20px 48px -16px rgba(0, 0, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+/* 4. Showroom: Minimal Architectural Gallery */
+.dc-app.atmo-showroom {
+  --room-bg: #0b0e15;
+  --room-bg-radial: radial-gradient(ellipse 76% 56% at 50% 18%, #181f2c 0%, #0d111a 56%, #07090e 100%);
+  --room-ceiling-glow: radial-gradient(ellipse 64% 28% at 50% 0%, rgba(125, 211, 252, 0.16), transparent 72%);
+  --room-vignette: radial-gradient(ellipse 90% 85% at 50% 50%, transparent 50%, rgba(4, 6, 10, 0.78) 100%);
+
+  --floor-base: #0e121b;
+  --floor-tile-line: rgba(148, 163, 184, 0.08);
+  --floor-tile-sub: rgba(148, 163, 184, 0.03);
+  --floor-aisle-glow: rgba(125, 211, 252, 0.4);
+  --floor-ink: rgba(148, 163, 184, 0.4);
+  --backwall-bg: linear-gradient(180deg, rgba(16, 20, 30, 0.1) 0%, rgba(9, 12, 18, 0.9) 100%);
+  --backwall-rib: rgba(148, 163, 184, 0.05);
+  --truss-metal: #1f2430;
+  --truss-edge: rgba(255, 255, 255, 0.12);
+  --ceiling-bar: #e0f2fe;
+  --ceiling-bar-glow: rgba(125, 211, 252, 0.48);
+
+  --hud-glass: rgba(14, 18, 27, 0.74);
+  --hud-glass-solid: rgba(13, 17, 25, 0.9);
+  --hud-border: rgba(255, 255, 255, 0.1);
+  --hud-border-strong: rgba(255, 255, 255, 0.18);
+  --hud-highlight: rgba(255, 255, 255, 0.08);
+  --hud-ink: #f1f5f9;
+  --hud-ink-muted: #94a3b8;
+  --hud-ink-subtle: #64748b;
+  --hud-chip-bg: rgba(255, 255, 255, 0.055);
+  --hud-chip-hover: rgba(255, 255, 255, 0.11);
+  --hud-active-bg: #f8fafc;
+  --hud-active-ink: #0b0e15;
+  --hud-accent: #7dd3fc;
+  --chart-cpu: #38bdf8;
+  --chart-ram: #f59e0b;
+  --hud-input-bg: rgba(7, 10, 16, 0.7);
+  --hud-shadow: 0 20px 48px -16px rgba(0, 0, 0, 0.78), 0 2px 6px rgba(0, 0, 0, 0.42);
+}
+
+/* ============================================================================
+   3D Data Center Hall Stage
+   ============================================================================ */
+.hall-viewport {
+  --rack-w: 424px;
+  --rack-d: 210px;
+  --rack-rail-col: 22px;
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--room-bg-radial);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+}
+
+.hall-viewport.scale-compact {
+  --rack-w: 368px;
+  --rack-d: 184px;
+  --rack-rail-col: 20px;
+}
+
+.hall-viewport.is-dragging {
+  cursor: grabbing;
+}
+
+.hall-ceiling-glow,
+.hall-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hall-ceiling-glow {
+  background: var(--room-ceiling-glow);
+}
+
+.hall-vignette {
+  background: var(--room-vignette);
+}
+
+.hall-perspective-rig {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1750px;
+  perspective-origin: 50% 42%;
+}
+
+.hall-world {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.hall-world.is-instant {
+  transition: none;
+}
+
+/* Raised Perforated Modular Data Center Floor (anchored flush at rack bottom y = H, normal upward) */
+.hall-floor {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 3200px;
+  height: 1750px;
+  margin-left: -1600px;
+  transform-origin: bottom center;
+  transform: translateZ(560px) rotateX(90deg);
+  background: var(--floor-base);
+  pointer-events: none;
+  mask-image: radial-gradient(ellipse 54% 58% at 50% 64%, #000 38%, transparent 88%);
+  -webkit-mask-image: radial-gradient(ellipse 54% 58% at 50% 64%, #000 38%, transparent 88%);
+}
+
+.hall-floor-tiles {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--floor-tile-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--floor-tile-line) 1px, transparent 1px),
+    radial-gradient(var(--floor-tile-sub) 1px, transparent 1px);
+  background-size: 92px 92px, 92px 92px, 11.5px 11.5px;
+}
+
+/* Cold-Aisle Illuminated Linear Floor Strip running in front of all cabinets (z = +88px -> bottom = 560 - 88 = 472px) */
+.hall-floor-aisle-strip {
+  position: absolute;
+  left: 50%;
+  bottom: 472px;
+  width: 1760px;
+  height: 3px;
+  margin-left: -880px;
+  background: linear-gradient(90deg, transparent 0%, var(--floor-aisle-glow) 15%, var(--floor-aisle-glow) 85%, transparent 100%);
+  box-shadow: 0 0 22px 3px var(--floor-aisle-glow);
+}
+
+.hall-floor-marking {
+  position: absolute;
+  left: 50%;
+  bottom: 426px;
+  width: 1320px;
+  margin-left: -660px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--floor-ink);
+}
+
+/* Subtle Architectural Rear Wall behind the cabinet row */
+.hall-backwall {
+  position: absolute;
+  left: -460px;
+  right: -460px;
+  top: -150px;
+  bottom: 0;
+  transform: translateZ(-540px);
+  background: var(--backwall-bg);
+  display: flex;
+  justify-content: space-around;
+  pointer-events: none;
+  mask-image: linear-gradient(90deg, transparent 0%, #000 18%, #000 82%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 18%, #000 82%, transparent 100%);
+}
+
+.hall-backwall-rib {
+  width: 1px;
+  height: 100%;
+  background: var(--backwall-rib);
+}
+
+/* Overhead Cable Ladder Tray & Linear Architectural Ceiling LED Light */
+.hall-overhead-truss {
+  position: absolute;
+  top: -54px;
+  left: -80px;
+  right: -80px;
+  height: 170px;
+  transform-origin: top center;
+  transform: translateZ(-26px) rotateX(-90deg);
+  pointer-events: none;
+}
+
+.hall-cable-ladder {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 46px;
+  height: 82px;
+  border-top: 3px solid var(--truss-metal);
+  border-bottom: 3px solid var(--truss-metal);
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 42px,
+    var(--truss-metal) 42px 46px
+  );
+  box-shadow: inset 0 1px 0 var(--truss-edge);
+  opacity: 0.85;
+}
+
+.hall-ceiling-light {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 8px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--ceiling-bar);
+  box-shadow:
+    0 0 18px 4px var(--ceiling-bar-glow),
+    0 0 48px 10px var(--ceiling-bar-glow);
+  opacity: 0.88;
+}
+
+/* Row of Volumetric 3D Cabinets */
+.hall-rack-row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 34px;
+  transform-style: preserve-3d;
+}
+
+/* ============================================================================
+   True 3D Volumetric Server Cabinet Enclosure (6-sided CSS 3D Prism)
+   ============================================================================ */
+.cab3d-enclosure {
+  position: relative;
+  width: var(--rack-w);
+  flex-shrink: 0;
+  transform-style: preserve-3d;
+  cursor: default;
+}
+
+/* Theme Material Palettes — Cohesive Front, Roof & Side Panels */
+.cab3d-enclosure.theme-obsidian {
+  --c-front-bg: linear-gradient(180deg, #232832 0%, #161920 100%);
+  --c-head-bg: linear-gradient(180deg, #2b313d 0%, #1e222b 100%);
+  --c-plinth-bg: linear-gradient(180deg, #1b1f27 0%, #12151b 100%);
+  --c-post: linear-gradient(90deg, #2e3441 0%, #1c2029 65%, #11141a 100%);
+  --c-side-bg: linear-gradient(180deg, #1d222b 0%, #141820 50%, #0e1117 100%);
+  --c-roof-bg: linear-gradient(180deg, #2a303c 0%, #1c2029 100%);
+  --c-border: #353d4c;
+  --c-bevel: rgba(255, 255, 255, 0.1);
+  --c-ink: #e8edf5;
+  --c-ink-mute: #8d99ab;
+  --c-rail: #13171f;
+  --c-rail-mark: #697589;
+  --c-louver: rgba(0, 0, 0, 0.55);
+  --c-louver-hi: rgba(255, 255, 255, 0.045);
+}
+
+.cab3d-enclosure.theme-titanium {
+  --c-front-bg: linear-gradient(180deg, #6e7480 0%, #585e6a 100%);
+  --c-head-bg: linear-gradient(180deg, #79808d 0%, #636976 100%);
+  --c-plinth-bg: linear-gradient(180deg, #545a66 0%, #444954 100%);
+  --c-post: linear-gradient(90deg, #7c8390 0%, #616773 65%, #4a4f5a 100%);
+  --c-side-bg: linear-gradient(180deg, #5c626e 0%, #484d58 52%, #393d47 100%);
+  --c-roof-bg: linear-gradient(180deg, #737a87 0%, #565c68 100%);
+  --c-border: #878e9c;
+  --c-bevel: rgba(255, 255, 255, 0.24);
+  --c-ink: #f3f6fa;
+  --c-ink-mute: #cfd6e2;
+  --c-rail: #1c2028;
+  --c-rail-mark: #8590a2;
+  --c-louver: rgba(15, 19, 26, 0.52);
+  --c-louver-hi: rgba(255, 255, 255, 0.1);
+}
+
+.cab3d-enclosure.theme-silver {
+  --c-front-bg: linear-gradient(180deg, #d7dce4 0%, #c3cad6 100%);
+  --c-head-bg: linear-gradient(180deg, #e1e5ec 0%, #cdd4df 100%);
+  --c-plinth-bg: linear-gradient(180deg, #bfc6d2 0%, #aeb6c4 100%);
+  --c-post: linear-gradient(90deg, #e2e6ed 0%, #c6cdd8 65%, #adb5c3 100%);
+  --c-side-bg: linear-gradient(180deg, #b8c0cd 0%, #9fa8b7 52%, #8892a3 100%);
+  --c-roof-bg: linear-gradient(180deg, #d5dbe4 0%, #b5becb 100%);
+  --c-border: #9aa4b4;
+  --c-bevel: rgba(255, 255, 255, 0.72);
+  --c-ink: #1a202c;
+  --c-ink-mute: #515d70;
+  --c-rail: #232832;
+  --c-rail-mark: #828d9e;
+  --c-louver: rgba(20, 26, 36, 0.45);
+  --c-louver-hi: rgba(255, 255, 255, 0.35);
+}
+
+/* Grounded Contact Shadow & Floor Bay Tag directly on Floor Plane (normal upward) */
+.cab3d-floor-shadow {
+  position: absolute;
+  bottom: 0;
+  left: -16px;
+  right: -16px;
+  height: calc(var(--rack-d) + 86px);
+  transform-origin: bottom center;
+  transform: translateZ(64px) rotateX(90deg);
+  pointer-events: none;
+}
+
+.cab3d-floor-shadow::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 8px;
+  bottom: 56px;
+  border-radius: 10px;
+  background: rgba(2, 5, 11, 0.62);
+  filter: blur(18px);
+}
+
+.cab3d-floor-bay-tag {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--floor-ink);
+}
+
+.cab3d-enclosure.is-active .cab3d-floor-bay-tag {
+  color: var(--hud-accent);
+}
+
+.bay-sep {
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.25;
+}
+
+/* Shared 3D Face Rules */
+.cab3d-face {
+  backface-visibility: hidden;
+}
+
+/* 1. Front Faceplate (at z = 0, normal document flow drives height) */
+.cab3d-front {
+  position: relative;
+  min-height: 492px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-front-bg);
+  border: 1px solid var(--c-border);
+  border-radius: 3px 3px 2px 2px;
+  box-shadow: inset 0 1px 0 var(--c-bevel);
+  transform: translateZ(0);
+  transform-style: preserve-3d;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cab3d-enclosure.is-active .cab3d-front {
+  border-color: var(--hud-accent);
+  box-shadow:
+    inset 0 1px 0 var(--c-bevel),
+    0 0 0 1px color-mix(in srgb, var(--hud-accent) 40%, transparent);
+}
+
+/* 2. Top Roof Face (extrudes backward z = 0 -> -D with upward normal) */
+.cab3d-top {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 100%;
+  height: var(--rack-d);
+  transform-origin: bottom center;
+  transform: rotateX(90deg);
+  background: var(--c-roof-bg);
+  border: 1px solid var(--c-border);
+  box-shadow: inset 0 -1px 0 var(--c-bevel);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.cab3d-roof-beacon {
+  position: absolute;
+  bottom: 0;
+  left: 14px;
+  right: 14px;
+  height: 2.5px;
+  border-radius: 3px 3px 0 0;
+  background: #475569;
+}
+
+.cab3d-roof-beacon.is-ok {
+  background: #22c55e;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.75);
+}
+
+.cab3d-roof-beacon.is-warn {
+  background: #f97316;
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.8);
+}
+
+.cab3d-roof-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.cab3d-roof-vent {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 14px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cab3d-fan-ring {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.08) 0 18%, transparent 19%),
+    repeating-radial-gradient(circle, transparent 0 5px, rgba(0, 0, 0, 0.55) 5px 7px);
+}
+
+.cab3d-roof-grommets {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.cab3d-grommet {
+  height: 28px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(90deg, #0b0d12 0 4px, #1b2029 4px 7px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cab3d-roof-stencil {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--c-ink-mute);
+  opacity: 0.65;
+}
+
+/* 3. Right Side Wall (x = W, extrudes backward z = 0 -> -D) */
+.cab3d-right {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  width: var(--rack-d);
+  height: 100%;
+  transform-origin: left center;
+  transform: rotateY(90deg);
+  background: var(--c-side-bg);
+  border: 1px solid var(--c-border);
+  border-left: none;
+  box-shadow: inset 6px 0 18px rgba(0, 0, 0, 0.35);
+}
+
+/* 4. Left Side Wall (x = 0, extrudes backward z = 0 -> -D) */
+.cab3d-left {
+  position: absolute;
+  top: 0;
+  right: 100%;
+  width: var(--rack-d);
+  height: 100%;
+  transform-origin: right center;
+  transform: rotateY(-90deg);
+  background: var(--c-side-bg);
+  border: 1px solid var(--c-border);
+  border-right: none;
+  box-shadow: inset -6px 0 18px rgba(0, 0, 0, 0.35);
+}
+
+.cab3d-side-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.cab3d-side-louver-top,
+.cab3d-side-louver-bot {
+  flex: 1;
+  border-radius: 3px;
+  border: 1px solid var(--c-louver-hi);
+  background-image: repeating-linear-gradient(
+    180deg,
+    var(--c-louver) 0 3px,
+    transparent 3px 8px
+  );
+}
+
+.cab3d-side-latch {
+  width: 28px;
+  height: 10px;
+  margin: 0 auto;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--c-louver-hi);
+}
+
+.cab3d-side-exhaust-glow {
+  position: absolute;
+  top: 32px;
+  bottom: 32px;
+  right: 14px;
+  width: 3px;
+  border-radius: 99px;
+  background: linear-gradient(180deg, transparent, rgba(56, 189, 248, 0.18), transparent);
+}
+
+/* 5. Rear Wall */
+.cab3d-back {
+  position: absolute;
+  inset: 0;
+  transform: translateZ(calc(var(--rack-d) * -1)) rotateY(180deg);
+  background: #0d1016;
+  border: 1px solid var(--c-border);
+}
+
+/* Front Header, Body & Plinth */
+.cab3d-header {
+  height: 34px;
+  padding: 0 10px;
+  background: var(--c-head-bg);
+  border-bottom: 1px solid var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cab3d-head-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.cab3d-beacon-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #64748b;
+  flex-shrink: 0;
+}
+
+.cab3d-beacon-dot.is-ok {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.7);
+}
+
+.cab3d-beacon-dot.is-warn {
+  background: #f97316;
+  box-shadow: 0 0 6px rgba(249, 115, 22, 0.75);
+}
+
+.cab3d-name-btn {
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--c-ink);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cab3d-name-btn:hover {
+  background: rgba(128, 128, 128, 0.14);
+}
+
+.cab3d-name-input {
+  width: 170px;
+  padding: 2px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid var(--hud-accent);
+  background: #0f141d;
+  color: #f8fafc;
+  outline: none;
+}
+
+.cab3d-head-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cab3d-stat {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink-mute);
+}
+
+.cab3d-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) 7px;
+  transform-style: preserve-3d;
+}
+
+.cab3d-post {
+  background: var(--c-post);
+}
+
+.cab3d-post-left {
+  border-right: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+.cab3d-post-right {
+  border-left: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+.cab3d-bay {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #0c0f15;
+  padding: 4px 3px;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.7);
+  transform-style: preserve-3d;
+}
+
+.cab3d-bay.is-drop-target {
+  box-shadow:
+    inset 0 0 0 1.5px var(--hud-accent),
+    inset 0 2px 10px rgba(0, 0, 0, 0.7);
+}
+
+.cab3d-rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--c-rail);
+  pointer-events: none;
+}
+
+.cab3d-rail-left {
+  left: 0;
+}
+
+.cab3d-rail-right {
+  right: 0;
+}
+
+.cab3d-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transform-style: preserve-3d;
+}
+
+.cab3d-empty {
+  padding: 28px 16px;
+  margin: 4px;
+  border: 1px dashed rgba(148, 163, 184, 0.24);
+  border-radius: 4px;
+  text-align: center;
+}
+
+.cab3d-empty-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.cab3d-empty-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* Open Lower EIA-310D Rack Cavity for Architectural Full-Height Silhouette */
+.cab3d-lower-cavity {
+  position: relative;
+  flex: 1;
+  min-height: 44px;
+  margin-top: 4px;
+  background:
+    linear-gradient(180deg, rgba(6, 8, 12, 0.65) 0%, rgba(10, 13, 19, 0.92) 100%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 10px;
+}
+
+.cab3d-cavity-rail-l,
+.cab3d-cavity-rail-r {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  background-image: repeating-linear-gradient(
+    180deg,
+    transparent 0 5px,
+    rgba(148, 163, 184, 0.14) 5px 8px,
+    transparent 8px 13px
+  );
+}
+
+.cab3d-cavity-rail-l {
+  left: 4px;
+}
+
+.cab3d-cavity-rail-r {
+  right: 4px;
+}
+
+.cab3d-cavity-mark {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  color: rgba(148, 163, 184, 0.24);
+}
+
+.cab3d-plinth {
+  height: 24px;
+  padding: 0 10px;
+  background: var(--c-plinth-bg);
+  border-top: 1px solid var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cab3d-plinth-vent {
+  width: 34px;
+  height: 5px;
+  border-radius: 1px;
+  background: repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.5) 0 2px, transparent 2px 5px);
+}
+
+.cab3d-plinth-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--c-ink-mute);
+}
+
+/* Expansion Ghost Bay on Hall Floor */
+.cab3d-ghost-bay {
+  width: 132px;
+  min-height: 492px;
+  align-self: stretch;
+  border-radius: 4px;
+  border: 1px dashed var(--hud-border-strong);
+  background: color-mix(in srgb, var(--hud-glass) 35%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--hud-ink-muted);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.cab3d-ghost-bay:hover {
+  border-color: var(--hud-accent);
+  color: var(--hud-ink);
+  background: color-mix(in srgb, var(--hud-glass) 60%, transparent);
+}
+
+.ghost-plus {
+  font-size: 22px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.ghost-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.ghost-sub {
+  font-size: 11px;
+  opacity: 0.72;
+}
+
+/* ============================================================================
+   Rack Unit Row inside 3D Enclosure — Telescoping Pull-Out on Hover / Select
+   ============================================================================ */
+.rack-unit3d {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--rack-rail-col) minmax(0, 1fr);
+  align-items: stretch;
+  border-radius: 2px;
+  cursor: grab;
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.24s ease;
+  transform: translateZ(0px);
+}
+
+.rack-unit3d:hover {
+  transform: translateZ(7px);
+  z-index: 2;
+}
+
+.rack-unit3d.is-selected {
+  transform: translateZ(14px);
+  box-shadow:
+    0 0 0 1.5px var(--hud-accent),
+    0 12px 24px -6px rgba(0, 0, 0, 0.65);
+  z-index: 3;
+}
+
+.rack-unit3d.is-drag-over {
+  box-shadow: 0 -2px 0 0 var(--hud-accent);
+}
+
+.rack-unit3d-rail {
+  background: var(--c-rail);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 1px;
+}
+
+.rack-unit3d-rail span {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--c-rail-mark);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.rack-unit3d-face {
+  position: relative;
+  min-width: 0;
+  background: #0a0d12;
+}
+
+.chassis-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.rack-unit3d-actions {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 5px;
+  background: rgba(11, 15, 22, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+
+.rack-unit3d:hover .rack-unit3d-actions,
+.rack-unit3d.is-selected .rack-unit3d-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.u3d-btn {
+  border: none;
+  background: transparent;
+  color: #dbe4f0;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.u3d-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.u3d-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.u3d-btn.is-active {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.u3d-btn.is-danger:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.rack-unit3d-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 7px;
+  background: #12161f;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  color: #9ba7b8;
+}
+
+.u3d-strip-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #dde5f0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.u3d-strip-metrics {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.u3d-strip-metrics .is-muted {
+  color: #64748b;
+}
+
+.u3d-dot {
+  width: 5.5px;
+  height: 5.5px;
+  border-radius: 50%;
+}
+
+.u3d-dot.is-online {
+  background: #22c55e;
+}
+
+.u3d-dot.is-warm {
+  background: #f97316;
+}
+
+.u3d-dot.is-off {
+  background: #475569;
+}
+
+/* Server Hardware Micro-Motion (Honors prefers-reduced-motion) */
+.fan-rotor {
+  animation: rack-fan-spin 1.9s linear infinite;
+}
+
+.led-1 {
+  animation: rack-led-pulse 2.2s ease-in-out infinite;
+}
+
+.led-2 {
+  animation: rack-led-pulse 2.7s ease-in-out 0.6s infinite;
+}
+
+.led-3 {
+  animation: rack-led-pulse 3.1s ease-in-out 1.1s infinite;
+}
+
+.uid-active {
+  animation: rack-uid-blink 0.9s steps(2, start) infinite;
+}
+
+@keyframes rack-fan-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rack-led-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes rack-uid-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fan-rotor,
+  .led-1,
+  .led-2,
+  .led-3,
+  .uid-active {
+    animation: none;
+  }
+
+  .hall-world,
+  .inspector-drawer,
+  .rack-unit3d {
+    transition: none;
+  }
+}
+
+/* ============================================================================
+   Quiet Architectural Floating HUD (Top-Left, Top-Right, Bottom Camera Dock)
+   ============================================================================ */
+.hud-pill {
+  background: var(--hud-glass);
+  backdrop-filter: blur(20px) saturate(145%);
+  -webkit-backdrop-filter: blur(20px) saturate(145%);
+  border: 1px solid var(--hud-border);
+  box-shadow:
+    inset 0 1px 0 var(--hud-highlight),
+    var(--hud-shadow);
+  border-radius: 999px;
+}
+
+.hud-top-left {
+  position: fixed;
+  top: 16px;
+  left: 18px;
+  z-index: 30;
+}
+
+.hud-brand-pill {
+  height: 38px;
+  padding: 0 14px 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--hud-ink);
+  opacity: 0.9;
+}
+
+.hud-site-name {
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--hud-ink);
+}
+
+.hud-link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-chip-bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  color: var(--hud-ink-muted);
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease;
+}
+
+.hud-link-chip:hover {
+  border-color: var(--hud-border-strong);
+  color: var(--hud-ink);
+}
+
+.hud-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.hud-led.is-live {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.75);
+}
+
+.hud-led.is-demo {
+  background: #38bdf8;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.65);
+}
+
+.hud-led.is-warn {
+  background: #f59e0b;
+}
+
+.hud-led.is-err {
+  background: #ef4444;
+}
+
+.hud-vsep {
+  width: 1px;
+  height: 15px;
+  background: var(--hud-border);
+  flex-shrink: 0;
+}
+
+.hud-metrics {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+}
+
+.hud-metric b {
+  font-weight: 650;
+  color: var(--hud-ink);
+}
+
+.hud-metric small {
+  font-size: 10px;
+  color: var(--hud-ink-muted);
+}
+
+.hud-metric em {
+  margin-left: 3px;
+  font-style: normal;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+  font-size: 10.5px;
+  color: var(--hud-ink-muted);
+}
+
+/* Top-Right Controls */
+.hud-top-right {
+  position: fixed;
+  top: 16px;
+  right: 18px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-atmo-pill {
+  height: 38px;
+  padding: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.hud-atmo-btn {
+  height: 30px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--hud-ink-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.hud-atmo-btn:hover {
+  color: var(--hud-ink);
+  background: var(--hud-chip-bg);
+}
+
+.hud-atmo-btn.is-active {
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+}
+
+.hud-atmo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(128, 128, 128, 0.45);
+}
+
+.hud-drawer-toggle {
+  height: 38px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 580;
+  color: var(--hud-ink);
+  cursor: pointer;
+  transition: border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.hud-drawer-toggle:hover {
+  border-color: var(--hud-border-strong);
+}
+
+.hud-drawer-toggle.is-open {
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+  border-color: transparent;
+}
+
+/* Bottom-Center Spatial Camera Dock */
+.hud-bottom-dock {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.hud-camera-pill {
+  height: 40px;
+  padding: 4px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-preset-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.hud-seg-btn {
+  height: 30px;
+  padding: 0 11px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--hud-ink-muted);
+  font-size: 11.5px;
+  font-weight: 560;
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.hud-seg-btn:hover {
+  color: var(--hud-ink);
+  background: var(--hud-chip-bg);
+}
+
+.hud-seg-btn.is-active {
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+}
+
+.hud-zoom-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hud-icon-btn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--hud-ink-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.hud-icon-btn:hover {
+  background: var(--hud-chip-hover);
+  color: var(--hud-ink);
+}
+
+.hud-zoom-val {
+  min-width: 36px;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-ink-muted);
+}
+
+.hud-mini-toggle,
+.hud-reset-btn {
+  height: 28px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--hud-ink-muted);
+  font-size: 11px;
+  font-weight: 560;
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.hud-mini-toggle:hover,
+.hud-reset-btn:hover {
+  background: var(--hud-chip-hover);
+  color: var(--hud-ink);
+}
+
+.hud-mini-toggle.is-active {
+  background: var(--hud-chip-hover);
+  color: var(--hud-ink);
+}
+
+.hud-reset-btn {
+  color: var(--hud-accent);
+}
+
+.hud-orbit-hint {
+  margin: 0;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--hud-ink-muted);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+/* Quiet Bottom-Left Notice Pill */
+.hud-notice {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 40;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: var(--hud-glass-solid);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--hud-border-strong);
+  box-shadow: var(--hud-shadow);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--hud-ink);
+}
+
+.hud-notice-action {
+  border: none;
+  background: transparent;
+  padding: 2px 6px;
+  border-radius: 5px;
+  color: var(--hud-accent);
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.hud-notice-action:hover {
+  background: var(--hud-chip-hover);
+}
+
+/* ============================================================================
+   Floating Slide-Over Precision Inspector Drawer (No clunky borders / screws)
+   ============================================================================ */
+.inspector-drawer {
+  position: fixed;
+  top: 66px;
+  right: 18px;
+  bottom: 18px;
+  width: 356px;
+  max-width: calc(100vw - 36px);
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background: var(--hud-glass-solid);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  border: 1px solid var(--hud-border);
+  box-shadow:
+    inset 0 1px 0 var(--hud-highlight),
+    var(--hud-shadow);
+  transform: translateX(calc(100% + 28px));
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.24s ease;
+}
+
+.inspector-drawer.is-open {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer-head {
+  padding: 12px 12px 12px 14px;
+  border-bottom: 1px solid var(--hud-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.drawer-tabs {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--hud-chip-bg);
+}
+
+.drawer-tab {
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--hud-ink-muted);
+  font-size: 11.5px;
+  font-weight: 560;
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.drawer-tab:hover {
+  color: var(--hud-ink);
+}
+
+.drawer-tab.is-active {
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+}
+
+.drawer-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--hud-ink-muted);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.drawer-close:hover {
+  background: var(--hud-chip-hover);
+  color: var(--hud-ink);
+}
+
+.drawer-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.drawer-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.d-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--hud-border);
+}
+
+.d-sec:last-child {
+  border-bottom: none;
+  padding-bottom: 4px;
+}
+
+.d-sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.d-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+  color: var(--hud-ink);
+}
+
+.d-meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  color: var(--hud-ink-muted);
+}
+
+.d-label {
+  font-size: 11.5px;
+  color: var(--hud-ink-muted);
+}
+
+.d-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--hud-ink-muted);
+}
+
+.d-link-btn {
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 560;
+  color: var(--hud-accent);
+  cursor: pointer;
+}
+
+.d-link-btn:hover {
+  text-decoration: underline;
+}
+
+.d-row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.d-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Rack Selector List */
+.d-rack-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.d-rack-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: var(--hud-chip-bg);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.d-rack-item:hover {
+  background: var(--hud-chip-hover);
+}
+
+.d-rack-item.is-active {
+  border-color: var(--hud-accent);
+  background: color-mix(in srgb, var(--hud-accent) 11%, transparent);
+}
+
+.d-rack-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 650;
+  color: var(--hud-ink-muted);
+  flex-shrink: 0;
+}
+
+.d-rack-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 560;
+  color: var(--hud-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.d-rack-count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  color: var(--hud-ink-muted);
+}
+
+/* Chips, Buttons, Inputs */
+.d-chip-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.d-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-chip-bg);
+  font-size: 11px;
+  font-weight: 540;
+  color: var(--hud-ink-muted);
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.d-chip:hover {
+  color: var(--hud-ink);
+  border-color: var(--hud-border-strong);
+}
+
+.d-chip.is-active {
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+  border-color: transparent;
+}
+
+.d-mount-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 176px;
+  overflow-y: auto;
+}
+
+.d-mount-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: var(--hud-chip-bg);
+}
+
+.d-mount-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.d-mount-info strong {
+  font-size: 12px;
+  font-weight: 580;
+  color: var(--hud-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.d-mount-info span {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--hud-ink-muted);
+}
+
+.d-primary-sm {
+  padding: 5px 11px;
+  border: none;
+  border-radius: 7px;
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.d-primary-sm:hover {
+  opacity: 0.88;
+}
+
+.d-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.d-ghost-btn {
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-chip-bg);
+  font-size: 11.5px;
+  font-weight: 550;
+  color: var(--hud-ink);
+  cursor: pointer;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+
+.d-ghost-btn:hover {
+  background: var(--hud-chip-hover);
+  border-color: var(--hud-border-strong);
+}
+
+.d-btn-full {
+  width: 100%;
+  text-align: center;
+}
+
+.d-text-danger {
+  color: #f87171;
+}
+
+.d-danger-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.d-confirm-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+  font-size: 11.5px;
+  color: var(--hud-ink);
+}
+
+.d-confirm-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.d-danger-btn {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.d-select,
+.d-input,
+.d-textarea {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-input-bg);
+  font-size: 12px;
+  color: var(--hud-ink);
+  outline: none;
+}
+
+.d-select:focus,
+.d-input:focus,
+.d-textarea:focus {
+  border-color: var(--hud-accent);
+}
+
+.d-mono,
+.d-textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.d-textarea {
+  resize: vertical;
+  min-height: 76px;
+}
+
+.d-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+/* Style Controls */
+.d-model-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.d-model-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-chip-bg);
+  cursor: pointer;
+  text-align: left;
+}
+
+.d-model-card strong {
+  font-size: 11px;
+  color: var(--hud-ink);
+}
+
+.d-model-card span {
+  font-size: 10px;
+  color: var(--hud-ink-muted);
+}
+
+.d-model-card.is-active {
+  background: var(--hud-active-bg);
+  border-color: transparent;
+}
+
+.d-model-card.is-active strong {
+  color: var(--hud-active-ink);
+}
+
+.d-model-card.is-active span {
+  color: var(--hud-active-ink);
+  opacity: 0.7;
+}
+
+.d-finish-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.d-finish-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-chip-bg);
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--hud-ink);
+  cursor: pointer;
+}
+
+.d-finish-card.is-active {
+  border-color: var(--hud-accent);
+  background: color-mix(in srgb, var(--hud-accent) 10%, transparent);
+}
+
+.d-finish-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  flex-shrink: 0;
+}
+
+.d-swatch-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.d-color-dot {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  padding: 0;
+  cursor: pointer;
+}
+
+.d-color-dot.is-active {
+  outline: 2px solid var(--hud-ink);
+  outline-offset: 2px;
+}
+
+.d-pip {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+}
+
+/* Telemetry Scope inside Drawer */
+.scope-card {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-chip-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scope-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.scope-title {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 620;
+  color: var(--hud-ink);
+}
+
+.scope-sub {
+  margin: 2px 0 0;
+  font-size: 10.5px;
+  color: var(--hud-ink-muted);
+}
+
+.scope-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.scope-range-row {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.scope-btn {
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--hud-border);
+  background: transparent;
+  color: var(--hud-ink-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scope-btn.is-active {
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+  border-color: transparent;
+}
+
+.scope-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  color: var(--hud-ink-muted);
+}
+
+.scope-leg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.scope-leg-item strong {
+  color: var(--hud-ink);
+}
+
+.scope-leg-right {
+  margin-left: auto;
+}
+
+.scope-swatch {
+  width: 11px;
+  height: 2px;
+  border-radius: 2px;
+}
+
+.scope-swatch.is-dashed {
+  background-image: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 6px);
+}
+
+.scope-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  color: var(--hud-ink);
+}
+
+.scope-tooltip {
+  margin-top: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--hud-input-bg);
+  border: 1px solid var(--hud-border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  display: flex;
+  justify-content: space-between;
+  color: var(--hud-ink);
+}
+
+.scope-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+}
+
+.scope-table th,
+.scope-table td {
+  padding: 5px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--hud-border);
+}
+
+.scope-table th {
+  color: var(--hud-ink-muted);
+  font-weight: 550;
+}
+
+.d-spec-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.d-spec {
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: var(--hud-chip-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.d-spec span {
+  font-size: 10px;
+  color: var(--hud-ink-muted);
+}
+
+.d-spec strong {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hud-ink);
+  word-break: break-word;
+}
+
+/* API Tab */
+.d-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--hud-chip-bg);
+}
+
+.d-mode-btn {
+  height: 30px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--hud-ink-muted);
+  font-size: 11.5px;
+  font-weight: 560;
+  cursor: pointer;
+}
+
+.d-mode-btn.is-active {
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+}
+
+.d-status-box {
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: var(--hud-input-bg);
+  border: 1px solid var(--hud-border);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+}
+
+.d-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.d-status-row span {
+  color: var(--hud-ink-muted);
+}
+
+.d-status-row strong {
+  color: var(--hud-ink);
+}
+
+.d-status-row strong.is-ok {
+  color: #4ade80;
+}
+
+.d-status-row strong.is-err {
+  color: #f87171;
+}
+
+.d-status-err {
+  margin-top: 3px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(248, 113, 113, 0.25);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+  font-size: 11px;
+  color: #f87171;
+  line-height: 1.45;
+}
+
+.d-import-box {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.d-err-text {
+  margin: 0;
+  font-size: 11px;
+  color: #f87171;
+}
+
+/* ============================================================================
+   React Three Fiber Stage, Hover Inspection Pill & Drawer Rack Manager
+   ============================================================================ */
+.hall-viewport.r3f-viewport {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+}
+
+.hall-viewport.r3f-viewport:active {
+  cursor: grabbing;
+}
+
+.hall-viewport.r3f-viewport canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  outline: none;
+}
+
+/* Lightweight Hover Inspection Pill (Rendered Outside WebGL) */
+.hud-hover-pill {
+  position: fixed;
+  left: 50%;
+  bottom: 92px;
+  transform: translateX(-50%);
+  z-index: 25;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(92vw, 560px);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--hud-glass-solid);
+  border: 1px solid var(--hud-border-strong);
+  box-shadow: var(--hud-shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--hud-ink);
+  font-size: 11.5px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-hover-rack {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hud-accent) 18%, transparent);
+  color: var(--hud-accent);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.hud-hover-title {
+  font-weight: 620;
+  color: var(--hud-ink);
+}
+
+.hud-hover-sub {
+  color: var(--hud-ink-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Inline Rack Rename & Slot List inside InspectorDrawer */
+.d-input-inline {
+  margin-top: 2px;
+  height: 30px;
+  font-size: 12px;
+  font-weight: 560;
+}
+
+.d-slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 230px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.d-slot-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 5px 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-chip-bg);
+  transition: border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.d-slot-row.is-selected {
+  border-color: var(--hud-accent);
+  background: color-mix(in srgb, var(--hud-accent) 12%, transparent);
+}
+
+.d-slot-select {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 3px 4px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--hud-ink);
+}
+
+.d-slot-select:disabled {
+  cursor: default;
+  opacity: 0.78;
+}
+
+.d-slot-idx {
+  flex-shrink: 0;
+  min-width: 22px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--hud-ink-subtle);
+}
+
+.d-slot-name {
+  font-size: 11.5px;
+  font-weight: 540;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.d-slot-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.d-slot-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--hud-border);
+  background: transparent;
+  color: var(--hud-ink-muted);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.d-slot-btn:hover:not(:disabled) {
+  background: var(--hud-chip-hover);
+  color: var(--hud-ink);
+  border-color: var(--hud-border-strong);
+}
+
+.d-slot-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.d-slot-btn.is-del:hover:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+/* Live B1–B4 Chassis SVG Preview Card in Style Tab */
+.d-chassis-preview {
+  padding: 8px;
+  border-radius: 9px;
+  border: 1px solid var(--hud-border);
+  background: #0d121a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.d-chassis-preview svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ============================================================================
+   Responsive Adjustments
+   ============================================================================ */
+@media (max-width: 960px) {
+  .hud-metrics,
+  .hud-atmo-pill,
+  .hud-orbit-hint {
+    display: none;
+  }
+
+  .hall-viewport {
+    --rack-w: 320px;
+    --rack-d: 140px;
+  }
+}
