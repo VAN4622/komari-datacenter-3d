@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ACCENTS, FINISHES, OLEDS, type AccentSpec, type FinishPalette, type OledSpec } from '@/data/fleet';
+import { formatNetSpeed } from '@/lib/formatters';
 import type { EffectiveNodeStyle, NodeInfo } from '@/types/rack';
 
 const SCALE = 2; // 2x retina crispness (540 -> 1080px wide)
@@ -129,35 +130,313 @@ function drawGlassGloss(ctx: CanvasRenderingContext2D, x: number, y: number, w: 
   fillRoundRect(ctx, x, y, w, h, r, g);
 }
 
-function drawStatusStripOverlay(
+function formatStripRate(bytesPerSec: number): string {
+  return formatNetSpeed(bytesPerSec, true);
+}
+
+function formatStripMem(bytes: number): string {
+  const gib = (bytes || 0) / 1024 ** 3;
+  if (gib >= 1024) return `${(gib / 1024).toFixed(1)}T`;
+  if (gib >= 1) return `${Math.round(gib)}G`;
+  return `${Math.max(128, Math.round(gib * 1024))}M`;
+}
+
+function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let cut = text;
+  while (cut.length > 2 && ctx.measureText(`${cut}…`).width > maxWidth) {
+    cut = cut.slice(0, -1);
+  }
+  return `${cut}…`;
+}
+
+function drawMetricBar(
   ctx: CanvasRenderingContext2D,
   emCtx: CanvasRenderingContext2D,
-  node: NodeInfo,
+  x: number,
+  y: number,
   w: number,
-  h: number,
+  label: string,
+  pct: number,
+  online: boolean,
+  baseColor: string,
 ) {
-  const stripH = 13;
-  const y = h - stripH - 1;
-  fillRoundRect(ctx, 24, y, w - 48, stripH, 1.6, 'rgba(5, 9, 16, 0.88)', 'rgba(56, 189, 248, 0.35)', 0.6);
-  fillRoundRect(emCtx, 24, y, w - 48, stripH, 1.6, 'rgba(10, 22, 36, 0.45)');
+  const clamped = Math.max(0, Math.min(100, pct));
+  const valueColor = !online
+    ? '#64748b'
+    : clamped >= 85
+      ? '#f87171'
+      : clamped >= 70
+        ? '#fb923c'
+        : baseColor;
 
-  const font = '700 7.2px ui-monospace, SFMono-Regular, Menlo, monospace';
-  ctx.font = font;
-  emCtx.font = font;
   ctx.textBaseline = 'middle';
   emCtx.textBaseline = 'middle';
 
-  const statusText = node.online
-    ? `${node.name.slice(0, 14)}   CPU ${Math.round(node.cpu)}%   RAM ${Math.round(node.ram)}%   ↓${node.netDown.toFixed(1)}M   ↑${node.netUp.toFixed(1)}M   ${node.ping > 0 ? `${node.ping}ms` : '--'}`
-    : `${node.name.slice(0, 14)}   OFFLINE · STANDBY`;
-
-  ctx.fillStyle = node.online ? '#bae6fd' : '#94a3b8';
+  // Metric label (left)
+  ctx.font = '700 8.8px ui-monospace, SFMono-Regular, Menlo, monospace';
+  ctx.fillStyle = '#94a3b8';
   ctx.textAlign = 'left';
-  ctx.fillText(statusText, 32, y + stripH / 2 + 0.4);
+  ctx.fillText(label, x, y + 5.5);
 
-  emCtx.fillStyle = node.online ? '#38bdf8' : '#334155';
+  emCtx.font = ctx.font;
+  emCtx.fillStyle = '#526075';
   emCtx.textAlign = 'left';
-  emCtx.fillText(statusText, 32, y + stripH / 2 + 0.4);
+  emCtx.fillText(label, x, y + 5.5);
+
+  // Metric value (right)
+  const valStr = online ? `${Math.round(clamped)}%` : '--';
+  ctx.font = '800 11.4px ui-monospace, SFMono-Regular, Menlo, monospace';
+  ctx.fillStyle = valueColor;
+  ctx.textAlign = 'right';
+  ctx.fillText(valStr, x + w, y + 5.2);
+
+  emCtx.font = ctx.font;
+  emCtx.fillStyle = online ? valueColor : '#334155';
+  emCtx.textAlign = 'right';
+  emCtx.fillText(valStr, x + w, y + 5.2);
+
+  // Progress bar track
+  const barY = y + 14.5;
+  const barH = 7.2;
+  fillRoundRect(ctx, x, barY, w, barH, 3.2, 'rgba(255, 255, 255, 0.085)', 'rgba(255, 255, 255, 0.05)', 0.5);
+
+  if (online && clamped > 0) {
+    const fillW = Math.max(6, (clamped / 100) * w);
+    fillRoundRect(ctx, x, barY, fillW, barH, 3.2, valueColor);
+    fillRoundRect(emCtx, x, barY, fillW, barH, 3.2, valueColor);
+  }
+}
+
+export function paintNodeStatusStrip(
+  canvas: HTMLCanvasElement,
+  emCanvas: HTMLCanvasElement,
+  node: NodeInfo,
+  style: EffectiveNodeStyle,
+  selected: boolean,
+) {
+  const logicalW = 540;
+  const logicalH = 70;
+  const stripScale = 3;
+  const targetW = logicalW * stripScale;
+  const targetH = logicalH * stripScale;
+
+  if (canvas.width !== targetW || canvas.height !== targetH) {
+    canvas.width = targetW;
+    canvas.height = targetH;
+  }
+  if (emCanvas.width !== targetW || emCanvas.height !== targetH) {
+    emCanvas.width = targetW;
+    emCanvas.height = targetH;
+  }
+
+  const ctx = canvas.getContext('2d');
+  const emCtx = emCanvas.getContext('2d');
+  if (!ctx || !emCtx) return;
+
+  ctx.save();
+  emCtx.save();
+  ctx.setTransform(stripScale, 0, 0, stripScale, 0, 0);
+  emCtx.setTransform(stripScale, 0, 0, stripScale, 0, 0);
+
+  ctx.clearRect(0, 0, logicalW, logicalH);
+  emCtx.fillStyle = '#000000';
+  emCtx.fillRect(0, 0, logicalW, logicalH);
+
+  const acc = ACCENTS.find((a) => a.id === style.accent) ?? ACCENTS[0];
+  const isOff = !node.online;
+  const isHot = node.online && node.cpu >= 80;
+  const uCount = style.model === 'B3' ? 4 : style.model === 'B2' ? 2 : 1;
+
+  // Deep satin OLED/IPS instrument backdrop
+  const bgGrad = makeVerticalGrad(ctx, 0, logicalH, [
+    [0, '#131926'],
+    [0.5, '#0e131e'],
+    [1, '#0a0e17'],
+  ]);
+  const borderColor = selected
+    ? '#38bdf8'
+    : isOff
+      ? 'rgba(100, 116, 139, 0.34)'
+      : isHot
+        ? 'rgba(251, 146, 60, 0.56)'
+        : 'rgba(148, 163, 184, 0.24)';
+
+  fillRoundRect(ctx, 1, 1, logicalW - 2, logicalH - 2, 4, bgGrad, borderColor, selected ? 1.5 : 0.9);
+  fillRoundRect(emCtx, 2, 2, logicalW - 4, logicalH - 4, 3.5, 'rgba(12, 20, 32, 0.42)');
+  if (selected) {
+    roundRectPath(emCtx, 1.2, 1.2, logicalW - 2.4, logicalH - 2.4, 4);
+    emCtx.strokeStyle = '#38bdf8';
+    emCtx.lineWidth = 1.4;
+    emCtx.stroke();
+  }
+
+  // Subtle top bezel glass highlight
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(6, 2.2);
+  ctx.lineTo(logicalW - 6, 2.2);
+  ctx.stroke();
+
+  // Left vertical accent indicator bar (matches server chassis accent)
+  const barAccent = isOff ? '#475569' : isHot ? '#fb923c' : acc.hex;
+  fillRoundRect(ctx, 5, 6, 4.2, logicalH - 12, 2.1, barAccent);
+  if (!isOff) {
+    fillRoundRect(emCtx, 5, 6, 4.2, logicalH - 12, 2.1, barAccent);
+  }
+
+  // ===== ROW 1: Status LED, Node Name, Spec Pill, Uptime & Ping Badge =====
+  const row1Y = 17.5;
+  const ledColor = isOff ? '#64748b' : isHot ? '#fb923c' : '#22c55e';
+
+  ctx.beginPath();
+  ctx.arc(19.5, row1Y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = ledColor;
+  ctx.fill();
+  if (!isOff) {
+    emCtx.beginPath();
+    emCtx.arc(19.5, row1Y, 4.2, 0, Math.PI * 2);
+    emCtx.fillStyle = ledColor;
+    emCtx.fill();
+  }
+
+  // Node region + name
+  ctx.textBaseline = 'middle';
+  emCtx.textBaseline = 'middle';
+  ctx.font = '700 12.2px -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, sans-serif';
+  ctx.fillStyle = isOff ? '#94a3b8' : '#f1f5f9';
+  ctx.textAlign = 'left';
+  const rawTitle = node.region ? `${node.region} ${node.name}` : node.name;
+  const displayTitle = fitText(ctx, rawTitle, 178);
+  ctx.fillText(displayTitle, 29, row1Y + 0.3);
+
+  emCtx.font = ctx.font;
+  emCtx.fillStyle = isOff ? '#475569' : '#cbd5e1';
+  emCtx.textAlign = 'left';
+  emCtx.fillText(displayTitle, 29, row1Y + 0.3);
+
+  // Spec chip: model + U + cores / memory
+  const specText = `${style.model}·${uCount}U  ${node.cpu_cores}C/${formatStripMem(node.mem_total)}`;
+  ctx.font = '700 8.8px ui-monospace, SFMono-Regular, Menlo, monospace';
+  const specW = Math.min(138, Math.ceil(ctx.measureText(specText).width + 14));
+  const specX = 214;
+  fillRoundRect(ctx, specX, 8.5, specW, 17.5, 3, 'rgba(30, 41, 59, 0.78)', 'rgba(148, 163, 184, 0.22)', 0.7);
+  ctx.fillStyle = '#cbd5e1';
+  ctx.textAlign = 'center';
+  ctx.fillText(specText, specX + specW / 2, row1Y + 0.3);
+  emCtx.font = ctx.font;
+  emCtx.fillStyle = '#64748b';
+  emCtx.textAlign = 'center';
+  emCtx.fillText(specText, specX + specW / 2, row1Y + 0.3);
+
+  // Right: Uptime readout
+  const uptimeLabel = isOff ? 'STANDBY' : `UP ${node.uptime || '--'}`;
+  ctx.font = '600 9.4px ui-monospace, SFMono-Regular, Menlo, monospace';
+  ctx.fillStyle = '#94a3b8';
+  ctx.textAlign = 'right';
+  ctx.fillText(uptimeLabel, 456, row1Y + 0.3);
+
+  emCtx.font = ctx.font;
+  emCtx.fillStyle = '#526075';
+  emCtx.textAlign = 'right';
+  emCtx.fillText(uptimeLabel, 456, row1Y + 0.3);
+
+  // Right: Latency / Offline pill
+  const pingX = 464;
+  const pingW = 66;
+  let pingText = 'OFFLINE';
+  let pingBg = 'rgba(71, 85, 105, 0.32)';
+  let pingBorder = 'rgba(148, 163, 184, 0.28)';
+  let pingColor = '#94a3b8';
+
+  if (!isOff) {
+    pingText = node.ping > 0 ? `${Math.round(node.ping)} ms` : 'LIVE';
+    if (node.ping <= 0 || node.ping < 50) {
+      pingBg = 'rgba(16, 185, 129, 0.18)';
+      pingBorder = 'rgba(52, 211, 153, 0.42)';
+      pingColor = '#6ee7b7';
+    } else if (node.ping < 120) {
+      pingBg = 'rgba(245, 158, 11, 0.18)';
+      pingBorder = 'rgba(251, 191, 36, 0.42)';
+      pingColor = '#fcd34d';
+    } else {
+      pingBg = 'rgba(249, 115, 22, 0.2)';
+      pingBorder = 'rgba(251, 146, 60, 0.48)';
+      pingColor = '#fdba74';
+    }
+  }
+
+  fillRoundRect(ctx, pingX, 8.5, pingW, 17.5, 3.2, pingBg, pingBorder, 0.75);
+  ctx.font = '800 9.4px ui-monospace, SFMono-Regular, Menlo, monospace';
+  ctx.fillStyle = pingColor;
+  ctx.textAlign = 'center';
+  ctx.fillText(pingText, pingX + pingW / 2, row1Y + 0.3);
+
+  emCtx.font = ctx.font;
+  emCtx.fillStyle = isOff ? '#475569' : pingColor;
+  emCtx.textAlign = 'center';
+  emCtx.fillText(pingText, pingX + pingW / 2, row1Y + 0.3);
+
+  // Mid divider line
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(15, 32);
+  ctx.lineTo(logicalW - 10, 32);
+  ctx.stroke();
+
+  // ===== ROW 2: CPU / RAM / DISK Progress Bars + Network I/O & OS/Load =====
+  const row2Y = 38.5;
+  drawMetricBar(ctx, emCtx, 16, row2Y, 118, 'CPU', node.cpu, node.online, '#38bdf8');
+  drawMetricBar(ctx, emCtx, 146, row2Y, 118, 'RAM', node.ram, node.online, '#a78bfa');
+  drawMetricBar(ctx, emCtx, 276, row2Y, 108, 'DISK', node.disk, node.online, '#34d399');
+
+  // Column 4: Real-time Network I/O (↓ / ↑) + OS / Load / Tag sub-line
+  const netX = 398;
+  const netRight = 530;
+
+  ctx.textBaseline = 'middle';
+  emCtx.textBaseline = 'middle';
+  ctx.font = '800 10.2px ui-monospace, SFMono-Regular, Menlo, monospace';
+  emCtx.font = ctx.font;
+
+  const downStr = isOff ? '↓ 0B' : `↓${formatStripRate(node.netDown)}`;
+  const upStr = isOff ? '↑ 0B' : `↑${formatStripRate(node.netUp)}`;
+
+  ctx.fillStyle = isOff ? '#64748b' : '#34d399';
+  ctx.textAlign = 'left';
+  ctx.fillText(downStr, netX, row2Y + 5.2);
+  emCtx.fillStyle = isOff ? '#334155' : '#34d399';
+  emCtx.textAlign = 'left';
+  emCtx.fillText(downStr, netX, row2Y + 5.2);
+
+  ctx.fillStyle = isOff ? '#64748b' : '#38bdf8';
+  ctx.textAlign = 'right';
+  ctx.fillText(upStr, netRight, row2Y + 5.2);
+  emCtx.fillStyle = isOff ? '#334155' : '#38bdf8';
+  emCtx.textAlign = 'right';
+  emCtx.fillText(upStr, netRight, row2Y + 5.2);
+
+  // Sub-line under Network I/O: live load/TCP if present, otherwise OS & tag
+  const subInfo = isOff
+    ? `${node.os.slice(0, 12)} · 0W`
+    : typeof node.load1 === 'number' && Number.isFinite(node.load1)
+      ? `LD ${node.load1.toFixed(2)} · TCP ${node.tcp ?? 0}`
+      : `${node.os.slice(0, 11)} · ${style.tag.slice(0, 8)}`;
+
+  ctx.font = '600 8.5px ui-monospace, SFMono-Regular, Menlo, monospace';
+  ctx.fillStyle = '#7c8ea6';
+  ctx.textAlign = 'left';
+  ctx.fillText(fitText(ctx, subInfo, netRight - netX), netX, row2Y + 18.2);
+
+  emCtx.font = ctx.font;
+  emCtx.fillStyle = '#475569';
+  emCtx.textAlign = 'left';
+  emCtx.fillText(fitText(ctx, subInfo, netRight - netX), netX, row2Y + 18.2);
+
+  ctx.restore();
+  emCtx.restore();
 }
 
 function drawSelectionHighlight(
@@ -254,11 +533,12 @@ function drawB1(
   ctx.font = '600 6.8px ui-monospace, SFMono-Regular, Menlo, monospace';
   ctx.fillStyle = '#8B98AA';
   ctx.textAlign = 'right';
-  ctx.fillText(isOff ? 'STBY' : `↓${node.netDown.toFixed(0)}M`, ox + 112, oy + 27);
+  const b1NetText = isOff ? 'STBY' : `↓${formatNetSpeed(node.netDown, true)}`;
+  ctx.fillText(b1NetText, ox + 112, oy + 27);
   emCtx.font = ctx.font;
   emCtx.fillStyle = '#64748B';
   emCtx.textAlign = 'right';
-  emCtx.fillText(isOff ? 'STBY' : `↓${node.netDown.toFixed(0)}M`, ox + 112, oy + 27);
+  emCtx.fillText(b1NetText, ox + 112, oy + 27);
 
   fillRoundRect(ctx, ox + 8, oy + 33.5, 102, 3.5, 1.75, 'rgba(255,255,255,0.09)');
   if (barW > 0) {
@@ -590,46 +870,18 @@ function drawB2(
   ctx.fillText('UID', rx + 46.5, ry + 82.3);
 }
 
-function drawTurbine(ctx: CanvasRenderingContext2D, cx: number, cy: number, accHex: string) {
+function drawTurbineHousing(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
+  // Recessed dark turbine shroud — spinning 3D blades & guard rings render live in RackUnitMesh
+  const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, 27);
+  grad.addColorStop(0, '#05070a');
+  grad.addColorStop(0.78, '#090d13');
+  grad.addColorStop(1, '#141a24');
   ctx.beginPath();
   ctx.arc(cx, cy, 27, 0, Math.PI * 2);
-  ctx.fillStyle = '#080B0F';
+  ctx.fillStyle = grad;
   ctx.fill();
   ctx.strokeStyle = '#475161';
   ctx.lineWidth = 0.85;
-  ctx.stroke();
-
-  // 4 fan blades
-  ctx.fillStyle = '#64748B';
-  for (let i = 0; i < 4; i++) {
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate((i * Math.PI) / 2 + 0.35);
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.bezierCurveTo(0, -17, 13, -21, 17, -11);
-    ctx.bezierCurveTo(10, -5, 5, -3, 0, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
-
-  ctx.beginPath();
-  ctx.arc(cx, cy, 6.4, 0, Math.PI * 2);
-  ctx.fillStyle = accHex;
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(cx, cy, 2.3, 0, Math.PI * 2);
-  ctx.fillStyle = '#101318';
-  ctx.fill();
-
-  ctx.strokeStyle = 'rgba(148,163,184,0.24)';
-  ctx.lineWidth = 0.65;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 19, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(cx, cy, 11.5, 0, Math.PI * 2);
   ctx.stroke();
 }
 
@@ -798,8 +1050,8 @@ function drawB3(
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  drawTurbine(ctx, rx + 40, ry + 116, acc.hex);
-  drawTurbine(ctx, rx + 102, ry + 116, acc.hex);
+  drawTurbineHousing(ctx, rx + 40, ry + 116);
+  drawTurbineHousing(ctx, rx + 102, ry + 116);
 
   fillRoundRect(ctx, rx + 9, ry + 158, 124, 22, 2.5, '#090C10', '#2B3340', 0.6);
   ctx.font = '600 6.5px ui-monospace, SFMono-Regular, Menlo, monospace';
@@ -991,7 +1243,6 @@ export function paintServerFaceplate(
   style: EffectiveNodeStyle,
   uidBlinking: boolean,
   selected: boolean,
-  showStrip: boolean,
 ) {
   const logicalH = style.model === 'B3' ? 216 : style.model === 'B2' ? 116 : 58;
   const logicalW = 540;
@@ -1032,10 +1283,6 @@ export function paintServerFaceplate(
     drawB4(ctx, emCtx, node, style, fin, acc, oled, uidBlinking);
   } else {
     drawB1(ctx, emCtx, node, style, fin, acc, oled, uidBlinking);
-  }
-
-  if (showStrip) {
-    drawStatusStripOverlay(ctx, emCtx, node, logicalW, logicalH);
   }
 
   drawSelectionHighlight(ctx, emCtx, logicalW, logicalH, selected, uidBlinking);

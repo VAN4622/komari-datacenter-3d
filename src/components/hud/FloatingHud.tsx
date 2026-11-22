@@ -1,6 +1,9 @@
 import { ATMOSPHERES, CAMERA_PRESETS } from '@/data/fleet';
+import { formatNetSpeed } from '@/lib/formatters';
 import type {
+  AdminAuthStatus,
   ApiConnectionStatus,
+  CameraControlMode,
   CameraPreset,
   DataSourceMode,
   RoomAtmosphere,
@@ -15,21 +18,36 @@ interface FloatingHudProps {
   totalNodes: number;
   totalWatts: number;
   totalU: number;
+  totalNetDown: number;
+  totalNetUp: number;
   rackCount: number;
   cameraPreset: CameraPreset;
+  cameraControlMode: CameraControlMode;
   zoomPercent: number;
   cameraCustomized: boolean;
   atmosphere: RoomAtmosphere;
   scale: ScaleMode;
   showStrip: boolean;
   drawerOpen: boolean;
+  showAdminLink: boolean;
+  adminUrl: string;
+  isSameOrigin: boolean;
+  adminAuthStatus: AdminAuthStatus;
+  adminUsername?: string;
+  canEnterEditMode: boolean;
+  editMode: boolean;
+  hasUnpublishedChanges: boolean;
+  isPublishingLayout: boolean;
   onSelectPreset: (preset: CameraPreset) => void;
+  onToggleCameraControlMode: () => void;
   onResetCamera: () => void;
   onZoomStep: (delta: number) => void;
   onChangeAtmosphere: (atmosphere: RoomAtmosphere) => void;
   onToggleScale: () => void;
   onToggleStrip: () => void;
   onToggleDrawer: () => void;
+  onToggleEditMode: () => void;
+  onPublishLayout: () => void;
   onOpenApiTab: () => void;
 }
 
@@ -43,21 +61,36 @@ export function FloatingHud({
   totalNodes,
   totalWatts,
   totalU,
+  totalNetDown,
+  totalNetUp,
   rackCount,
   cameraPreset,
+  cameraControlMode,
   zoomPercent,
   cameraCustomized,
   atmosphere,
   scale,
   showStrip,
   drawerOpen,
+  showAdminLink,
+  adminUrl,
+  isSameOrigin,
+  adminAuthStatus,
+  adminUsername,
+  canEnterEditMode,
+  editMode,
+  hasUnpublishedChanges,
+  isPublishingLayout,
   onSelectPreset,
+  onToggleCameraControlMode,
   onResetCamera,
   onZoomStep,
   onChangeAtmosphere,
   onToggleScale,
   onToggleStrip,
   onToggleDrawer,
+  onToggleEditMode,
+  onPublishLayout,
   onOpenApiTab,
 }: FloatingHudProps) {
   const statusDotClass =
@@ -65,7 +98,7 @@ export function FloatingHud({
       ? 'is-live'
       : apiStatus === 'error'
         ? 'is-err'
-        : apiStatus === 'connecting' || apiStatus === 'degraded'
+        : apiStatus === 'connecting' || apiStatus === 'degraded' || apiStatus === 'auth_required'
           ? 'is-warn'
           : 'is-demo';
 
@@ -74,11 +107,35 @@ export function FloatingHud({
       ? 'DEMO'
       : apiStatus === 'live'
         ? 'LIVE'
-        : apiStatus === 'connecting'
-          ? 'SYNC'
-          : apiStatus === 'degraded'
-            ? 'RETRY'
-            : 'OFFLINE';
+        : apiStatus === 'auth_required'
+          ? 'PRIVATE'
+          : apiStatus === 'connecting'
+            ? 'SYNC'
+            : apiStatus === 'degraded'
+              ? 'RETRY'
+              : 'OFFLINE';
+
+  const editButtonLabel = editMode
+    ? dataMode === 'live'
+      ? '退出编排'
+      : '退出演示编排'
+    : dataMode === 'live'
+      ? adminAuthStatus === 'authenticated'
+        ? `管理员编排${adminUsername ? ` · ${adminUsername}` : ''}`
+        : adminAuthStatus === 'checking'
+          ? '鉴权中…'
+          : '只读监看'
+      : '演示编排';
+
+  const editButtonTitle = editMode
+    ? '点击切回只读监看模式'
+    : canEnterEditMode
+      ? dataMode === 'live'
+        ? '已验证 Komari 管理员会话，点击进入机柜编排模式'
+        : '进入本地演示编排模式'
+      : dataMode === 'live' && !isSameOrigin
+        ? '远程跨域连接仅支持只读监看'
+        : '当前为访客只读模式，请先登录 Komari 后台 (/admin)';
 
   return (
     <>
@@ -111,6 +168,13 @@ export function FloatingHud({
               <small>/{totalNodes}</small>
               <em>在线</em>
             </span>
+            <span
+              className="hud-metric"
+              title={`总下行 ${formatNetSpeed(totalNetDown)} · 总上行 ${formatNetSpeed(totalNetUp)}`}
+            >
+              <b>↓{formatNetSpeed(totalNetDown, true)}</b>
+              <em>· ↑{formatNetSpeed(totalNetUp, true)}</em>
+            </span>
             <span className="hud-metric">
               <b>{totalWatts}</b>
               <small>W</small>
@@ -121,10 +185,24 @@ export function FloatingHud({
               <em>· {rackCount}柜</em>
             </span>
           </div>
+          {showAdminLink && (
+            <>
+              <span className="hud-vsep" aria-hidden="true" />
+              <a
+                className="hud-admin-link"
+                href={adminUrl}
+                target={isSameOrigin ? undefined : '_blank'}
+                rel={isSameOrigin ? undefined : 'noreferrer'}
+                title="打开 Komari 管理后台 (/admin)"
+              >
+                后台
+              </a>
+            </>
+          )}
         </div>
       </header>
 
-      {/* Top-Right 3D Scene Switcher & Drawer Toggle */}
+      {/* Top-Right 3D Scene Switcher, Admin Auth Gate & Drawer Toggle */}
       <div className="hud-top-right">
         <div className="hud-pill hud-atmo-pill" role="group" aria-label="三维机房场景切换">
           {ATMOSPHERES.map((a) => (
@@ -143,6 +221,28 @@ export function FloatingHud({
 
         <button
           type="button"
+          className={`hud-pill hud-edit-toggle${editMode ? ' is-editing' : canEnterEditMode ? ' is-ready' : ' is-readonly'}`}
+          onClick={onToggleEditMode}
+          title={editButtonTitle}
+        >
+          <i className={`hud-auth-dot${editMode ? ' is-editing' : canEnterEditMode ? ' is-auth' : ''}`} />
+          <span>{editButtonLabel}</span>
+        </button>
+
+        {editMode && dataMode === 'live' && isSameOrigin && adminAuthStatus === 'authenticated' && hasUnpublishedChanges && (
+          <button
+            type="button"
+            className="hud-pill hud-publish-btn"
+            onClick={onPublishLayout}
+            disabled={isPublishingLayout}
+            title="将当前机柜编排保存到 Komari 服务端，所有访客刷新即可生效"
+          >
+            <span>{isPublishingLayout ? '发布中…' : '发布布局'}</span>
+          </button>
+        )}
+
+        <button
+          type="button"
           className={`hud-pill hud-drawer-toggle${drawerOpen ? ' is-open' : ''}`}
           onClick={onToggleDrawer}
           aria-expanded={drawerOpen}
@@ -151,14 +251,14 @@ export function FloatingHud({
             <rect x="2" y="2.5" width="12" height="11" rx="2" stroke="currentColor" strokeWidth="1.35" />
             <line x1="9.8" y1="2.5" x2="9.8" y2="13.5" stroke="currentColor" strokeWidth="1.35" />
           </svg>
-          <span>{drawerOpen ? '收起面板' : '控制面板'}</span>
+          <span>{drawerOpen ? '收起面板' : '检视面板'}</span>
         </button>
       </div>
 
-      {/* Bottom-Center Floating Spatial Camera Dock */}
-      <nav className="hud-bottom-dock" aria-label="三维视角与舞台控制">
+      {/* Bottom-Center Floating Spatial 2.5D Camera Dock */}
+      <nav className="hud-bottom-dock" aria-label="2.5D 机房视角与舞台控制">
         <div className="hud-pill hud-camera-pill">
-          <div className="hud-preset-group" role="group" aria-label="机房机位预设">
+          <div className="hud-preset-group" role="group" aria-label="2.5D 机房机位预设">
             {PRESET_ORDER.map((id) => {
               const p = CAMERA_PRESETS[id];
               const isActive = cameraPreset === id && !cameraCustomized;
@@ -175,6 +275,21 @@ export function FloatingHud({
               );
             })}
           </div>
+
+          <span className="hud-vsep" aria-hidden="true" />
+
+          <button
+            type="button"
+            className={`hud-mini-toggle${cameraControlMode === 'locked25d' ? ' is-active' : ''}`}
+            onClick={onToggleCameraControlMode}
+            title={
+              cameraControlMode === 'locked25d'
+                ? '当前为固定 2.5D 视角（锁定角度，仅平移与定焦缩放）；点击切换受限微倾'
+                : '当前为受限微倾 2.5D 视角（允许小角度倾斜观察细节）；点击切换固定 2.5D'
+            }
+          >
+            {cameraControlMode === 'locked25d' ? '2.5D 锁定' : '2.5D 微倾'}
+          </button>
 
           <span className="hud-vsep" aria-hidden="true" />
 
@@ -215,7 +330,7 @@ export function FloatingHud({
             type="button"
             className={`hud-mini-toggle${showStrip ? ' is-active' : ''}`}
             onClick={onToggleStrip}
-            title="在每台服务器下方显示简明状态条"
+            title="在每台服务器下方显示独立遥测状态条"
           >
             状态条
           </button>
@@ -235,7 +350,11 @@ export function FloatingHud({
           )}
         </div>
 
-        <p className="hud-orbit-hint">左键拖拽环绕 · 右键平移 · 滚轮缩放 · 点击机柜或服务器检视</p>
+        <p className="hud-orbit-hint">
+          {cameraControlMode === 'locked25d'
+            ? '固定 2.5D 视角 · 拖拽沿机柜列平移 · 滚轮定焦缩放 · 点击机柜或服务器检视'
+            : '2.5D 受限微倾 · 小幅左键微倾 · 右键平移 · 滚轮缩放 · 锁定防穿模边界'}
+        </p>
       </nav>
     </>
   );

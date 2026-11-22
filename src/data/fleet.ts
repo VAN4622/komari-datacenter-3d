@@ -7,12 +7,18 @@ import type {
   ChassisModel,
   EffectiveNodeStyle,
   NodeInfo,
+  NodeStyleOverride,
   OledId,
+  PersistedRackLayoutPayload,
   RackCabinetData,
   RackItem,
   RoomAtmosphere,
   TelemetryPoint,
 } from '@/types/rack';
+
+const KB = 1024;
+const MB = 1024 * 1024;
+const GB = 1024 * 1024 * 1024;
 
 export const DEMO_NODES: NodeInfo[] = [
   {
@@ -29,8 +35,10 @@ export const DEMO_NODES: NodeInfo[] = [
     cpu: 24,
     ram: 42,
     disk: 31,
-    netUp: 1.8,
-    netDown: 6.4,
+    netUp: 240 * KB,
+    netDown: 815 * KB,
+    totalUp: 412 * GB,
+    totalDown: 1.28 * 1024 * GB,
     ping: 19,
     uptime: '64d 11h',
   },
@@ -48,8 +56,10 @@ export const DEMO_NODES: NodeInfo[] = [
     cpu: 46,
     ram: 53,
     disk: 44,
-    netUp: 32.5,
-    netDown: 84.2,
+    netUp: 4.2 * MB,
+    netDown: 11.8 * MB,
+    totalUp: 2.1 * 1024 * GB,
+    totalDown: 5.4 * 1024 * GB,
     ping: 34,
     uptime: '112d 05h',
   },
@@ -67,8 +77,10 @@ export const DEMO_NODES: NodeInfo[] = [
     cpu: 58,
     ram: 67,
     disk: 71,
-    netUp: 68.0,
-    netDown: 142.5,
+    netUp: 8.6 * MB,
+    netDown: 19.4 * MB,
+    totalUp: 9.8 * 1024 * GB,
+    totalDown: 18.2 * 1024 * GB,
     ping: 138,
     uptime: '204d 19h',
   },
@@ -86,8 +98,10 @@ export const DEMO_NODES: NodeInfo[] = [
     cpu: 72,
     ram: 78,
     disk: 54,
-    netUp: 210.4,
-    netDown: 418.2,
+    netUp: 26.5 * MB,
+    netDown: 54.2 * MB,
+    totalUp: 31.4 * 1024 * GB,
+    totalDown: 64.9 * 1024 * GB,
     ping: 142,
     uptime: '89d 03h',
   },
@@ -105,8 +119,10 @@ export const DEMO_NODES: NodeInfo[] = [
     cpu: 33,
     ram: 48,
     disk: 39,
-    netUp: 54.1,
-    netDown: 112.0,
+    netUp: 6.9 * MB,
+    netDown: 14.3 * MB,
+    totalUp: 4.5 * 1024 * GB,
+    totalDown: 8.7 * 1024 * GB,
     ping: 41,
     uptime: '178d 17h',
   },
@@ -124,8 +140,10 @@ export const DEMO_NODES: NodeInfo[] = [
     cpu: 41,
     ram: 61,
     disk: 58,
-    netUp: 18.2,
-    netDown: 44.0,
+    netUp: 2.4 * MB,
+    netDown: 5.8 * MB,
+    totalUp: 1.9 * 1024 * GB,
+    totalDown: 4.2 * 1024 * GB,
     ping: 38,
     uptime: '152d 08h',
   },
@@ -143,8 +161,10 @@ export const DEMO_NODES: NodeInfo[] = [
     cpu: 14,
     ram: 29,
     disk: 22,
-    netUp: 0.9,
-    netDown: 2.3,
+    netUp: 96 * KB,
+    netDown: 285 * KB,
+    totalUp: 185 * GB,
+    totalDown: 420 * GB,
     ping: 162,
     uptime: '310d 04h',
   },
@@ -164,6 +184,8 @@ export const DEMO_NODES: NodeInfo[] = [
     disk: 64,
     netUp: 0,
     netDown: 0,
+    totalUp: 620 * GB,
+    totalDown: 2.3 * 1024 * GB,
     ping: 0,
     uptime: 'OFFLINE',
   },
@@ -334,35 +356,35 @@ export interface CameraPresetSpec {
 export const CAMERA_PRESETS: Record<CameraPreset, CameraPresetSpec> = {
   iso34: {
     id: 'iso34',
-    label: '3/4 机房透视',
-    short: '3/4 透视',
-    position: [4.35, 3.05, 6.25],
-    target: [0.0, 2.05, -0.55],
-    fov: 40,
+    label: '固定 2.5D 建筑 3/4 视角',
+    short: '2.5D 标准',
+    position: [4.25, 3.32, 8.95],
+    target: [0.0, 2.02, -0.35],
+    fov: 28,
   },
   corridor: {
     id: 'corridor',
-    label: '侧视走道纵深',
-    short: '侧视',
-    position: [-5.45, 2.35, 5.15],
-    target: [0.35, 2.02, -0.55],
-    fov: 40,
+    label: '固定 2.5D 左侧走道视角',
+    short: '左侧',
+    position: [-4.65, 2.86, 8.7],
+    target: [0.22, 2.02, -0.35],
+    fov: 28,
   },
   overhead: {
     id: 'overhead',
-    label: '高空俯视总览',
+    label: '固定 2.5D 高位俯视总览',
     short: '俯视',
-    position: [2.4, 4.65, 6.45],
-    target: [0.0, 1.55, -0.6],
-    fov: 42,
+    position: [2.85, 5.05, 8.65],
+    target: [0.0, 1.72, -0.45],
+    fov: 29,
   },
   front: {
     id: 'front',
-    label: '正面精调',
-    short: '正视',
-    position: [0.0, 2.25, 6.15],
-    target: [0.0, 2.1, -0.5],
-    fov: 40,
+    label: '固定 2.5D 机柜正立面',
+    short: '正立面',
+    position: [0.0, 2.38, 9.6],
+    target: [0.0, 2.08, -0.35],
+    fov: 28,
   },
 };
 
@@ -389,7 +411,7 @@ export function getDefaultConfig(): AppConfig {
     atmosphere: 'cold-aisle',
     scale: 'standard',
     activeRackId: 'rack-a1',
-    showStrip: false,
+    showStrip: true,
     racks: [
       {
         id: 'rack-a1',
@@ -438,6 +460,14 @@ export function getDefaultConfig(): AppConfig {
   };
 }
 
+export function hasSavedConfig(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function loadConfig(): AppConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -471,13 +501,22 @@ export function saveConfig(cfg: AppConfig): void {
   }
 }
 
-export function buildAutoRacksFromNodes(nodes: NodeInfo[]): RackCabinetData[] {
+export function buildAutoRacksFromNodes(
+  nodes: NodeInfo[],
+  preferredTheme: 'auto' | CabinetTheme = 'auto',
+): RackCabinetData[] {
+  const resolveTheme = (idx: number): CabinetTheme => {
+    if (preferredTheme !== 'auto') return preferredTheme;
+    const themes: CabinetTheme[] = ['obsidian', 'titanium', 'silver'];
+    return themes[idx % themes.length];
+  };
+
   if (nodes.length === 0) {
     return [
       {
         id: 'live-rack-1',
         name: 'A-01 · Komari 机柜',
-        theme: 'obsidian',
+        theme: resolveTheme(0),
         items: [{ uid: 'live-pdu-1', type: 'pdu', label: 'KOMARI-PDU-16A' }],
       },
     ];
@@ -491,7 +530,6 @@ export function buildAutoRacksFromNodes(nodes: NodeInfo[]): RackCabinetData[] {
     groupMap.set(g, arr);
   }
 
-  const themes: CabinetTheme[] = ['obsidian', 'titanium', 'silver'];
   const groups = Array.from(groupMap.entries());
 
   if (groups.length >= 2 && groups.length <= 4) {
@@ -506,7 +544,7 @@ export function buildAutoRacksFromNodes(nodes: NodeInfo[]): RackCabinetData[] {
       return {
         id: `live-rack-${idx + 1}`,
         name: `A-0${idx + 1} · ${groupName}`,
-        theme: themes[idx % themes.length],
+        theme: resolveTheme(idx),
         items,
       };
     });
@@ -527,11 +565,56 @@ export function buildAutoRacksFromNodes(nodes: NodeInfo[]): RackCabinetData[] {
     racks.push({
       id: `live-rack-${idx + 1}`,
       name: `A-0${idx + 1} · ${idx === 0 ? '主力生产柜' : '扩展节点柜'}`,
-      theme: themes[idx % themes.length],
+      theme: resolveTheme(idx),
       items,
     });
   }
   return racks;
+}
+
+export function serializePersistedLayout(
+  racks: RackCabinetData[],
+  nodeStyles: Record<string, NodeStyleOverride>,
+  updatedBy?: string,
+): string {
+  const payload: PersistedRackLayoutPayload = {
+    version: 1,
+    racks,
+    nodeStyles,
+    updatedAt: new Date().toISOString(),
+    updatedBy,
+  };
+  return JSON.stringify(payload);
+}
+
+export function parsePersistedLayoutJson(raw?: string): PersistedRackLayoutPayload | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = JSON.parse(trimmed) as Partial<PersistedRackLayoutPayload>;
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!Array.isArray(parsed.racks) || parsed.racks.length === 0) return null;
+    const validRacks: RackCabinetData[] = parsed.racks
+      .filter((r): r is RackCabinetData => Boolean(r && typeof r.id === 'string' && Array.isArray(r.items)))
+      .map((r) => ({
+        id: r.id,
+        name: typeof r.name === 'string' && r.name.trim() ? r.name : r.id,
+        theme: r.theme === 'silver' || r.theme === 'obsidian' || r.theme === 'titanium' ? r.theme : 'obsidian',
+        items: r.items.filter((item): item is RackItem => Boolean(item && typeof item.uid === 'string' && item.type)),
+      }));
+    if (validRacks.length === 0) return null;
+    return {
+      version: 1,
+      racks: validRacks,
+      nodeStyles:
+        parsed.nodeStyles && typeof parsed.nodeStyles === 'object' ? parsed.nodeStyles : {},
+      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : undefined,
+      updatedBy: typeof parsed.updatedBy === 'string' ? parsed.updatedBy : undefined,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function parseImportedConfig(rawJson: string, current: AppConfig): AppConfig {

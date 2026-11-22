@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { formatNetSpeed } from '@/lib/formatters';
 import type { NodeInfo, RackCabinetData, RoomAtmosphere } from '@/types/rack';
 
 export interface BigScreenData {
@@ -33,7 +34,7 @@ export function paintBigScreenCanvas(canvas: HTMLCanvasElement, data: BigScreenD
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  const { atmosphere, nodes, racks, totalWatts, totalU, siteName, isLive, historySeed } = data;
+  const { atmosphere, nodes, racks, totalWatts, totalU, siteName, isLive, apiStatus, historySeed } = data;
   const isLight = atmosphere === 'cleanroom';
   const isBunker = atmosphere === 'obsidian-noc';
   const isShowroom = atmosphere === 'showroom';
@@ -108,15 +109,22 @@ export function paintBigScreenCanvas(canvas: HTMLCanvasElement, data: BigScreenD
   ctx.textAlign = 'right';
   ctx.fillText(timeStr, W - 28, 29);
 
-  const badgeText = isLive ? 'LIVE FEED' : 'SIMULATION';
+  const isAuthReq = apiStatus === 'auth_required';
+  const badgeText = isAuthReq ? 'PRIVATE' : isLive ? 'LIVE FEED' : 'SIMULATION';
   roundRect(ctx, W - 252, 15, 110, 26, 6);
-  ctx.fillStyle = isLive ? 'rgba(34,197,94,0.16)' : isBunker ? 'rgba(249,115,22,0.16)' : 'rgba(56,189,248,0.14)';
+  ctx.fillStyle = isAuthReq
+    ? 'rgba(245,158,11,0.18)'
+    : isLive
+      ? 'rgba(34,197,94,0.16)'
+      : isBunker
+        ? 'rgba(249,115,22,0.16)'
+        : 'rgba(56,189,248,0.14)';
   ctx.fill();
-  ctx.strokeStyle = isLive ? '#22c55e' : accent;
+  ctx.strokeStyle = isAuthReq ? '#f59e0b' : isLive ? '#22c55e' : accent;
   ctx.lineWidth = 1.2;
   ctx.stroke();
   ctx.font = '700 12px ui-monospace, SFMono-Regular, Menlo, monospace';
-  ctx.fillStyle = isLive ? '#4ade80' : accent;
+  ctx.fillStyle = isAuthReq ? '#fbbf24' : isLive ? '#4ade80' : accent;
   ctx.textAlign = 'center';
   ctx.fillText(badgeText, W - 197, 29);
 
@@ -132,7 +140,12 @@ export function paintBigScreenCanvas(canvas: HTMLCanvasElement, data: BigScreenD
     { label: 'ONLINE NODES', value: `${onlineList.length}/${nodes.length}`, sub: 'ACTIVE FLEET', color: '#22c55e' },
     { label: 'CLUSTER CPU', value: `${avgCpu}%`, sub: `AVG RAM ${avgRam}%`, color: accent },
     { label: 'POWER DRAW', value: `${totalWatts} W`, sub: `${(totalWatts / 220).toFixed(1)}A · ${racks.length} RACKS`, color: isBunker ? '#fb923c' : accent2 },
-    { label: 'THROUGHPUT', value: `${totalNetDown.toFixed(0)} M`, sub: `UP ${totalNetUp.toFixed(0)}M · ${totalU}U USED`, color: accent },
+    {
+      label: 'THROUGHPUT',
+      value: `↓ ${formatNetSpeed(totalNetDown, false)}`,
+      sub: `↑ ${formatNetSpeed(totalNetUp, false)} · ${totalU}U USED`,
+      color: accent,
+    },
   ];
 
   const cardW = 330;
@@ -317,57 +330,50 @@ export function createFloorTileTexture(atmosphere: RoomAtmosphere): THREE.Canvas
   const isBunker = atmosphere === 'obsidian-noc';
   const isShowroom = atmosphere === 'showroom';
 
-  // Exact match to original hall.css floor tokens
-  ctx.fillStyle = isLight ? '#d4dbe5' : isBunker ? '#0c0e13' : isShowroom ? '#10141d' : '#111824';
+  // Soft tactile architectural matte-satin tile palette
+  ctx.fillStyle = isLight ? '#dde3ec' : isBunker ? '#14171f' : isShowroom ? '#171c28' : '#192231';
   ctx.fillRect(0, 0, size, size);
 
+  // Silky soft tonal surface gradient (avoids harsh flat CAD look)
   const grad = ctx.createLinearGradient(0, 0, size, size);
   if (isLight) {
-    grad.addColorStop(0, 'rgba(255,255,255,0.45)');
-    grad.addColorStop(1, 'rgba(176,188,205,0.18)');
+    grad.addColorStop(0, 'rgba(255,255,255,0.34)');
+    grad.addColorStop(1, 'rgba(182,194,210,0.14)');
   } else if (isBunker) {
-    grad.addColorStop(0, 'rgba(255,255,255,0.03)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.18)');
+    grad.addColorStop(0, 'rgba(255,255,255,0.032)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.1)');
   } else if (isShowroom) {
-    grad.addColorStop(0, 'rgba(255,255,255,0.035)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.16)');
+    grad.addColorStop(0, 'rgba(255,255,255,0.038)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.1)');
   } else {
-    grad.addColorStop(0, 'rgba(148,179,214,0.055)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.16)');
+    grad.addColorStop(0, 'rgba(165,196,232,0.05)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.09)');
   }
   ctx.fillStyle = grad;
-  ctx.fillRect(3, 3, size - 6, size - 6);
+  ctx.fillRect(8, 8, size - 16, size - 16);
 
-  // Tile seam borders
+  // Ultra-subtle rounded tile groove (no harsh aliasing lines or noisy polka dots)
+  roundRect(ctx, 6, 6, size - 12, size - 12, 18);
   ctx.strokeStyle = isLight
-    ? 'rgba(30,41,59,0.15)'
+    ? 'rgba(51,65,85,0.085)'
     : isBunker
-      ? 'rgba(255,255,255,0.075)'
+      ? 'rgba(255,255,255,0.048)'
       : isShowroom
-        ? 'rgba(148,163,184,0.09)'
-        : 'rgba(148,179,214,0.13)';
-  ctx.lineWidth = 4;
-  ctx.strokeRect(2, 2, size - 4, size - 4);
+        ? 'rgba(148,163,184,0.055)'
+        : 'rgba(148,179,214,0.075)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
 
-  // Subtle 600mm perforated airflow dots
-  if (!isShowroom) {
-    ctx.fillStyle = isLight ? 'rgba(30,41,59,0.08)' : 'rgba(148,179,214,0.06)';
-    const step = 32;
-    for (let x = 48; x <= size - 48; x += step) {
-      for (let y = 48; y <= size - 48; y += step) {
-        ctx.fillRect(x - 2, y - 2, 4, 4);
-      }
-    }
-  } else {
-    ctx.strokeStyle = 'rgba(255,255,255,0.035)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(20, 20, size - 40, size - 40);
-  }
+  // Gentle top-left soft bevel highlight inside tile
+  roundRect(ctx, 10, 10, size - 20, size - 20, 15);
+  ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.38)' : 'rgba(255,255,255,0.025)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(16, 13);
+  tex.repeat.set(10, 8);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   return tex;
@@ -385,44 +391,32 @@ export function createWallPanelTexture(atmosphere: RoomAtmosphere): THREE.Canvas
   const isBunker = atmosphere === 'obsidian-noc';
   const isShowroom = atmosphere === 'showroom';
 
-  const base = isLight ? '#e4e9f1' : isBunker ? '#0d0f14' : isShowroom ? '#111520' : '#111927';
+  const base = isLight ? '#e8edf4' : isBunker ? '#151922' : isShowroom ? '#181e2c' : '#1a2333';
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, w, h);
 
-  // Subtle architectural vertical panel joints
+  // Soft vertical studio wall wash gradient
   const grad = ctx.createLinearGradient(0, 0, 0, h);
   if (isLight) {
-    grad.addColorStop(0, 'rgba(255,255,255,0.35)');
-    grad.addColorStop(1, 'rgba(148,163,184,0.12)');
+    grad.addColorStop(0, 'rgba(255,255,255,0.28)');
+    grad.addColorStop(1, 'rgba(160,174,192,0.1)');
   } else {
-    grad.addColorStop(0, 'rgba(255,255,255,0.03)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.18)');
+    grad.addColorStop(0, 'rgba(255,255,255,0.032)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.12)');
   }
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
-  ctx.strokeStyle = isLight ? 'rgba(30,41,59,0.09)' : 'rgba(255,255,255,0.05)';
+  // Calm matte architectural panel seam (rounded corners, low contrast)
+  roundRect(ctx, 4, 4, w - 8, h - 8, 12);
+  ctx.strokeStyle = isLight ? 'rgba(51,65,85,0.06)' : 'rgba(255,255,255,0.035)';
   ctx.lineWidth = 2;
-  ctx.strokeRect(1, 1, w - 2, h - 2);
-
-  // Horizontal reveal seam at mid-height
-  ctx.beginPath();
-  ctx.moveTo(0, h * 0.5);
-  ctx.lineTo(w, h * 0.5);
   ctx.stroke();
-
-  // Subtle acoustic micro-fluting in bunker mode
-  if (isBunker) {
-    ctx.fillStyle = 'rgba(255,255,255,0.018)';
-    for (let x = 16; x < w; x += 24) {
-      ctx.fillRect(x, 0, 6, h);
-    }
-  }
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(8, 3);
+  tex.repeat.set(6, 2);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   return tex;
@@ -439,26 +433,37 @@ export function createPerforatedSideTexture(baseHex: string, slotHex: string): T
   ctx.fillStyle = baseHex;
   ctx.fillRect(0, 0, w, h);
 
-  // Clean recessed panel border matching original .cab3d-side-frame
-  ctx.strokeStyle = 'rgba(255,255,255,0.11)';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(14, 18, w - 28, h - 36);
+  // Subtle satin vertical sheen across side panel
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, 'rgba(255,255,255,0.05)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.06)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
 
-  // Upper & lower louver vents
+  // Softly rounded recessed panel border
+  roundRect(ctx, 18, 22, w - 36, h - 44, 14);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Tactile pill-rounded ventilation louvers (softer, cleaner spacing)
   ctx.fillStyle = slotHex;
-  for (let y = 48; y < 188; y += 12) {
-    ctx.fillRect(36, y, w - 72, 5);
+  for (let y = 58; y < 176; y += 16) {
+    roundRect(ctx, 44, y, w - 88, 6, 3);
+    ctx.fill();
   }
-  for (let y = 320; y < 460; y += 12) {
-    ctx.fillRect(36, y, w - 72, 5);
+  for (let y = 334; y < 452; y += 16) {
+    roundRect(ctx, 44, y, w - 88, 6, 3);
+    ctx.fill();
   }
 
-  // Center recessed handle latch
-  ctx.fillStyle = 'rgba(0,0,0,0.34)';
-  ctx.fillRect(w / 2 - 14, h / 2 - 22, 28, 44);
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  // Softly rounded flush side handle recess
+  roundRect(ctx, w / 2 - 14, h / 2 - 22, 28, 44, 8);
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
   ctx.lineWidth = 2;
-  ctx.strokeRect(w / 2 - 14, h / 2 - 22, 28, 44);
+  ctx.stroke();
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;

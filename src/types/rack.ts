@@ -8,7 +8,40 @@ export type ScaleMode = 'standard' | 'compact';
 export type DrawerTab = 'builder' | 'style' | 'telemetry' | 'api';
 export type DataSourceMode = 'demo' | 'live';
 export type RecordHours = 1 | 6 | 24;
-export type ApiConnectionStatus = 'demo' | 'connecting' | 'live' | 'degraded' | 'error';
+export type ApiConnectionStatus = 'demo' | 'connecting' | 'live' | 'degraded' | 'auth_required' | 'error';
+export type AdminAuthStatus = 'checking' | 'authenticated' | 'guest' | 'remote_readonly';
+export type LayoutSyncSource = 'server' | 'local_draft' | 'auto';
+export type CameraControlMode = 'locked25d' | 'micro_tilt';
+
+export type CabinetThemePreference = 'auto' | CabinetTheme;
+
+export interface KomariThemeSettings {
+  defaultAtmosphere?: RoomAtmosphere;
+  defaultCameraPreset?: CameraPreset;
+  defaultCabinetTheme?: CabinetThemePreference;
+  showStatusStrip?: boolean;
+  compactRackWidth?: boolean;
+  enablePingPolling?: boolean;
+  recordHours?: RecordHours;
+  showAdminLink?: boolean;
+  customHallTitle?: string;
+  rackLayoutJson?: string;
+}
+
+export interface KomariMeInfo {
+  loggedIn: boolean;
+  username?: string;
+  uuid?: string;
+  ssoType?: string;
+}
+
+export interface PersistedRackLayoutPayload {
+  version: 1;
+  racks: RackCabinetData[];
+  nodeStyles: Record<string, NodeStyleOverride>;
+  updatedAt?: string;
+  updatedBy?: string;
+}
 
 export type CameraPreset = 'iso34' | 'corridor' | 'overhead' | 'front';
 export type RoomAtmosphere = 'cold-aisle' | 'cleanroom' | 'obsidian-noc' | 'showroom';
@@ -88,6 +121,8 @@ export interface KomariPublicInfo {
   ping_record_preserve_time?: number;
   theme?: string;
   theme_settings?: Record<string, unknown>;
+  custom_head?: string;
+  custom_body?: string;
 }
 
 export interface AppConfig {

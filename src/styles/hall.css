@@ -2534,6 +2534,261 @@ textarea {
   height: auto;
 }
 
+/* Komari Official Theme Controls: Admin Link & Private-Site Auth Card */
+.hud-admin-link {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--hud-chip-bg);
+  border: 1px solid var(--hud-border);
+  color: var(--hud-ink-muted);
+  font-size: 11px;
+  font-weight: 560;
+  text-decoration: none;
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.hud-admin-link:hover {
+  background: var(--hud-chip-hover);
+  border-color: var(--hud-border-strong);
+  color: var(--hud-ink);
+}
+
+.d-admin-cta {
+  display: block;
+  margin-top: 6px;
+  text-decoration: none;
+  color: var(--hud-accent);
+  border-color: color-mix(in srgb, var(--hud-accent) 42%, var(--hud-border));
+}
+
+.d-admin-cta:hover {
+  background: color-mix(in srgb, var(--hud-accent) 14%, transparent);
+}
+
+.hud-auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 32;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  pointer-events: none;
+}
+
+.hud-auth-card {
+  pointer-events: auto;
+  width: min(420px, 92vw);
+  padding: 22px 24px;
+  border-radius: 16px;
+  background: var(--hud-glass-solid);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid var(--hud-border-strong);
+  box-shadow:
+    inset 0 1px 0 var(--hud-highlight),
+    var(--hud-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hud-auth-badge {
+  align-self: flex-start;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(251, 146, 60, 0.16);
+  border: 1px solid rgba(251, 146, 60, 0.36);
+  color: #fb923c;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.hud-auth-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  color: var(--hud-ink);
+}
+
+.hud-auth-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--hud-ink-muted);
+}
+
+.hud-auth-actions {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hud-auth-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 9px;
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+  font-size: 12px;
+  font-weight: 620;
+  text-decoration: none;
+  transition: opacity 0.16s ease;
+}
+
+.hud-auth-primary:hover {
+  opacity: 0.88;
+}
+
+.hud-auth-ghost {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-chip-bg);
+  color: var(--hud-ink);
+  font-size: 12px;
+  font-weight: 560;
+  cursor: pointer;
+}
+
+.hud-auth-ghost:hover {
+  background: var(--hud-chip-hover);
+  border-color: var(--hud-border-strong);
+}
+
+/* Admin Auth Gate, Edit Mode Toggle & Layout Sync Cards */
+.hud-edit-toggle {
+  height: 36px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 580;
+  color: var(--hud-ink);
+  cursor: pointer;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.hud-edit-toggle:hover {
+  border-color: var(--hud-border-strong);
+}
+
+.hud-edit-toggle.is-readonly {
+  color: var(--hud-ink-muted);
+}
+
+.hud-edit-toggle.is-editing {
+  background: color-mix(in srgb, var(--hud-accent) 22%, var(--hud-glass-solid));
+  border-color: color-mix(in srgb, var(--hud-accent) 62%, transparent);
+  color: var(--hud-ink);
+}
+
+.hud-auth-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  background: #64748b;
+  flex-shrink: 0;
+}
+
+.hud-auth-dot.is-auth {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.55);
+}
+
+.hud-auth-dot.is-editing {
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.65);
+}
+
+.hud-publish-btn {
+  height: 36px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 620;
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+  border-color: transparent;
+  cursor: pointer;
+  transition: opacity 0.16s ease, transform 0.14s ease;
+}
+
+.hud-publish-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.hud-publish-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.drawer-tab-lock {
+  font-size: 9.5px;
+  opacity: 0.65;
+  margin-left: 1px;
+}
+
+.d-auth-gate {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--hud-accent) 32%, var(--hud-border));
+  background: color-mix(in srgb, var(--hud-accent) 8%, var(--hud-chip-bg));
+}
+
+.d-sync-card {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-chip-bg);
+}
+
+.d-two-col > .d-btn-full {
+  grid-column: 1 / -1;
+}
+
+.d-link-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  text-align: center;
+}
+
+.d-meta.is-warn-text {
+  color: #f59e0b;
+  font-weight: 650;
+}
+
+.d-note code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--hud-input-bg);
+  border: 1px solid var(--hud-border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--hud-ink);
+}
+
+.d-ghost-btn:disabled,
+.d-primary-sm:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
 /* ============================================================================
    Responsive Adjustments
    ============================================================================ */

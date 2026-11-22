@@ -1,11 +1,12 @@
 {
   "name": "komari-datacenter-web",
   "private": true,
-  "version": "0.2.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5174 --strictPort",
     "build": "tsc --noEmit && vite build",
+    "build:theme": "npm run build && node scripts/pack-theme.mjs",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview --port 4174"
   },

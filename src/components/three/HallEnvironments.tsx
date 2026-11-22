@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import {
   createFloorTileTexture,
@@ -11,12 +12,12 @@ import { RACK_D, RACK_H } from '@/components/three/RackCabinetMesh';
 import type { NodeInfo, RackCabinetData, RoomAtmosphere } from '@/types/rack';
 
 /* ============================================================================
-   Enclosed Architectural Room Dimensions (shared with camera rig bounds)
+   Enclosed Architectural Room Dimensions (shared with 2.5D camera rig bounds)
    ============================================================================ */
-export const ROOM_W = 16.0;
-export const ROOM_H = 5.45;
+export const ROOM_W = 18.4;
+export const ROOM_H = 5.85;
 export const ROOM_BACK_Z = -2.15;
-export const ROOM_FRONT_Z = 9.4;
+export const ROOM_FRONT_Z = 12.2;
 const ROOM_D = ROOM_FRONT_Z - ROOM_BACK_Z;
 const ROOM_CENTER_Z = (ROOM_FRONT_Z + ROOM_BACK_Z) / 2;
 
@@ -38,8 +39,8 @@ interface HallEnvironmentsProps {
 
 /* ============================================================================
    Flush Wall-Mounted Live NOC Telemetry Big Screen
-   Positioned cleanly ABOVE RACK_H (bottom at y = 3.06) so racks never block it.
-   Exact 3.2:1 aspect ratio matching 1440x450 canvas (zero stretching).
+   Softly beveled tactile anodized housing, elevated cleanly above RACK_H
+   so server cabinets never occlude it. Exact 3.2:1 aspect ratio.
    ============================================================================ */
 function LiveNocBigScreen({
   atmosphere,
@@ -102,63 +103,77 @@ function LiveNocBigScreen({
   const isBunker = atmosphere === 'obsidian-noc';
   const isShowroom = atmosphere === 'showroom';
 
-  // Exact 3.2:1 ratio (6.24 / 1.95 = 3.2) elevated cleanly above RACK_H (2.68m)
   const screenW = isShowroom ? 5.92 : 6.24;
   const screenH = isShowroom ? 1.85 : 1.95;
-  const screenY = 4.04; // bottom at ~3.065m, top at ~5.015m (below 5.45m ceiling)
-  const bezelDepth = 0.09;
-  const bezelZ = ROOM_BACK_Z + bezelDepth / 2;
+  const screenY = 4.04;
+  const bezelDepth = 0.11;
+  const bezelZ = ROOM_BACK_Z + bezelDepth / 2 - 0.01;
 
-  const accentColor = isLight
-    ? '#0284c7'
+  const frameColor = isLight
+    ? '#d2dae6'
     : isBunker
-      ? '#f97316'
+      ? '#1b1f29'
       : isShowroom
-        ? '#7dd3fc'
-        : '#38bdf8';
+        ? '#1c2330'
+        : '#1b2434';
+  const innerMatColor = isLight ? '#b8c4d4' : '#0f141d';
+  const accentColor = isLight
+    ? '#38bdf8'
+    : isBunker
+      ? '#fb923c'
+      : isShowroom
+        ? '#93c5fd'
+        : '#60a5fa';
 
   return (
     <group position={[0, screenY, 0]}>
-      {/* Architectural Wall-Flush Mounting Frame (solidly bolted onto ROOM_BACK_Z) */}
-      <mesh position={[0, 0, bezelZ]} castShadow receiveShadow>
-        <boxGeometry args={[screenW + 0.18, screenH + 0.16, bezelDepth]} />
-        <meshStandardMaterial
-          color={isLight ? '#cbd5e1' : isBunker ? '#14171f' : '#111826'}
-          metalness={0.55}
-          roughness={0.38}
-        />
-      </mesh>
+      {/* Soft-Chamfered Outer Anodized Frame (solidly recessed into back wall) */}
+      <RoundedBox
+        args={[screenW + 0.24, screenH + 0.22, bezelDepth]}
+        radius={0.036}
+        smoothness={4}
+        position={[0, 0, bezelZ]}
+        castShadow
+        receiveShadow
+      >
+        <meshStandardMaterial color={frameColor} metalness={0.22} roughness={0.56} />
+      </RoundedBox>
 
-      {/* Subtle Top & Bottom Recessed Accent Trim on Frame */}
-      <mesh position={[0, screenH / 2 + 0.082, ROOM_BACK_Z + bezelDepth + 0.002]}>
-        <boxGeometry args={[screenW + 0.04, 0.014, 0.008]} />
+      {/* Recessed Inner Mat Border */}
+      <RoundedBox
+        args={[screenW + 0.08, screenH + 0.07, 0.024]}
+        radius={0.014}
+        smoothness={3}
+        position={[0, 0, ROOM_BACK_Z + bezelDepth - 0.012]}
+      >
+        <meshStandardMaterial color={innerMatColor} metalness={0.14} roughness={0.72} />
+      </RoundedBox>
+
+      {/* Subtle Soft Accent Hairline under Screen */}
+      <RoundedBox
+        args={[screenW * 0.42, 0.014, 0.01]}
+        radius={0.005}
+        smoothness={2}
+        position={[0, -(screenH / 2 + 0.072), ROOM_BACK_Z + bezelDepth + 0.002]}
+      >
         <meshStandardMaterial
           color={accentColor}
           emissive={accentColor}
-          emissiveIntensity={isLight ? 0.5 : 1.35}
-          toneMapped={false}
+          emissiveIntensity={isLight ? 0.35 : 0.72}
+          roughness={0.4}
         />
-      </mesh>
-      <mesh position={[0, -(screenH / 2 + 0.082), ROOM_BACK_Z + bezelDepth + 0.002]}>
-        <boxGeometry args={[screenW + 0.04, 0.012, 0.008]} />
-        <meshStandardMaterial
-          color={accentColor}
-          emissive={accentColor}
-          emissiveIntensity={isLight ? 0.35 : 0.9}
-          toneMapped={false}
-        />
-      </mesh>
+      </RoundedBox>
 
-      {/* Crisp Self-Illuminated Video Wall Display Plane */}
-      <mesh position={[0, 0, ROOM_BACK_Z + bezelDepth + 0.006]}>
+      {/* Anti-Glare Satin Matte Video Wall Display Plane */}
+      <mesh position={[0, 0, ROOM_BACK_Z + bezelDepth + 0.004]}>
         <planeGeometry args={[screenW, screenH]} />
         <meshStandardMaterial
           map={texture}
           emissive="#ffffff"
           emissiveMap={texture}
-          emissiveIntensity={isLight ? 0.35 : 0.82}
-          roughness={0.26}
-          metalness={0.08}
+          emissiveIntensity={isLight ? 0.28 : 0.68}
+          roughness={0.42}
+          metalness={0.04}
         />
       </mesh>
     </group>
@@ -166,71 +181,14 @@ function LiveNocBigScreen({
 }
 
 /* ============================================================================
-   Prop: Grounded Self-Contained CRAC Precision Cooling Unit
-   Solidly seated on y = 0, clean flush top plenum (zero floating pipes).
+   Foreground Accent Prop: Soft-Chamfered Tactile KVM Console Cart
+   Placed well away from the rack edges in the left foreground (cold-aisle).
    ============================================================================ */
-function CracCoolingUnit({
+function TactileKvmConsole({
   position,
-  rotationY = 0,
-  isLight = false,
-  accent = '#38bdf8',
-}: {
-  position: [number, number, number];
-  rotationY?: number;
-  isLight?: boolean;
-  accent?: string;
-}) {
-  const shell = isLight ? '#dfe5ee' : '#1b2230';
-  const louver = isLight ? '#94a3b8' : '#0b1018';
-  return (
-    <group position={position} rotation={[0, rotationY, 0]}>
-      {/* Grounded Plinth Base */}
-      <mesh position={[0, 0.055, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.04, 0.11, 0.94]} />
-        <meshStandardMaterial color="#11161f" metalness={0.45} roughness={0.65} />
-      </mesh>
-      {/* Main Cabinet Body */}
-      <mesh position={[0, 1.395, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.0, 2.57, 0.9]} />
-        <meshStandardMaterial color={shell} metalness={0.48} roughness={0.38} />
-      </mesh>
-      {/* Flush Top Exhaust Plenum Cap (cleanly closed, no dangling pipes) */}
-      <mesh position={[0, 2.74, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.96, 0.12, 0.86]} />
-        <meshStandardMaterial color={isLight ? '#cbd5e1' : '#141a24'} metalness={0.55} roughness={0.4} />
-      </mesh>
-      {/* Front Intake Louver Slats */}
-      {Array.from({ length: 8 }).map((_, idx) => (
-        <mesh key={idx} position={[0, 0.46 + idx * 0.15, 0.456]}>
-          <boxGeometry args={[0.78, 0.052, 0.016]} />
-          <meshStandardMaterial color={louver} metalness={0.35} roughness={0.62} />
-        </mesh>
-      ))}
-      {/* Upper Control LCD Panel */}
-      <mesh position={[0, 2.22, 0.456]}>
-        <boxGeometry args={[0.74, 0.32, 0.02]} />
-        <meshStandardMaterial color="#0b111b" metalness={0.3} roughness={0.42} />
-      </mesh>
-      <mesh position={[-0.14, 2.22, 0.468]}>
-        <planeGeometry args={[0.36, 0.16]} />
-        <meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={0.95} toneMapped={false} />
-      </mesh>
-      <mesh position={[0.22, 2.22, 0.468]}>
-        <circleGeometry args={[0.022, 16]} />
-        <meshStandardMaterial color="#22c55e" emissive="#22c55e" emissiveIntensity={1.5} toneMapped={false} />
-      </mesh>
-    </group>
-  );
-}
-
-/* ============================================================================
-   Prop: Mobile KVM Diagnostic Crash Cart (All wheels grounded on y = 0)
-   ============================================================================ */
-function KvmCrashCart({
-  position,
-  rotationY = 0.42,
+  rotationY = 0.48,
   nodes,
-  accent = '#38bdf8',
+  accent = '#60a5fa',
 }: {
   position: [number, number, number];
   rotationY?: number;
@@ -246,64 +204,66 @@ function KvmCrashCart({
 
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
-      {/* 4 Caster Wheels cleanly touching y = 0 */}
+      {/* 4 Soft Rubberized Caster Wheels seated on y = 0 */}
       {[
-        [-0.28, 0.04, -0.22],
-        [0.28, 0.04, -0.22],
-        [-0.28, 0.04, 0.22],
-        [0.28, 0.04, 0.22],
+        [-0.26, 0.036, -0.2],
+        [0.26, 0.036, -0.2],
+        [-0.26, 0.036, 0.2],
+        [0.26, 0.036, 0.2],
       ].map(([cx, cy, cz], idx) => (
         <mesh key={idx} position={[cx, cy, cz]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.04, 0.04, 0.032, 12]} />
-          <meshStandardMaterial color="#11161f" roughness={0.8} />
+          <cylinderGeometry args={[0.036, 0.036, 0.034, 16]} />
+          <meshStandardMaterial color="#1e2430" roughness={0.78} metalness={0.12} />
         </mesh>
       ))}
-      {/* Base Platform resting on casters */}
-      <mesh position={[0, 0.1, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.68, 0.045, 0.54]} />
-        <meshStandardMaterial color="#202736" metalness={0.55} roughness={0.44} />
-      </mesh>
-      {/* Lower Battery / Tool Box */}
-      <mesh position={[0, 0.24, -0.02]} castShadow>
-        <boxGeometry args={[0.42, 0.24, 0.34]} />
-        <meshStandardMaterial color="#141922" metalness={0.48} roughness={0.5} />
-      </mesh>
-      {/* Vertical Cart Frame Posts connecting base to worktop */}
-      {[-0.28, 0.28].map((px, i) => (
-        <mesh key={i} position={[px, 0.54, -0.21]} castShadow>
-          <boxGeometry args={[0.04, 0.88, 0.04]} />
-          <meshStandardMaterial color="#64748b" metalness={0.72} roughness={0.3} />
+
+      {/* Soft-Rounded Base Tray */}
+      <RoundedBox args={[0.66, 0.056, 0.52]} radius={0.02} smoothness={4} position={[0, 0.095, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color="#273040" metalness={0.22} roughness={0.58} />
+      </RoundedBox>
+
+      {/* Rounded Lower Equipment Cube */}
+      <RoundedBox args={[0.42, 0.24, 0.34]} radius={0.024} smoothness={4} position={[0, 0.24, -0.02]} castShadow>
+        <meshStandardMaterial color="#1d2431" metalness={0.18} roughness={0.62} />
+      </RoundedBox>
+
+      {/* Satin Anodized Twin Support Columns */}
+      {[-0.25, 0.25].map((px, i) => (
+        <mesh key={i} position={[px, 0.54, -0.18]} castShadow>
+          <cylinderGeometry args={[0.022, 0.022, 0.86, 16]} />
+          <meshStandardMaterial color="#7e8ea4" metalness={0.32} roughness={0.44} />
         </mesh>
       ))}
-      {/* Worktop Surface */}
-      <mesh position={[0, 0.98, 0.01]} castShadow receiveShadow>
-        <boxGeometry args={[0.72, 0.04, 0.56]} />
-        <meshStandardMaterial color="#2e3847" metalness={0.48} roughness={0.42} />
+
+      {/* Soft-Chamfered Worktop Desk Surface */}
+      <RoundedBox args={[0.74, 0.048, 0.56]} radius={0.02} smoothness={4} position={[0, 0.98, 0.01]} castShadow receiveShadow>
+        <meshStandardMaterial color="#364154" metalness={0.2} roughness={0.54} />
+      </RoundedBox>
+
+      {/* Tactile Compact Mechanical Keyboard */}
+      <RoundedBox args={[0.42, 0.022, 0.16]} radius={0.008} smoothness={3} position={[0, 1.015, 0.1]}>
+        <meshStandardMaterial color="#1a202c" roughness={0.65} metalness={0.1} />
+      </RoundedBox>
+
+      {/* Satin Monitor Neck */}
+      <mesh position={[0, 1.18, -0.17]}>
+        <cylinderGeometry args={[0.022, 0.026, 0.38, 16]} />
+        <meshStandardMaterial color="#6d7c92" metalness={0.32} roughness={0.46} />
       </mesh>
-      {/* Keyboard */}
-      <mesh position={[0, 1.01, 0.1]}>
-        <boxGeometry args={[0.44, 0.02, 0.16]} />
-        <meshStandardMaterial color="#111620" roughness={0.55} />
-      </mesh>
-      {/* Monitor Column seated firmly in worktop */}
-      <mesh position={[0, 1.19, -0.18]}>
-        <cylinderGeometry args={[0.024, 0.028, 0.4, 12]} />
-        <meshStandardMaterial color="#475569" metalness={0.74} roughness={0.32} />
-      </mesh>
-      {/* Monitor Housing & Live Terminal Screen */}
-      <group position={[0, 1.38, -0.14]} rotation={[-0.12, 0, 0]}>
-        <mesh castShadow>
-          <boxGeometry args={[0.62, 0.4, 0.036]} />
-          <meshStandardMaterial color="#0f151f" metalness={0.48} roughness={0.4} />
-        </mesh>
-        <mesh position={[0, 0, 0.02]}>
-          <planeGeometry args={[0.56, 0.34]} />
+
+      {/* Beveled Display Housing & Soft Matte Terminal */}
+      <group position={[0, 1.37, -0.13]} rotation={[-0.1, 0, 0]}>
+        <RoundedBox args={[0.64, 0.41, 0.044]} radius={0.018} smoothness={4} castShadow>
+          <meshStandardMaterial color="#1c222e" metalness={0.22} roughness={0.54} />
+        </RoundedBox>
+        <mesh position={[0, 0, 0.024]}>
+          <planeGeometry args={[0.56, 0.33]} />
           <meshStandardMaterial
             map={screenTex}
             emissive="#ffffff"
             emissiveMap={screenTex}
-            emissiveIntensity={0.78}
-            roughness={0.25}
+            emissiveIntensity={0.64}
+            roughness={0.38}
           />
         </mesh>
       </group>
@@ -312,50 +272,10 @@ function KvmCrashCart({
 }
 
 /* ============================================================================
-   Prop: Wall-Anchored FM-200 Clean-Agent Fire Suppression Cylinders
-   Seated on floor y = 0 AND bolted flush into ROOM_BACK_Z!
+   Foreground Accent Prop: Cleanroom Tactile Lab Desk
+   Minimal Dieter-Rams-inspired rounded matte bench in right foreground.
    ============================================================================ */
-function FireSuppressionTanks({ x }: { x: number }) {
-  const z = ROOM_BACK_Z + 0.22;
-  return (
-    <group position={[x, 0, z]}>
-      {[-0.2, 0.2].map((ox, i) => (
-        <group key={i} position={[ox, 0, 0]}>
-          {/* Floor-seated base ring */}
-          <mesh position={[0, 0.03, 0]}>
-            <cylinderGeometry args={[0.145, 0.15, 0.06, 16]} />
-            <meshStandardMaterial color="#1e2430" metalness={0.5} roughness={0.55} />
-          </mesh>
-          {/* Main cylinder body */}
-          <mesh position={[0, 0.72, 0]} castShadow>
-            <cylinderGeometry args={[0.135, 0.135, 1.32, 16]} />
-            <meshStandardMaterial color="#a61b1b" metalness={0.42} roughness={0.36} />
-          </mesh>
-          {/* Dome cap */}
-          <mesh position={[0, 1.38, 0]}>
-            <sphereGeometry args={[0.135, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
-            <meshStandardMaterial color="#a61b1b" metalness={0.42} roughness={0.36} />
-          </mesh>
-          {/* Brass valve assembly */}
-          <mesh position={[0, 1.56, 0]}>
-            <cylinderGeometry args={[0.036, 0.046, 0.14, 12]} />
-            <meshStandardMaterial color="#c8a232" metalness={0.78} roughness={0.28} />
-          </mesh>
-        </group>
-      ))}
-      {/* Solid Mounting Bracket spanning from cylinders directly INTO the back wall */}
-      <mesh position={[0, 0.92, -0.14]}>
-        <boxGeometry args={[0.74, 0.075, 0.16]} />
-        <meshStandardMaterial color="#2b3444" metalness={0.65} roughness={0.42} />
-      </mesh>
-    </group>
-  );
-}
-
-/* ============================================================================
-   Prop: Cleanroom Modular Lab Workbench (Grounded on 4 legs)
-   ============================================================================ */
-function CleanroomWorkbench({
+function CleanroomLabDesk({
   position,
   nodes,
 }: {
@@ -370,75 +290,73 @@ function CleanroomWorkbench({
   }, [screenTex]);
 
   return (
-    <group position={position} rotation={[0, -0.42, 0]}>
-      {/* 4 Brushed Aluminum Legs touching y = 0 */}
+    <group position={position} rotation={[0, -0.46, 0]}>
+      {/* 4 Cylindrical Satin Aluminum Legs seated on y = 0 */}
       {[
-        [-0.62, 0.43, -0.32],
-        [0.62, 0.43, -0.32],
-        [-0.62, 0.43, 0.32],
-        [0.62, 0.43, 0.32],
+        [-0.58, 0.43, -0.3],
+        [0.58, 0.43, -0.3],
+        [-0.58, 0.43, 0.3],
+        [0.58, 0.43, 0.3],
       ].map(([lx, ly, lz], i) => (
         <mesh key={i} position={[lx, ly, lz]} castShadow>
-          <boxGeometry args={[0.05, 0.86, 0.05]} />
-          <meshStandardMaterial color="#94a3b8" metalness={0.65} roughness={0.32} />
+          <cylinderGeometry args={[0.024, 0.024, 0.86, 16]} />
+          <meshStandardMaterial color="#a6b2c2" metalness={0.28} roughness={0.44} />
         </mesh>
       ))}
-      {/* Clean Laminate Bench Top */}
-      <mesh position={[0, 0.88, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.38, 0.05, 0.76]} />
-        <meshStandardMaterial color="#f1f5f9" metalness={0.1} roughness={0.38} />
+
+      {/* Soft-Chamfered Warm-White Laminate Top */}
+      <RoundedBox args={[1.34, 0.056, 0.74]} radius={0.022} smoothness={4} position={[0, 0.88, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color="#f1f4f8" metalness={0.06} roughness={0.52} />
+      </RoundedBox>
+
+      {/* Rounded Monitor Base & Display */}
+      <RoundedBox args={[0.24, 0.026, 0.18]} radius={0.01} smoothness={3} position={[-0.18, 0.92, -0.15]}>
+        <meshStandardMaterial color="#94a3b8" metalness={0.28} roughness={0.46} />
+      </RoundedBox>
+      <mesh position={[-0.18, 1.07, -0.19]}>
+        <cylinderGeometry args={[0.02, 0.022, 0.28, 14]} />
+        <meshStandardMaterial color="#94a3b8" metalness={0.28} roughness={0.46} />
       </mesh>
-      {/* Monitor Stand + Display cleanly seated on desk */}
-      <mesh position={[-0.2, 0.92, -0.16]}>
-        <boxGeometry args={[0.24, 0.025, 0.18]} />
-        <meshStandardMaterial color="#64748b" metalness={0.6} roughness={0.35} />
-      </mesh>
-      <mesh position={[-0.2, 1.07, -0.2]}>
-        <boxGeometry args={[0.05, 0.28, 0.03]} />
-        <meshStandardMaterial color="#64748b" metalness={0.65} roughness={0.32} />
-      </mesh>
-      <group position={[-0.2, 1.24, -0.17]}>
-        <mesh castShadow>
-          <boxGeometry args={[0.64, 0.38, 0.03]} />
-          <meshStandardMaterial color="#1e293b" metalness={0.45} roughness={0.4} />
-        </mesh>
-        <mesh position={[0, 0, 0.017]}>
-          <planeGeometry args={[0.58, 0.32]} />
+      <group position={[-0.18, 1.24, -0.16]}>
+        <RoundedBox args={[0.64, 0.39, 0.038]} radius={0.016} smoothness={4} castShadow>
+          <meshStandardMaterial color="#cbd5e1" metalness={0.2} roughness={0.48} />
+        </RoundedBox>
+        <mesh position={[0, 0, 0.021]}>
+          <planeGeometry args={[0.57, 0.32]} />
           <meshStandardMaterial
             map={screenTex}
             emissive="#ffffff"
             emissiveMap={screenTex}
-            emissiveIntensity={0.6}
-            roughness={0.28}
+            emissiveIntensity={0.48}
+            roughness={0.38}
           />
         </mesh>
       </group>
-      {/* Benchtop Calibration Meter */}
-      <mesh position={[0.38, 0.99, -0.08]} castShadow>
-        <boxGeometry args={[0.32, 0.17, 0.26]} />
-        <meshStandardMaterial color="#cbd5e1" metalness={0.38} roughness={0.4} />
-      </mesh>
-      <mesh position={[0.38, 1.0, 0.054]}>
-        <planeGeometry args={[0.22, 0.09]} />
-        <meshStandardMaterial color="#0284c7" emissive="#0284c7" emissiveIntensity={0.85} toneMapped={false} />
+
+      {/* Braun-Style Rounded Benchtop Diagnostic Unit */}
+      <RoundedBox args={[0.32, 0.17, 0.25]} radius={0.022} smoothness={4} position={[0.38, 0.99, -0.06]} castShadow>
+        <meshStandardMaterial color="#dce3ec" metalness={0.14} roughness={0.5} />
+      </RoundedBox>
+      <mesh position={[0.38, 1.0, 0.067]}>
+        <planeGeometry args={[0.2, 0.085]} />
+        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.55} roughness={0.4} />
       </mesh>
     </group>
   );
 }
 
 /* ============================================================================
-   Prop: Obsidian NOC Grounded UPS Battery Towers & Tactical Ops Console
+   Foreground Accent Prop: Obsidian NOC Tactical Ops Console
+   Clean chamfered standalone console desk (NO bulky flanking UPS towers!).
    ============================================================================ */
-function BunkerOpsSuite({
-  leftX,
-  rightX,
+function ObsidianOpsConsole({
+  position,
   nodes,
 }: {
-  leftX: number;
-  rightX: number;
+  position: [number, number, number];
   nodes: NodeInfo[];
 }) {
-  const screenTex = useMemo(() => createTerminalMonitorTexture(nodes, '#f97316'), [nodes]);
+  const screenTex = useMemo(() => createTerminalMonitorTexture(nodes, '#fb923c'), [nodes]);
   useEffect(() => {
     return () => {
       screenTex.dispose();
@@ -446,82 +364,59 @@ function BunkerOpsSuite({
   }, [screenTex]);
 
   return (
-    <>
-      {/* Twin Grounded High-Density UPS Battery Towers flanking rack row */}
-      {[leftX, rightX].map((ux, idx) => (
-        <group key={idx} position={[ux, 0, -0.12]}>
-          <mesh position={[0, 0.055, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.92, 0.11, 0.98]} />
-            <meshStandardMaterial color="#0b0d12" metalness={0.5} roughness={0.6} />
-          </mesh>
-          <mesh position={[0, 1.24, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.88, 2.26, 0.94]} />
-            <meshStandardMaterial color="#161922" metalness={0.55} roughness={0.42} />
-          </mesh>
-          {/* Subtle Orange Load Telemetry Bar */}
-          <mesh position={[0, 1.98, 0.474]}>
-            <boxGeometry args={[0.56, 0.022, 0.01]} />
-            <meshStandardMaterial color="#f97316" emissive="#f97316" emissiveIntensity={1.6} toneMapped={false} />
-          </mesh>
-          {/* Battery Module Slats */}
-          {[0.48, 0.78, 1.08, 1.38, 1.68].map((by, j) => (
-            <mesh key={j} position={[0, by, 0.474]}>
-              <boxGeometry args={[0.68, 0.16, 0.012]} />
-              <meshStandardMaterial color="#0f1218" metalness={0.4} roughness={0.55} />
-            </mesh>
-          ))}
-        </group>
+    <group position={position} rotation={[0, 0.46, 0]}>
+      {/* Soft-Chamfered Side Pedestals touching y = 0 */}
+      {[-0.54, 0.54].map((px, i) => (
+        <RoundedBox
+          key={i}
+          args={[0.08, 0.84, 0.6]}
+          radius={0.022}
+          smoothness={4}
+          position={[px, 0.42, 0]}
+          castShadow
+          receiveShadow
+        >
+          <meshStandardMaterial color="#1d212b" metalness={0.22} roughness={0.58} />
+        </RoundedBox>
       ))}
 
-      {/* Grounded Tactical Ops Desk in Left Foreground */}
-      <group position={[Math.max(-5.8, leftX + 0.4), 0, 2.15]} rotation={[0, 0.42, 0]}>
-        {/* Solid Side Pedestals touching y = 0 */}
-        {[-0.56, 0.56].map((px, i) => (
-          <mesh key={i} position={[px, 0.42, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.08, 0.84, 0.62]} />
-            <meshStandardMaterial color="#151821" metalness={0.55} roughness={0.44} />
+      {/* Soft-Chamfered Console Top */}
+      <RoundedBox args={[1.26, 0.056, 0.68]} radius={0.022} smoothness={4} position={[0, 0.86, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color="#252a36" metalness={0.2} roughness={0.52} />
+      </RoundedBox>
+
+      {/* Subtle Warm Amber Edge Indicator */}
+      <RoundedBox args={[0.54, 0.012, 0.01]} radius={0.004} smoothness={2} position={[0, 0.86, 0.342]}>
+        <meshStandardMaterial color="#fb923c" emissive="#f97316" emissiveIntensity={0.78} roughness={0.4} />
+      </RoundedBox>
+
+      {/* Dual Monitor Stand & Beveled Matte Displays */}
+      <RoundedBox args={[0.08, 0.24, 0.06]} radius={0.018} smoothness={3} position={[0, 0.99, -0.18]}>
+        <meshStandardMaterial color="#2e3442" metalness={0.28} roughness={0.48} />
+      </RoundedBox>
+      {[-0.31, 0.31].map((mx, i) => (
+        <group key={i} position={[mx, 1.2, -0.14]} rotation={[0, i === 0 ? 0.12 : -0.12, 0]}>
+          <RoundedBox args={[0.57, 0.35, 0.038]} radius={0.016} smoothness={4} castShadow>
+            <meshStandardMaterial color="#181c24" metalness={0.22} roughness={0.54} />
+          </RoundedBox>
+          <mesh position={[0, 0, 0.021]}>
+            <planeGeometry args={[0.5, 0.28]} />
+            <meshStandardMaterial
+              map={screenTex}
+              emissive="#ffffff"
+              emissiveMap={screenTex}
+              emissiveIntensity={0.66}
+              roughness={0.38}
+            />
           </mesh>
-        ))}
-        {/* Desk Top */}
-        <mesh position={[0, 0.86, 0]} castShadow receiveShadow>
-          <boxGeometry args={[1.28, 0.05, 0.68]} />
-          <meshStandardMaterial color="#1b1f2a" metalness={0.48} roughness={0.38} />
-        </mesh>
-        {/* Subtle Orange Front Desk Edge Trim */}
-        <mesh position={[0, 0.86, 0.343]}>
-          <boxGeometry args={[1.22, 0.014, 0.008]} />
-          <meshStandardMaterial color="#f97316" emissive="#f97316" emissiveIntensity={1.3} toneMapped={false} />
-        </mesh>
-        {/* Dual Monitor Stand & Screens seated on desk */}
-        <mesh position={[0, 0.99, -0.18]}>
-          <boxGeometry args={[0.08, 0.24, 0.06]} />
-          <meshStandardMaterial color="#252a36" metalness={0.6} roughness={0.36} />
-        </mesh>
-        {[-0.3, 0.3].map((mx, i) => (
-          <group key={i} position={[mx, 1.2, -0.14]} rotation={[0, i === 0 ? 0.12 : -0.12, 0]}>
-            <mesh castShadow>
-              <boxGeometry args={[0.56, 0.34, 0.032]} />
-              <meshStandardMaterial color="#0e1117" metalness={0.5} roughness={0.42} />
-            </mesh>
-            <mesh position={[0, 0, 0.018]}>
-              <planeGeometry args={[0.51, 0.29]} />
-              <meshStandardMaterial
-                map={screenTex}
-                emissive="#ffffff"
-                emissiveMap={screenTex}
-                emissiveIntensity={0.82}
-                roughness={0.25}
-              />
-            </mesh>
-          </group>
-        ))}
-      </group>
-    </>
+        </group>
+      ))}
+    </group>
   );
 }
 
 /* ============================================================================
-   Ghost Expansion Bay (+ Add Rack interactive wireframe slot on floor)
+   Ghost Expansion Bay (+ Add Rack soft frosted architectural floor slot)
    ============================================================================ */
 function GhostExpansionBay({
   positionX,
@@ -537,12 +432,12 @@ function GhostExpansionBay({
   const [hovered, setHovered] = useState(false);
   const pulseRef = useRef<THREE.Mesh>(null);
   const accent =
-    atmosphere === 'obsidian-noc' ? '#f97316' : atmosphere === 'cleanroom' ? '#0284c7' : '#38bdf8';
+    atmosphere === 'obsidian-noc' ? '#fb923c' : atmosphere === 'cleanroom' ? '#0ea5e9' : '#60a5fa';
 
   useFrame(({ clock }) => {
     if (!pulseRef.current) return;
     const mat = pulseRef.current.material as THREE.MeshBasicMaterial;
-    mat.opacity = hovered ? 0.32 : 0.1 + Math.sin(clock.getElapsedTime() * 2.1) * 0.04;
+    mat.opacity = hovered ? 0.24 : 0.08 + Math.sin(clock.getElapsedTime() * 1.9) * 0.03;
   });
 
   const handleOver = (e: ThreeEvent<PointerEvent>) => {
@@ -562,7 +457,7 @@ function GhostExpansionBay({
 
   return (
     <group position={[positionX, 0, 0]}>
-      {/* Grounded Floor Slot Pad */}
+      {/* Soft Grounded Floor Slot Pad */}
       <mesh
         ref={pulseRef}
         position={[0, 0.006, 0]}
@@ -572,9 +467,10 @@ function GhostExpansionBay({
         onClick={handleClick}
       >
         <planeGeometry args={[rackWidth, RACK_D]} />
-        <meshBasicMaterial color={accent} transparent opacity={0.14} depthWrite={false} />
+        <meshBasicMaterial color={accent} transparent opacity={0.1} depthWrite={false} />
       </mesh>
-      {/* Subtle Wireframe Corner Posts seated on y = 0 */}
+
+      {/* Soft Slender Cylindrical Corner Guides seated on y = 0 */}
       {[
         [-rackWidth / 2, -RACK_D / 2],
         [rackWidth / 2, -RACK_D / 2],
@@ -588,25 +484,24 @@ function GhostExpansionBay({
           onPointerOut={handleOut}
           onClick={handleClick}
         >
-          <boxGeometry args={[0.018, RACK_H, 0.018]} />
-          <meshBasicMaterial color={accent} transparent opacity={hovered ? 0.68 : 0.24} />
+          <cylinderGeometry args={[0.008, 0.008, RACK_H, 10]} />
+          <meshBasicMaterial color={accent} transparent opacity={hovered ? 0.56 : 0.18} />
         </mesh>
       ))}
-      {/* Interactive + Sign in Center */}
+
+      {/* Soft Rounded + Pill Badge in Center */}
       <group
-        position={[0, RACK_H * 0.48, RACK_D * 0.2]}
+        position={[0, RACK_H * 0.48, RACK_D * 0.18]}
         onPointerOver={handleOver}
         onPointerOut={handleOut}
         onClick={handleClick}
       >
-        <mesh>
-          <boxGeometry args={[0.3, 0.045, 0.016]} />
-          <meshBasicMaterial color={accent} transparent opacity={hovered ? 0.92 : 0.42} />
-        </mesh>
-        <mesh>
-          <boxGeometry args={[0.045, 0.3, 0.016]} />
-          <meshBasicMaterial color={accent} transparent opacity={hovered ? 0.92 : 0.42} />
-        </mesh>
+        <RoundedBox args={[0.28, 0.044, 0.018]} radius={0.012} smoothness={3}>
+          <meshBasicMaterial color={accent} transparent opacity={hovered ? 0.85 : 0.36} />
+        </RoundedBox>
+        <RoundedBox args={[0.044, 0.28, 0.018]} radius={0.012} smoothness={3}>
+          <meshBasicMaterial color={accent} transparent opacity={hovered ? 0.85 : 0.36} />
+        </RoundedBox>
       </group>
     </group>
   );
@@ -614,6 +509,8 @@ function GhostExpansionBay({
 
 /* ============================================================================
    Main Architectural Hall Enclosure & Scene Environments
+   Tactile Light-Realism: soft satin walls/floor, chamfered pilasters & ceiling
+   panels, zero clunky flanking boxes around the server cabinets!
    ============================================================================ */
 export function HallEnvironments({
   atmosphere,
@@ -650,179 +547,274 @@ export function HallEnvironments({
   const isShowroom = atmosphere === 'showroom';
   const isColdAisle = atmosphere === 'cold-aisle';
 
-  const wallTrimColor = isLight ? '#c8d1de' : isBunker ? '#171a22' : isShowroom ? '#1a202d' : '#1b2638';
-  const ceilingColor = isLight ? '#edf1f7' : isBunker ? '#0b0d12' : isShowroom ? '#0f131c' : '#101826';
-  const beamColor = isLight ? '#d8e0eb' : isBunker ? '#151820' : isShowroom ? '#181e2a' : '#192334';
-  const ceilingLightColor = isLight ? '#ffffff' : isBunker ? '#f8fafc' : isShowroom ? '#f1f5f9' : '#e0f2fe';
-  const ceilingLightEmissive = isLight ? '#ffffff' : isBunker ? '#ffedd5' : isShowroom ? '#e2e8f0' : '#bae6fd';
-  const aisleAccent = isLight ? '#0284c7' : isBunker ? '#f97316' : isShowroom ? '#7dd3fc' : '#38bdf8';
+  const wallTrimColor = isLight ? '#d3dbe7' : isBunker ? '#1d212b' : isShowroom ? '#1f2634' : '#222d3f';
+  const ceilingColor = isLight ? '#eef2f7' : isBunker ? '#11141c' : isShowroom ? '#141925' : '#161f2e';
+  const beamColor = isLight ? '#dee5ef' : isBunker ? '#191d27' : isShowroom ? '#1c2331' : '#1e2839';
+  const ceilingLightColor = isLight ? '#ffffff' : isBunker ? '#f8fafc' : isShowroom ? '#f1f5f9' : '#ebf5ff';
+  const ceilingLightEmissive = isLight ? '#ffffff' : isBunker ? '#fde6d2' : isShowroom ? '#e2e8f0' : '#dbeafe';
+  const aisleAccent = isLight ? '#38bdf8' : isBunker ? '#fb923c' : isShowroom ? '#93c5fd' : '#60a5fa';
 
   const rowHalf = rowSpan / 2;
   const rightClearEdge = canAddRack ? Math.max(rowHalf, ghostBayX + rackWidth / 2) : rowHalf;
-  const leftPropX = Math.max(-6.45, -(rowHalf + 1.45));
-  const rightPropX = Math.min(6.45, rightClearEdge + 1.4);
+
+  // Position single subtle foreground accent piece well clear of the rack row
+  const leftDeskX = Math.max(-5.8, -(rowHalf + 2.35));
+  const rightDeskX = Math.min(5.8, rightClearEdge + 2.15);
 
   return (
     <group>
       {/* =====================================================================
-          1. FULLY ENCLOSED ARCHITECTURAL ROOM SHELL (Floor, 4 Walls, Ceiling)
+          1. FULLY ENCLOSED SOFT-MATTE ARCHITECTURAL ROOM SHELL
          ===================================================================== */}
 
-      {/* Raised Modular Floor (y = 0) */}
+      {/* Smooth Matte-Satin Modular Floor (y = 0) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, ROOM_CENTER_Z]} receiveShadow>
         <planeGeometry args={[ROOM_W, ROOM_D]} />
         <meshStandardMaterial
           map={floorTex}
-          metalness={isShowroom ? 0.25 : 0.14}
-          roughness={isShowroom ? 0.34 : isLight ? 0.52 : 0.56}
+          metalness={isShowroom ? 0.14 : 0.08}
+          roughness={isShowroom ? 0.48 : isLight ? 0.64 : 0.68}
         />
       </mesh>
 
       {/* Back Wall (inner surface at z = ROOM_BACK_Z) */}
       <mesh position={[0, ROOM_H / 2, ROOM_BACK_Z]} receiveShadow>
         <planeGeometry args={[ROOM_W, ROOM_H]} />
-        <meshStandardMaterial map={wallTex} metalness={0.14} roughness={0.68} />
+        <meshStandardMaterial map={wallTex} metalness={0.06} roughness={0.78} />
       </mesh>
 
       {/* Front Wall behind camera (inner surface at z = ROOM_FRONT_Z) */}
       <mesh position={[0, ROOM_H / 2, ROOM_FRONT_Z]} rotation={[0, Math.PI, 0]}>
         <planeGeometry args={[ROOM_W, ROOM_H]} />
-        <meshStandardMaterial map={wallTex} metalness={0.12} roughness={0.72} />
+        <meshStandardMaterial map={wallTex} metalness={0.06} roughness={0.8} />
       </mesh>
 
       {/* Left Wall (inner surface at x = -ROOM_W / 2) */}
       <mesh position={[-ROOM_W / 2, ROOM_H / 2, ROOM_CENTER_Z]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
         <planeGeometry args={[ROOM_D, ROOM_H]} />
-        <meshStandardMaterial map={wallTex} metalness={0.14} roughness={0.68} />
+        <meshStandardMaterial map={wallTex} metalness={0.06} roughness={0.78} />
       </mesh>
 
       {/* Right Wall (inner surface at x = +ROOM_W / 2) */}
       <mesh position={[ROOM_W / 2, ROOM_H / 2, ROOM_CENTER_Z]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
         <planeGeometry args={[ROOM_D, ROOM_H]} />
-        <meshStandardMaterial map={wallTex} metalness={0.14} roughness={0.68} />
+        <meshStandardMaterial map={wallTex} metalness={0.06} roughness={0.78} />
       </mesh>
 
-      {/* Solid Ceiling Slab (inner surface at y = ROOM_H) */}
+      {/* Solid Matte Acoustic Ceiling Slab (inner surface at y = ROOM_H) */}
       <mesh position={[0, ROOM_H, ROOM_CENTER_Z]} rotation={[Math.PI / 2, 0, 0]}>
         <planeGeometry args={[ROOM_W, ROOM_D]} />
-        <meshStandardMaterial color={ceilingColor} metalness={0.1} roughness={0.82} />
+        <meshStandardMaterial color={ceilingColor} metalness={0.05} roughness={0.88} />
       </mesh>
 
       {/* =====================================================================
-          2. FLUSH ARCHITECTURAL TRIM, PILASTERS & CEILING BEAMS (Zero Gaps!)
+          2. SOFT-CHAMFERED ARCHITECTURAL TRIM, PILASTERS & DIFFUSED CEILING COVES
          ===================================================================== */}
 
       {/* Floor Baseboards along Back, Left & Right Walls */}
-      <mesh position={[0, 0.08, ROOM_BACK_Z + 0.025]}>
-        <boxGeometry args={[ROOM_W, 0.16, 0.05]} />
-        <meshStandardMaterial color={wallTrimColor} metalness={0.35} roughness={0.5} />
-      </mesh>
-      <mesh position={[-ROOM_W / 2 + 0.025, 0.08, ROOM_CENTER_Z]}>
-        <boxGeometry args={[0.05, 0.16, ROOM_D]} />
-        <meshStandardMaterial color={wallTrimColor} metalness={0.35} roughness={0.5} />
-      </mesh>
-      <mesh position={[ROOM_W / 2 - 0.025, 0.08, ROOM_CENTER_Z]}>
-        <boxGeometry args={[0.05, 0.16, ROOM_D]} />
-        <meshStandardMaterial color={wallTrimColor} metalness={0.35} roughness={0.5} />
-      </mesh>
+      <RoundedBox args={[ROOM_W, 0.16, 0.06]} radius={0.015} smoothness={3} position={[0, 0.08, ROOM_BACK_Z + 0.025]}>
+        <meshStandardMaterial color={wallTrimColor} metalness={0.14} roughness={0.65} />
+      </RoundedBox>
+      <RoundedBox args={[0.06, 0.16, ROOM_D]} radius={0.015} smoothness={3} position={[-ROOM_W / 2 + 0.025, 0.08, ROOM_CENTER_Z]}>
+        <meshStandardMaterial color={wallTrimColor} metalness={0.14} roughness={0.65} />
+      </RoundedBox>
+      <RoundedBox args={[0.06, 0.16, ROOM_D]} radius={0.015} smoothness={3} position={[ROOM_W / 2 - 0.025, 0.08, ROOM_CENTER_Z]}>
+        <meshStandardMaterial color={wallTrimColor} metalness={0.14} roughness={0.65} />
+      </RoundedBox>
 
-      {/* Full-Height Structural Pilasters on Back Wall (Floor y=0 to Ceiling y=ROOM_H) */}
+      {/* Soft-Chamfered Full-Height Structural Pilasters on Back Wall */}
       {[-6.8, -3.75, 3.75, 6.8].map((px, i) => (
-        <mesh key={i} position={[px, ROOM_H / 2, ROOM_BACK_Z + 0.09]} castShadow receiveShadow>
-          <boxGeometry args={[0.26, ROOM_H, 0.18]} />
-          <meshStandardMaterial color={wallTrimColor} metalness={0.38} roughness={0.46} />
-        </mesh>
+        <RoundedBox
+          key={i}
+          args={[0.28, ROOM_H, 0.2]}
+          radius={0.032}
+          smoothness={4}
+          position={[px, ROOM_H / 2, ROOM_BACK_Z + 0.09]}
+          castShadow
+          receiveShadow
+        >
+          <meshStandardMaterial color={wallTrimColor} metalness={0.14} roughness={0.64} />
+        </RoundedBox>
       ))}
 
-      {/* Full-Height Structural Columns on Left & Right Walls (Floor to Ceiling) */}
+      {/* Soft-Chamfered Structural Columns on Left & Right Walls */}
       {[-0.4, 2.8, 6.0].map((cz, i) => (
         <group key={i}>
-          <mesh position={[-ROOM_W / 2 + 0.09, ROOM_H / 2, cz]} receiveShadow>
-            <boxGeometry args={[0.18, ROOM_H, 0.24]} />
-            <meshStandardMaterial color={wallTrimColor} metalness={0.38} roughness={0.46} />
-          </mesh>
-          <mesh position={[ROOM_W / 2 - 0.09, ROOM_H / 2, cz]} receiveShadow>
-            <boxGeometry args={[0.18, ROOM_H, 0.24]} />
-            <meshStandardMaterial color={wallTrimColor} metalness={0.38} roughness={0.46} />
-          </mesh>
+          <RoundedBox
+            args={[0.2, ROOM_H, 0.26]}
+            radius={0.032}
+            smoothness={4}
+            position={[-ROOM_W / 2 + 0.09, ROOM_H / 2, cz]}
+            receiveShadow
+          >
+            <meshStandardMaterial color={wallTrimColor} metalness={0.14} roughness={0.64} />
+          </RoundedBox>
+          <RoundedBox
+            args={[0.2, ROOM_H, 0.26]}
+            radius={0.032}
+            smoothness={4}
+            position={[ROOM_W / 2 - 0.09, ROOM_H / 2, cz]}
+            receiveShadow
+          >
+            <meshStandardMaterial color={wallTrimColor} metalness={0.14} roughness={0.64} />
+          </RoundedBox>
         </group>
       ))}
 
-      {/* Flush Horizontal Architectural Wall Reveal Lines on Side Walls */}
+      {/* Subtle Soft Wall Reveal Accent on Side Walls */}
       <mesh position={[-ROOM_W / 2 + 0.015, 2.75, ROOM_CENTER_Z]}>
-        <boxGeometry args={[0.03, 0.024, ROOM_D]} />
+        <boxGeometry args={[0.024, 0.022, ROOM_D]} />
         <meshStandardMaterial
           color={aisleAccent}
           emissive={aisleAccent}
-          emissiveIntensity={isLight ? 0.25 : 0.75}
-          toneMapped={false}
+          emissiveIntensity={isLight ? 0.16 : 0.42}
+          roughness={0.5}
         />
       </mesh>
       <mesh position={[ROOM_W / 2 - 0.015, 2.75, ROOM_CENTER_Z]}>
-        <boxGeometry args={[0.03, 0.024, ROOM_D]} />
+        <boxGeometry args={[0.024, 0.022, ROOM_D]} />
         <meshStandardMaterial
           color={aisleAccent}
           emissive={aisleAccent}
-          emissiveIntensity={isLight ? 0.25 : 0.75}
-          toneMapped={false}
+          emissiveIntensity={isLight ? 0.16 : 0.42}
+          roughness={0.5}
         />
       </mesh>
 
-      {/* Wall-to-Wall Flush Ceiling Structural Beams (Seated directly against y = ROOM_H) */}
-      {[-0.6, 2.1, 4.8].map((bz, i) => (
-        <mesh key={i} position={[0, ROOM_H - 0.07, bz]}>
-          <boxGeometry args={[ROOM_W, 0.14, 0.22]} />
-          <meshStandardMaterial color={beamColor} metalness={0.32} roughness={0.55} />
-        </mesh>
+      {/* Wall-to-Wall Soft-Chamfered Ceiling Structural Beams */}
+      {[-0.6, 2.2, 5.2, 8.2].map((bz, i) => (
+        <RoundedBox key={i} args={[ROOM_W, 0.16, 0.24]} radius={0.024} smoothness={3} position={[0, ROOM_H - 0.07, bz]}>
+          <meshStandardMaterial color={beamColor} metalness={0.18} roughness={0.64} />
+        </RoundedBox>
       ))}
 
-      {/* Flush-Recessed Architectural Ceiling LED Light Panels (Embedded directly in ceiling slab!) */}
-      {[0.75, 3.45].map((lz, rowIdx) =>
-        [-4.2, 0, 4.2].map((lx, colIdx) => (
-          <group key={`${rowIdx}-${colIdx}`} position={[lx, ROOM_H - 0.016, lz]}>
-            {/* Recessed Aluminum Frame */}
+      {/* Back-Wall Architectural Datum Channel & Indirect Upper Wall Cove Strip */}
+      <group position={[0, 2.86, ROOM_BACK_Z + 0.032]}>
+        <RoundedBox args={[ROOM_W - 0.4, 0.055, 0.052]} radius={0.01} smoothness={3}>
+          <meshStandardMaterial color={wallTrimColor} metalness={0.28} roughness={0.48} />
+        </RoundedBox>
+        <mesh position={[0, 0.032, 0.008]}>
+          <boxGeometry args={[Math.max(rowSpan + 4.4, 8.8), 0.012, 0.014]} />
+          <meshStandardMaterial
+            color={aisleAccent}
+            emissive={aisleAccent}
+            emissiveIntensity={isLight ? 0.2 : 0.65}
+            roughness={0.35}
+          />
+        </mesh>
+      </group>
+
+      {/* Ceiling-Suspended Aluminum Overhead Cable Ladder Runway (Above NOC screen, zero occlusion) */}
+      <group position={[0, ROOM_H - 0.34, -0.35]}>
+        {/* Front & Rear Continuous Aluminum Side Stringers (wall-to-wall) */}
+        <RoundedBox args={[ROOM_W - 0.2, 0.042, 0.028]} radius={0.006} smoothness={2} position={[0, 0, 0.24]}>
+          <meshStandardMaterial color={wallTrimColor} metalness={0.42} roughness={0.42} />
+        </RoundedBox>
+        <RoundedBox args={[ROOM_W - 0.2, 0.042, 0.028]} radius={0.006} smoothness={2} position={[0, 0, -0.24]}>
+          <meshStandardMaterial color={wallTrimColor} metalness={0.42} roughness={0.42} />
+        </RoundedBox>
+        {/* Cross Rungs + Vertical Suspension Rods Anchored Flush to Ceiling */}
+        {[-6.4, -4.8, -3.2, -1.6, 0, 1.6, 3.2, 4.8, 6.4].map((rx, i) => (
+          <group key={i} position={[rx, 0, 0]}>
             <mesh>
-              <boxGeometry args={[2.2, 0.032, 0.34]} />
-              <meshStandardMaterial color={wallTrimColor} metalness={0.5} roughness={0.4} />
+              <boxGeometry args={[0.026, 0.018, 0.48]} />
+              <meshStandardMaterial color={wallTrimColor} metalness={0.38} roughness={0.46} />
             </mesh>
-            {/* Flush Opal Diffuser Panel */}
-            <mesh position={[0, -0.018, 0]}>
-              <boxGeometry args={[2.06, 0.008, 0.24]} />
+            {i % 2 === 0 && (
+              <>
+                <mesh position={[0, 0.17, 0.24]}>
+                  <cylinderGeometry args={[0.009, 0.009, 0.34, 8]} />
+                  <meshStandardMaterial color={wallTrimColor} metalness={0.45} roughness={0.4} />
+                </mesh>
+                <mesh position={[0, 0.17, -0.24]}>
+                  <cylinderGeometry args={[0.009, 0.009, 0.34, 8]} />
+                  <meshStandardMaterial color={wallTrimColor} metalness={0.45} roughness={0.4} />
+                </mesh>
+              </>
+            )}
+          </group>
+        ))}
+      </group>
+
+      {/* Flush-Recessed Frosted Architectural Ceiling Softbox Panels */}
+      {[0.8, 3.7, 6.7].map((lz, rowIdx) =>
+        [-4.4, 0, 4.4].map((lx, colIdx) => (
+          <group key={`${rowIdx}-${colIdx}`} position={[lx, ROOM_H - 0.016, lz]}>
+            <RoundedBox args={[2.32, 0.036, 0.4]} radius={0.014} smoothness={3}>
+              <meshStandardMaterial color={wallTrimColor} metalness={0.28} roughness={0.48} />
+            </RoundedBox>
+            <RoundedBox args={[2.16, 0.012, 0.28]} radius={0.005} smoothness={2} position={[0, -0.016, 0]}>
               <meshStandardMaterial
                 color={ceilingLightColor}
                 emissive={ceilingLightEmissive}
-                emissiveIntensity={isLight ? 0.95 : isShowroom ? 1.15 : 1.35}
-                toneMapped={false}
+                emissiveIntensity={isLight ? 0.78 : isShowroom ? 0.92 : 1.05}
+                roughness={0.32}
               />
-            </mesh>
+            </RoundedBox>
           </group>
         )),
       )}
 
       {/* =====================================================================
-          3. RECESSED COLD-AISLE FLOOR ACCENT CHANNEL
+          3. FLOOR ACCENT CHANNEL, COLD-AISLE DIFFUSERS OR SHOWROOM PLINTH
          ===================================================================== */}
       {!isShowroom ? (
-        <mesh position={[0, 0.003, 1.24]}>
-          <boxGeometry args={[Math.max(rowSpan + 2.8, 7.6), 0.006, 0.032]} />
-          <meshStandardMaterial
-            color={aisleAccent}
-            emissive={aisleAccent}
-            emissiveIntensity={isLight ? 0.6 : 1.45}
-            toneMapped={false}
-          />
-        </mesh>
+        <group>
+          <RoundedBox
+            args={[Math.max(rowSpan + 2.6, 7.6), 0.008, 0.036]}
+            radius={0.003}
+            smoothness={2}
+            position={[0, 0.003, 1.46]}
+          >
+            <meshStandardMaterial
+              color={aisleAccent}
+              emissive={aisleAccent}
+              emissiveIntensity={isLight ? 0.3 : 0.78}
+              roughness={0.35}
+            />
+          </RoundedBox>
+          {/* Flush Raised-Floor Cold-Aisle Perforated Airflow Diffuser Tiles */}
+          {[-2.1, -0.7, 0.7, 2.1].map((gx, idx) => (
+            <group key={idx} position={[gx, 0.002, 1.08]}>
+              <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+                <planeGeometry args={[1.08, 0.44]} />
+                <meshStandardMaterial
+                  color={isLight ? '#c4cedb' : '#141c28'}
+                  metalness={0.32}
+                  roughness={0.55}
+                />
+              </mesh>
+              <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]}>
+                <planeGeometry args={[0.98, 0.34]} />
+                <meshStandardMaterial
+                  color={isLight ? '#98a6b9' : '#0b1018'}
+                  metalness={0.22}
+                  roughness={0.78}
+                />
+              </mesh>
+            </group>
+          ))}
+        </group>
       ) : (
-        /* Showroom: Grounded Monolithic Display Plinth Flush on Floor */
+        /* Showroom: Soft-Chamfered Monolithic Gallery Plinth Flush on Floor */
         <>
-          <mesh position={[0, 0.035, 0]} receiveShadow>
-            <boxGeometry args={[Math.max(rowSpan + 2.2, 6.4), 0.07, 2.05]} />
-            <meshStandardMaterial color="#151a25" metalness={0.38} roughness={0.32} />
-          </mesh>
-          <mesh position={[0, 0.071, 1.022]}>
-            <boxGeometry args={[Math.max(rowSpan + 2.16, 6.36), 0.01, 0.014]} />
-            <meshStandardMaterial color="#7dd3fc" emissive="#38bdf8" emissiveIntensity={1.3} toneMapped={false} />
-          </mesh>
+          <RoundedBox
+            args={[Math.max(rowSpan + 2.2, 6.4), 0.08, 2.08]}
+            radius={0.024}
+            smoothness={4}
+            position={[0, 0.04, 0]}
+            receiveShadow
+          >
+            <meshStandardMaterial color="#1a202d" metalness={0.18} roughness={0.5} />
+          </RoundedBox>
+          <RoundedBox
+            args={[Math.max(rowSpan + 2.0, 6.2), 0.01, 0.014]}
+            radius={0.004}
+            smoothness={2}
+            position={[0, 0.078, 1.032]}
+          >
+            <meshStandardMaterial color="#93c5fd" emissive="#60a5fa" emissiveIntensity={0.75} roughness={0.35} />
+          </RoundedBox>
         </>
       )}
 
@@ -841,38 +833,29 @@ export function HallEnvironments({
       />
 
       {/* =====================================================================
-          5. SCENE-SPECIFIC GROUNDED ARCHITECTURAL PROPS (Zero Floating Items)
+          5. CLEAN FOREGROUND ACCENT FURNITURE (Zero clunky flanking rack boxes!)
          ===================================================================== */}
       {isColdAisle && (
-        <>
-          <CracCoolingUnit position={[leftPropX, 0, -0.15]} rotationY={0.1} accent="#38bdf8" />
-          <CracCoolingUnit position={[rightPropX, 0, -0.15]} rotationY={-0.1} accent="#38bdf8" />
-          <KvmCrashCart
-            position={[Math.max(-6.2, leftPropX + 0.45), 0, 1.95]}
-            rotationY={0.46}
-            nodes={nodes}
-            accent="#38bdf8"
-          />
-          <FireSuppressionTanks x={5.4} />
-        </>
+        <TactileKvmConsole
+          position={[leftDeskX, 0, 2.45]}
+          rotationY={0.5}
+          nodes={nodes}
+          accent="#60a5fa"
+        />
       )}
 
       {isLight && (
-        <>
-          <CracCoolingUnit position={[leftPropX, 0, -0.12]} rotationY={0.08} isLight accent="#0284c7" />
-          <CracCoolingUnit position={[rightPropX, 0, -0.12]} rotationY={-0.08} isLight accent="#0284c7" />
-          <CleanroomWorkbench
-            position={[Math.min(5.9, rightPropX - 0.15), 0, 1.9]}
-            nodes={nodes}
-          />
-        </>
+        <CleanroomLabDesk
+          position={[rightDeskX, 0, 2.35]}
+          nodes={nodes}
+        />
       )}
 
       {isBunker && (
-        <>
-          <BunkerOpsSuite leftX={leftPropX} rightX={rightPropX} nodes={nodes} />
-          <FireSuppressionTanks x={5.4} />
-        </>
+        <ObsidianOpsConsole
+          position={[leftDeskX, 0, 2.45]}
+          nodes={nodes}
+        />
       )}
 
       {/* =====================================================================

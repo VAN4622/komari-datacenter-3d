@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { ACCENTS, FINISHES, OLEDS, type FinishPalette, type AccentSpec } from '@/data/fleet';
+import { formatNetSpeed } from '@/lib/formatters';
 import type { EffectiveNodeStyle, NodeInfo } from '@/types/rack';
 
 function CommonDefs({
@@ -121,7 +122,7 @@ function B1Svg({
           {isOff ? 'OFFLINE' : `CPU ${Math.round(node.cpu)}%`}
         </text>
         <text x={112} y={27} textAnchor="end" fill="#8B98AA" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize={6.8}>
-          {isOff ? 'STBY' : `↓${node.netDown.toFixed(0)}M`}
+          {isOff ? 'STBY' : `↓${formatNetSpeed(node.netDown, true)}`}
         </text>
         <rect x={8} y={33.5} width={102} height={3.5} rx={1.75} fill="rgba(255,255,255,0.09)" />
         <rect x={8} y={33.5} width={barW} height={3.5} rx={1.75} fill={isHot ? '#F97316' : oled.bar} />

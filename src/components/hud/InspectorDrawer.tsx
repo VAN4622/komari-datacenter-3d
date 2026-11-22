@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { ServerUnitSvg } from '@/components/hardware/ServerChassisSvg';
 import { TelemetryScope } from '@/components/hud/TelemetryScope';
 import { ACCENTS, CABINET_THEMES, FINISHES, OLEDS, autoDetectModel, formatBytesGiB, getEffectiveStyle } from '@/data/fleet';
+import { formatNetSpeed, formatTrafficBytes } from '@/lib/formatters';
 import type {
+  AdminAuthStatus,
   ApiConnectionStatus,
   AppConfig,
   CabinetTheme,
@@ -10,6 +12,7 @@ import type {
   DataSourceMode,
   DrawerTab,
   KomariPublicInfo,
+  LayoutSyncSource,
   ModelSelection,
   NodeInfo,
   NodeStyleOverride,
@@ -34,13 +37,30 @@ interface InspectorDrawerProps {
   apiStatus: ApiConnectionStatus;
   apiError: string | null;
   publicInfo: KomariPublicInfo | null;
+  sameOriginDetected: boolean;
+  isSameOriginLink: boolean;
+  adminUrl: string;
+  adminAuthStatus: AdminAuthStatus;
+  adminUsername?: string;
+  canEnterEditMode: boolean;
+  canEdit: boolean;
+  layoutSyncSource: LayoutSyncSource;
+  hasServerLayout: boolean;
+  hasUnpublishedChanges: boolean;
+  isPublishingLayout: boolean;
   lastSyncAt: string | null;
   wsFramesCount: number;
+  onToggleEditMode: () => void;
+  onRecheckAdminAuth: () => void;
+  onPublishLayout: () => void;
+  onCopyServerLayoutJson: () => void;
+  onReloadServerLayout: () => void;
   onSelectRack: (rackId: string) => void;
   onAddRack: () => void;
   onRenameRack: (rackId: string, name: string) => void;
   onDeleteActiveRack: () => void;
   onChangeRackTheme: (rackId: string, theme: CabinetTheme) => void;
+  onToggleStrip: () => void;
   onMountNode: (nodeId: string) => void;
   onMountAccessory: (kind: 'pdu' | 'blank') => void;
   onMoveItem: (rackId: string, index: number, delta: -1 | 1) => void;
@@ -61,9 +81,9 @@ interface InspectorDrawerProps {
 }
 
 const TABS: { id: DrawerTab; label: string }[] = [
+  { id: 'telemetry', label: '遥测' },
   { id: 'builder', label: '编排' },
   { id: 'style', label: '涂装' },
-  { id: 'telemetry', label: '遥测' },
   { id: 'api', label: '接口' },
 ];
 
@@ -91,13 +111,30 @@ export function InspectorDrawer({
   apiStatus,
   apiError,
   publicInfo,
+  sameOriginDetected,
+  isSameOriginLink,
+  adminUrl,
+  adminAuthStatus,
+  adminUsername,
+  canEnterEditMode,
+  canEdit,
+  layoutSyncSource,
+  hasServerLayout,
+  hasUnpublishedChanges,
+  isPublishingLayout,
   lastSyncAt,
   wsFramesCount,
+  onToggleEditMode,
+  onRecheckAdminAuth,
+  onPublishLayout,
+  onCopyServerLayoutJson,
+  onReloadServerLayout,
   onSelectRack,
   onAddRack,
   onRenameRack,
   onDeleteActiveRack,
   onChangeRackTheme,
+  onToggleStrip,
   onMountNode,
   onMountAccessory,
   onMoveItem,
@@ -146,6 +183,136 @@ export function InspectorDrawer({
     }
   };
 
+  const renderEditLockBanner = () => {
+    if (canEdit) return null;
+    const isRemoteReadOnly = isLiveMode && !isSameOriginLink;
+    const isLiveGuest = isLiveMode && isSameOriginLink && adminAuthStatus !== 'authenticated';
+
+    return (
+      <section className="d-sec d-auth-gate">
+        <div className="d-sec-head">
+          <h3 className="d-title">
+            {isRemoteReadOnly
+              ? '远程只读监看模式'
+              : isLiveGuest
+                ? '访客只读 · 需管理员鉴权'
+                : '当前处于只读监看模式'}
+          </h3>
+          <span className="d-meta">LOCKED</span>
+        </div>
+        <p className="d-note">
+          {isRemoteReadOnly
+            ? '跨站远程连接无法携带目标站 Komari 登录 Cookie，访客与远程预览仅允许只读检视机柜，避免未授权编排。'
+            : isLiveGuest
+              ? '已通过 /api/me 校验：当前浏览器未登录 Komari 管理员账号，所有机柜编排、上架与涂装修改均已锁定。'
+              : isLiveMode
+                ? `已通过 /api/me 鉴权（${adminUsername || 'Admin'}），点击下方按钮即可进入管理员编排模式。`
+                : '默认以只读监看视图呈现，避免误操作。如需体验机柜上架与涂装，可手动开启本地演示编排模式。'}
+        </p>
+        <div className="d-two-col">
+          {isLiveGuest ? (
+            <>
+              <a className="d-primary-sm d-link-cta" href={adminUrl}>
+                前往 /admin 登录
+              </a>
+              <button type="button" className="d-ghost-btn" onClick={onRecheckAdminAuth}>
+                刷新鉴权状态
+              </button>
+            </>
+          ) : isRemoteReadOnly ? (
+            <a
+              className="d-ghost-btn d-btn-full d-link-cta"
+              href={adminUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              打开目标站后台 (/admin)
+            </a>
+          ) : canEnterEditMode ? (
+            <button type="button" className="d-primary-sm d-btn-full" onClick={onToggleEditMode}>
+              {isLiveMode ? '解锁管理员编排模式' : '开启本地演示编排'}
+            </button>
+          ) : (
+            <button type="button" className="d-ghost-btn d-btn-full" onClick={onRecheckAdminAuth}>
+              重新校验管理员会话
+            </button>
+          )}
+        </div>
+      </section>
+    );
+  };
+
+  const renderLayoutSyncCard = () => {
+    const sourceText =
+      !isLiveMode
+        ? '本地演示草稿 (localStorage)'
+        : layoutSyncSource === 'server'
+          ? 'Komari 服务端已发布 (theme_settings)'
+          : layoutSyncSource === 'local_draft'
+            ? '本地未发布草稿 (仅本机可见)'
+            : '按节点分组自动生成';
+
+    return (
+      <section className="d-sec d-sync-card">
+        <div className="d-sec-head">
+          <h3 className="d-title">编排保存与同步机制</h3>
+          <span className={`d-meta${hasUnpublishedChanges ? ' is-warn-text' : ''}`}>
+            {hasUnpublishedChanges ? '待发布' : layoutSyncSource.toUpperCase()}
+          </span>
+        </div>
+        <div className="d-status-box">
+          <div className="d-status-row">
+            <span>当前来源</span>
+            <strong>{sourceText}</strong>
+          </div>
+          <div className="d-status-row">
+            <span>管理员鉴权</span>
+            <strong className={adminAuthStatus === 'authenticated' ? 'is-ok' : ''}>
+              {!isLiveMode
+                ? 'DEMO 本地沙盒'
+                : adminAuthStatus === 'authenticated'
+                  ? `已登录 (${adminUsername || 'Admin'})`
+                  : adminAuthStatus === 'checking'
+                    ? '校验中…'
+                    : adminAuthStatus === 'remote_readonly'
+                      ? '跨域只读'
+                      : '未登录访客'}
+            </strong>
+          </div>
+        </div>
+        <p className="d-note">
+          编辑过程实时暂存于本机浏览器 <code>localStorage</code>；同源登录 Komari 管理员后点击「发布到 Komari 服务端」，会写入主题配置 <code>rackLayoutJson</code>，所有访客通过 <code>/api/public</code> 自动同步展示。
+        </p>
+
+        {isLiveMode && isSameOriginLink && adminAuthStatus === 'authenticated' && (
+          <button
+            type="button"
+            className="d-primary-sm d-btn-full"
+            disabled={isPublishingLayout}
+            onClick={onPublishLayout}
+          >
+            {isPublishingLayout ? '正在发布至 Komari 服务端…' : '保存并发布到 Komari 服务端（全员生效）'}
+          </button>
+        )}
+
+        <div className="d-two-col">
+          <button type="button" className="d-ghost-btn" onClick={onCopyServerLayoutJson}>
+            复制 rackLayoutJson
+          </button>
+          {isLiveMode && hasServerLayout ? (
+            <button type="button" className="d-ghost-btn" onClick={onReloadServerLayout}>
+              拉取服务端编排
+            </button>
+          ) : (
+            <button type="button" className="d-ghost-btn" onClick={onExportConfigJson}>
+              导出完整 JSON
+            </button>
+          )}
+        </div>
+      </section>
+    );
+  };
+
   return (
     <aside
       className={`inspector-drawer${open ? ' is-open' : ''}`}
@@ -164,6 +331,11 @@ export function InspectorDrawer({
               onClick={() => onTabChange(t.id)}
             >
               {t.label}
+              {(t.id === 'builder' || t.id === 'style') && !canEdit && (
+                <span className="drawer-tab-lock" aria-hidden="true">
+                  ·只读
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -175,12 +347,16 @@ export function InspectorDrawer({
       <div className="drawer-scroll">
         {tab === 'builder' && (
           <div className="drawer-sections">
+            {renderEditLockBanner()}
+
             <section className="d-sec">
               <div className="d-sec-head">
                 <h3 className="d-title">机柜阵列</h3>
-                <button type="button" className="d-link-btn" onClick={onAddRack}>
-                  + 新增机柜
-                </button>
+                {canEdit && (
+                  <button type="button" className="d-link-btn" onClick={onAddRack}>
+                    + 新增机柜
+                  </button>
+                )}
               </div>
 
               <div className="d-rack-list">
@@ -198,31 +374,59 @@ export function InspectorDrawer({
                 ))}
               </div>
 
-              <div className="d-row-between">
-                <span className="d-label">机柜名称</span>
-                <input
-                  type="text"
-                  className="d-input d-input-inline"
-                  value={activeRack.name}
-                  maxLength={24}
-                  aria-label="当前机柜名称"
-                  onChange={(e) => onRenameRack(activeRack.id, e.target.value)}
-                />
-              </div>
+              {canEdit && (
+                <>
+                  <div className="d-row-between">
+                    <span className="d-label">机柜名称</span>
+                    <input
+                      type="text"
+                      className="d-input d-input-inline"
+                      value={activeRack.name}
+                      maxLength={24}
+                      aria-label="当前机柜名称"
+                      onChange={(e) => onRenameRack(activeRack.id, e.target.value)}
+                    />
+                  </div>
+
+                  <div className="d-row-between">
+                    <span className="d-label">机柜材质</span>
+                    <div className="d-chip-group">
+                      {CABINET_THEMES.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          className={`d-chip${activeRack.theme === t.id ? ' is-active' : ''}`}
+                          onClick={() => onChangeRackTheme(activeRack.id, t.id)}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="d-row-between">
-                <span className="d-label">机柜材质</span>
+                <span className="d-label">服务器状态指示条</span>
                 <div className="d-chip-group">
-                  {CABINET_THEMES.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      className={`d-chip${activeRack.theme === t.id ? ' is-active' : ''}`}
-                      onClick={() => onChangeRackTheme(activeRack.id, t.id)}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    className={`d-chip${config.showStrip ? ' is-active' : ''}`}
+                    onClick={() => {
+                      if (!config.showStrip) onToggleStrip();
+                    }}
+                  >
+                    显示
+                  </button>
+                  <button
+                    type="button"
+                    className={`d-chip${!config.showStrip ? ' is-active' : ''}`}
+                    onClick={() => {
+                      if (config.showStrip) onToggleStrip();
+                    }}
+                  >
+                    隐藏
+                  </button>
                 </div>
               </div>
             </section>
@@ -252,43 +456,45 @@ export function InspectorDrawer({
                           onClick={() => {
                             if (node) {
                               onSelectNodeById(node.uuid);
-                              onTabChange('style');
+                              onTabChange(canEdit ? 'style' : 'telemetry');
                             }
                           }}
                           disabled={!node}
-                          title={node ? '点击检视与涂装该节点' : title}
+                          title={node ? (canEdit ? '点击检视与涂装该节点' : '点击查看该节点遥测') : title}
                         >
                           <span className="d-slot-idx">#{idx + 1}</span>
                           <span className="d-slot-name">{title}</span>
                         </button>
-                        <div className="d-slot-actions">
-                          <button
-                            type="button"
-                            className="d-slot-btn"
-                            disabled={idx === 0}
-                            onClick={() => onMoveItem(activeRack.id, idx, -1)}
-                            title="上移槽位"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            className="d-slot-btn"
-                            disabled={idx === activeRack.items.length - 1}
-                            onClick={() => onMoveItem(activeRack.id, idx, 1)}
-                            title="下移槽位"
-                          >
-                            ↓
-                          </button>
-                          <button
-                            type="button"
-                            className="d-slot-btn is-del"
-                            onClick={() => onRemoveItem(activeRack.id, item.uid)}
-                            title="卸载设备"
-                          >
-                            ×
-                          </button>
-                        </div>
+                        {canEdit && (
+                          <div className="d-slot-actions">
+                            <button
+                              type="button"
+                              className="d-slot-btn"
+                              disabled={idx === 0}
+                              onClick={() => onMoveItem(activeRack.id, idx, -1)}
+                              title="上移槽位"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              className="d-slot-btn"
+                              disabled={idx === activeRack.items.length - 1}
+                              onClick={() => onMoveItem(activeRack.id, idx, 1)}
+                              title="下移槽位"
+                            >
+                              ↓
+                            </button>
+                            <button
+                              type="button"
+                              className="d-slot-btn is-del"
+                              onClick={() => onRemoveItem(activeRack.id, item.uid)}
+                              title="卸载设备"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -296,154 +502,161 @@ export function InspectorDrawer({
               </section>
             )}
 
-            <section className="d-sec">
-              <div className="d-sec-head">
-                <h3 className="d-title">待上架设备</h3>
-                <span className="d-meta">{unmountedNodes.length} 可用</span>
-              </div>
+            {canEdit && (
+              <>
+                <section className="d-sec">
+                  <div className="d-sec-head">
+                    <h3 className="d-title">待上架设备</h3>
+                    <span className="d-meta">{unmountedNodes.length} 可用</span>
+                  </div>
 
-              {unmountedNodes.length === 0 ? (
-                <p className="d-note">
-                  {nodes.length === 0
-                    ? '当前无可用节点，请到「接口」连接 Komari 或切回 Demo。'
-                    : `全部 ${nodes.length} 台节点已在柜运行。卸载任意设备后可重新编排。`}
-                </p>
-              ) : (
-                <div className="d-mount-list">
-                  {unmountedNodes.map((node) => (
-                    <div key={node.uuid} className="d-mount-row">
-                      <div className="d-mount-info">
-                        <strong>
-                          {node.region} {node.name}
-                        </strong>
-                        <span>
-                          {autoDetectModel(node)} · {node.cpu_cores}C / {formatBytesGiB(node.mem_total)}
-                        </span>
-                      </div>
-                      <button type="button" className="d-primary-sm" onClick={() => onMountNode(node.uuid)}>
-                        上架
-                      </button>
+                  {unmountedNodes.length === 0 ? (
+                    <p className="d-note">
+                      {nodes.length === 0
+                        ? '当前无可用节点，请到「接口」连接 Komari 或切回 Demo。'
+                        : `全部 ${nodes.length} 台节点已在柜运行。卸载任意设备后可重新编排。`}
+                    </p>
+                  ) : (
+                    <div className="d-mount-list">
+                      {unmountedNodes.map((node) => (
+                        <div key={node.uuid} className="d-mount-row">
+                          <div className="d-mount-info">
+                            <strong>
+                              {node.region} {node.name}
+                            </strong>
+                            <span>
+                              {autoDetectModel(node)} · {node.cpu_cores}C / {formatBytesGiB(node.mem_total)}
+                            </span>
+                          </div>
+                          <button type="button" className="d-primary-sm" onClick={() => onMountNode(node.uuid)}>
+                            上架
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
+                  )}
 
-              <div className="d-two-col">
-                <button type="button" className="d-ghost-btn" onClick={() => onMountAccessory('pdu')}>
-                  + 1U 计量 PDU
-                </button>
-                <button type="button" className="d-ghost-btn" onClick={() => onMountAccessory('blank')}>
-                  + 1U 导风盲板
-                </button>
-              </div>
-            </section>
+                  <div className="d-two-col">
+                    <button type="button" className="d-ghost-btn" onClick={() => onMountAccessory('pdu')}>
+                      + 1U 计量 PDU
+                    </button>
+                    <button type="button" className="d-ghost-btn" onClick={() => onMountAccessory('blank')}>
+                      + 1U 导风盲板
+                    </button>
+                  </div>
+                </section>
 
-            <section className="d-sec">
-              <div className="d-sec-head">
-                <h3 className="d-title">机柜维护</h3>
-                <span className="d-meta">{activeRack.name}</span>
-              </div>
+                {renderLayoutSyncCard()}
 
-              <div className="d-danger-stack">
-                {activeRack.items.length > 0 && (
-                  confirmAction === 'clear' ? (
-                    <div className="d-confirm-bar">
-                      <span>确认清空 {activeRack.items.length} 台设备？</span>
-                      <div className="d-confirm-btns">
-                        <button type="button" className="d-link-btn" onClick={() => setConfirmAction(null)}>
-                          取消
-                        </button>
+                <section className="d-sec">
+                  <div className="d-sec-head">
+                    <h3 className="d-title">机柜维护</h3>
+                    <span className="d-meta">{activeRack.name}</span>
+                  </div>
+
+                  <div className="d-danger-stack">
+                    {activeRack.items.length > 0 &&
+                      (confirmAction === 'clear' ? (
+                        <div className="d-confirm-bar">
+                          <span>确认清空 {activeRack.items.length} 台设备？</span>
+                          <div className="d-confirm-btns">
+                            <button type="button" className="d-link-btn" onClick={() => setConfirmAction(null)}>
+                              取消
+                            </button>
+                            <button
+                              type="button"
+                              className="d-danger-btn"
+                              onClick={() => {
+                                setConfirmAction(null);
+                                onClearActiveRack();
+                              }}
+                            >
+                              确认清空
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
                         <button
                           type="button"
-                          className="d-danger-btn"
-                          onClick={() => {
-                            setConfirmAction(null);
-                            onClearActiveRack();
-                          }}
+                          className="d-ghost-btn d-btn-full"
+                          onClick={() => setConfirmAction('clear')}
                         >
-                          确认清空
+                          清空当前机柜设备（{activeRack.items.length} 台）
                         </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="d-ghost-btn d-btn-full"
-                      onClick={() => setConfirmAction('clear')}
-                    >
-                      清空当前机柜设备（{activeRack.items.length} 台）
-                    </button>
-                  )
-                )}
+                      ))}
 
-                {racks.length > 1 ? (
-                  confirmAction === 'delete' ? (
-                    <div className="d-confirm-bar">
-                      <span>删除此机柜？设备将退回待上架</span>
-                      <div className="d-confirm-btns">
-                        <button type="button" className="d-link-btn" onClick={() => setConfirmAction(null)}>
-                          取消
-                        </button>
+                    {racks.length > 1 ? (
+                      confirmAction === 'delete' ? (
+                        <div className="d-confirm-bar">
+                          <span>删除此机柜？设备将退回待上架</span>
+                          <div className="d-confirm-btns">
+                            <button type="button" className="d-link-btn" onClick={() => setConfirmAction(null)}>
+                              取消
+                            </button>
+                            <button
+                              type="button"
+                              className="d-danger-btn"
+                              onClick={() => {
+                                setConfirmAction(null);
+                                onDeleteActiveRack();
+                              }}
+                            >
+                              删除
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
                         <button
                           type="button"
-                          className="d-danger-btn"
-                          onClick={() => {
-                            setConfirmAction(null);
-                            onDeleteActiveRack();
-                          }}
+                          className="d-ghost-btn d-btn-full d-text-danger"
+                          onClick={() => setConfirmAction('delete')}
                         >
-                          删除
+                          移除当前机柜
                         </button>
+                      )
+                    ) : confirmAction === 'reset' ? (
+                      <div className="d-confirm-bar">
+                        <span>重置默认机房编排？</span>
+                        <div className="d-confirm-btns">
+                          <button type="button" className="d-link-btn" onClick={() => setConfirmAction(null)}>
+                            取消
+                          </button>
+                          <button
+                            type="button"
+                            className="d-danger-btn"
+                            onClick={() => {
+                              setConfirmAction(null);
+                              onResetDefaultLayout();
+                            }}
+                          >
+                            重置
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="d-ghost-btn d-btn-full d-text-danger"
-                      onClick={() => setConfirmAction('delete')}
-                    >
-                      移除当前机柜
-                    </button>
-                  )
-                ) : confirmAction === 'reset' ? (
-                  <div className="d-confirm-bar">
-                    <span>重置默认机房编排？</span>
-                    <div className="d-confirm-btns">
-                      <button type="button" className="d-link-btn" onClick={() => setConfirmAction(null)}>
-                        取消
-                      </button>
+                    ) : (
                       <button
                         type="button"
-                        className="d-danger-btn"
-                        onClick={() => {
-                          setConfirmAction(null);
-                          onResetDefaultLayout();
-                        }}
+                        className="d-ghost-btn d-btn-full"
+                        onClick={() => setConfirmAction('reset')}
                       >
-                        重置
+                        {isLiveMode ? '按分组自动重排机柜' : '恢复默认机房编排'}
                       </button>
-                    </div>
+                    )}
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="d-ghost-btn d-btn-full"
-                    onClick={() => setConfirmAction('reset')}
-                  >
-                    {isLiveMode ? '按分组自动重排机柜' : '恢复默认机房编排'}
-                  </button>
-                )}
-              </div>
-            </section>
+                </section>
+              </>
+            )}
           </div>
         )}
 
         {tab === 'style' && (
           <div className="drawer-sections">
+            {renderEditLockBanner()}
+
             <section className="d-sec">
               <div className="d-sec-head">
                 <h3 className="d-title">目标服务器</h3>
-                {selectedNode && (
+                {selectedNode && canEdit && (
                   <button
                     type="button"
                     className="d-link-btn"
@@ -481,105 +694,122 @@ export function InspectorDrawer({
                   />
                 </div>
 
-                <section className="d-sec">
-                  <div className="d-sec-head">
-                    <h3 className="d-title">机箱形态 (B1–B4)</h3>
-                    <span className="d-meta">{selectedStyle.model}</span>
-                  </div>
-                  <div className="d-model-grid">
-                    {MODEL_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        className={`d-model-card${selectedStyle.rawModel === opt.value ? ' is-active' : ''}`}
-                        onClick={() => onUpdateNodeStyle(selectedNode.uuid, { model: opt.value })}
-                      >
-                        <strong>{opt.label}</strong>
-                        <span>{opt.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
+                {canEdit ? (
+                  <>
+                    <section className="d-sec">
+                      <div className="d-sec-head">
+                        <h3 className="d-title">机箱形态 (B1–B4)</h3>
+                        <span className="d-meta">{selectedStyle.model}</span>
+                      </div>
+                      <div className="d-model-grid">
+                        {MODEL_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`d-model-card${selectedStyle.rawModel === opt.value ? ' is-active' : ''}`}
+                            onClick={() => onUpdateNodeStyle(selectedNode.uuid, { model: opt.value })}
+                          >
+                            <strong>{opt.label}</strong>
+                            <span>{opt.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
 
-                <section className="d-sec">
-                  <h3 className="d-title">前面板阳极表面</h3>
-                  <div className="d-finish-grid">
-                    {finishList.map((fin) => (
-                      <button
-                        key={fin.id}
-                        type="button"
-                        className={`d-finish-card${selectedStyle.finish === fin.id ? ' is-active' : ''}`}
-                        onClick={() => onUpdateNodeStyle(selectedNode.uuid, { finish: fin.id as ChassisFinish })}
-                      >
-                        <span
-                          className="d-finish-swatch"
-                          style={{ background: `linear-gradient(180deg, ${fin.top}, ${fin.bot})` }}
-                        />
-                        <span>{fin.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
+                    <section className="d-sec">
+                      <h3 className="d-title">前面板阳极表面</h3>
+                      <div className="d-finish-grid">
+                        {finishList.map((fin) => (
+                          <button
+                            key={fin.id}
+                            type="button"
+                            className={`d-finish-card${selectedStyle.finish === fin.id ? ' is-active' : ''}`}
+                            onClick={() => onUpdateNodeStyle(selectedNode.uuid, { finish: fin.id as ChassisFinish })}
+                          >
+                            <span
+                              className="d-finish-swatch"
+                              style={{ background: `linear-gradient(180deg, ${fin.top}, ${fin.bot})` }}
+                            />
+                            <span>{fin.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
 
-                <section className="d-sec">
-                  <h3 className="d-title">指示色与资产铭牌</h3>
+                    <section className="d-sec">
+                      <h3 className="d-title">指示色与资产铭牌</h3>
 
-                  <div className="d-row-between">
-                    <span className="d-label">拉手点缀</span>
-                    <div className="d-swatch-row">
-                      {ACCENTS.map((acc) => (
-                        <button
-                          key={acc.id}
-                          type="button"
-                          className={`d-color-dot${selectedStyle.accent === acc.id ? ' is-active' : ''}`}
-                          style={{ background: acc.hex }}
-                          title={acc.name}
-                          aria-label={`强调色：${acc.name}`}
-                          onClick={() => onUpdateNodeStyle(selectedNode.uuid, { accent: acc.id })}
-                        />
-                      ))}
-                    </div>
-                  </div>
+                      <div className="d-row-between">
+                        <span className="d-label">拉手点缀</span>
+                        <div className="d-swatch-row">
+                          {ACCENTS.map((acc) => (
+                            <button
+                              key={acc.id}
+                              type="button"
+                              className={`d-color-dot${selectedStyle.accent === acc.id ? ' is-active' : ''}`}
+                              style={{ background: acc.hex }}
+                              title={acc.name}
+                              aria-label={`强调色：${acc.name}`}
+                              onClick={() => onUpdateNodeStyle(selectedNode.uuid, { accent: acc.id })}
+                            />
+                          ))}
+                        </div>
+                      </div>
 
-                  <div className="d-row-between">
-                    <span className="d-label">OLED 荧光</span>
-                    <div className="d-chip-group">
-                      {OLEDS.map((o) => (
-                        <button
-                          key={o.id}
-                          type="button"
-                          className={`d-chip${selectedStyle.oled === o.id ? ' is-active' : ''}`}
-                          onClick={() => onUpdateNodeStyle(selectedNode.uuid, { oled: o.id })}
-                        >
-                          <i className="d-pip" style={{ background: o.main }} />
-                          {o.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                      <div className="d-row-between">
+                        <span className="d-label">OLED 荧光</span>
+                        <div className="d-chip-group">
+                          {OLEDS.map((o) => (
+                            <button
+                              key={o.id}
+                              type="button"
+                              className={`d-chip${selectedStyle.oled === o.id ? ' is-active' : ''}`}
+                              onClick={() => onUpdateNodeStyle(selectedNode.uuid, { oled: o.id })}
+                            >
+                              <i className="d-pip" style={{ background: o.main }} />
+                              {o.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
 
-                  <div className="d-field">
-                    <label className="d-label" htmlFor="dc-asset-tag">
-                      面板标签
-                    </label>
-                    <div className="d-input-row">
-                      <input
-                        id="dc-asset-tag"
-                        className="d-input"
-                        value={selectedStyle.tag}
-                        maxLength={14}
-                        onChange={(e) => onUpdateNodeStyle(selectedNode.uuid, { tag: e.target.value })}
-                      />
+                      <div className="d-field">
+                        <label className="d-label" htmlFor="dc-asset-tag">
+                          面板标签
+                        </label>
+                        <div className="d-input-row">
+                          <input
+                            id="dc-asset-tag"
+                            className="d-input"
+                            value={selectedStyle.tag}
+                            maxLength={14}
+                            onChange={(e) => onUpdateNodeStyle(selectedNode.uuid, { tag: e.target.value })}
+                          />
+                          <button
+                            type="button"
+                            className={`d-chip${selectedNodeUidBlinking ? ' is-active' : ''}`}
+                            onClick={() => onToggleUid(selectedNode.uuid)}
+                          >
+                            {selectedNodeUidBlinking ? 'UID 闪烁中' : '点亮 UID'}
+                          </button>
+                        </div>
+                      </div>
+                    </section>
+                  </>
+                ) : (
+                  <section className="d-sec">
+                    <div className="d-row-between">
+                      <span className="d-label">机位定位灯 (UID)</span>
                       <button
                         type="button"
                         className={`d-chip${selectedNodeUidBlinking ? ' is-active' : ''}`}
                         onClick={() => onToggleUid(selectedNode.uuid)}
                       >
-                        {selectedNodeUidBlinking ? 'UID 闪烁中' : '点亮 UID'}
+                        {selectedNodeUidBlinking ? 'UID 闪烁中' : '点亮定位'}
                       </button>
                     </div>
-                  </div>
-                </section>
+                  </section>
+                )}
               </>
             )}
           </div>
@@ -629,14 +859,22 @@ export function InspectorDrawer({
                       <span>实时吞吐</span>
                       <strong>
                         {selectedNode.online
-                          ? `↓${selectedNode.netDown.toFixed(1)} / ↑${selectedNode.netUp.toFixed(1)} Mbps`
-                          : '0 Mbps'}
+                          ? `↓ ${formatNetSpeed(selectedNode.netDown)} / ↑ ${formatNetSpeed(selectedNode.netUp)}`
+                          : '0 B/s'}
                       </strong>
                     </div>
                     <div className="d-spec">
                       <span>往返延迟</span>
                       <strong>{selectedNode.online && selectedNode.ping > 0 ? `${selectedNode.ping} ms` : '--'}</strong>
                     </div>
+                    {(selectedNode.totalDown !== undefined || selectedNode.totalUp !== undefined) && (
+                      <div className="d-spec">
+                        <span>累计流量</span>
+                        <strong>
+                          ↓ {formatTrafficBytes(selectedNode.totalDown)} / ↑ {formatTrafficBytes(selectedNode.totalUp)}
+                        </strong>
+                      </div>
+                    )}
                     <div className="d-spec">
                       <span>处理器</span>
                       <strong>{selectedNode.cpu_name}</strong>
@@ -717,13 +955,13 @@ export function InspectorDrawer({
 
               <div className="d-field">
                 <label className="d-label" htmlFor="dc-komari-url">
-                  站点地址（留空使用同源 /api 反代）
+                  站点地址（支持直接填域名，留空使用同源 /api）
                 </label>
                 <div className="d-input-row">
                   <input
                     id="dc-komari-url"
                     className="d-input d-mono"
-                    placeholder="https://status.example.com"
+                    placeholder="status.example.com 或 https://..."
                     value={urlDraft}
                     onChange={(e) => setUrlDraft(e.target.value)}
                     onKeyDown={(e) => {
@@ -734,13 +972,24 @@ export function InspectorDrawer({
                     连接
                   </button>
                 </div>
+                <p className="d-note">
+                  远程连接需目标站在 Komari 后台开启 <code>allow_cors</code>；作为官方主题上传同源部署时留空即可自动免配直连。
+                </p>
               </div>
 
               <div className="d-status-box">
                 <div className="d-status-row">
                   <span>LINK</span>
-                  <strong className={apiStatus === 'live' ? 'is-ok' : apiStatus === 'error' ? 'is-err' : ''}>
-                    {apiStatus.toUpperCase()}
+                  <strong
+                    className={
+                      apiStatus === 'live'
+                        ? 'is-ok'
+                        : apiStatus === 'error' || apiStatus === 'auth_required'
+                          ? 'is-err'
+                          : ''
+                    }
+                  >
+                    {apiStatus === 'auth_required' ? 'AUTH REQUIRED' : apiStatus.toUpperCase()}
                   </strong>
                 </div>
                 <div className="d-status-row">
@@ -753,13 +1002,43 @@ export function InspectorDrawer({
                     {nodes.length} 节点 · {wsFramesCount} 帧
                   </strong>
                 </div>
+                <div className="d-status-row">
+                  <span>ENV</span>
+                  <strong>
+                    {sameOriginDetected
+                      ? '同源 Komari 主题'
+                      : config.api.baseUrl
+                        ? '远程跨域连接'
+                        : '本地开发 / 演示'}
+                  </strong>
+                </div>
+                {publicInfo && (
+                  <div className="d-status-row">
+                    <span>POLICY</span>
+                    <strong>
+                      {publicInfo.private_site ? 'PRIVATE' : 'PUBLIC'} · {publicInfo.allow_cors ? 'CORS ON' : 'CORS OFF'}
+                    </strong>
+                  </div>
+                )}
                 {apiError && <div className="d-status-err">{apiError}</div>}
+                {apiStatus === 'auth_required' && (
+                  <a
+                    className="d-ghost-btn d-btn-full d-admin-cta"
+                    href={adminUrl}
+                    target={config.api.baseUrl ? '_blank' : undefined}
+                    rel={config.api.baseUrl ? 'noreferrer' : undefined}
+                  >
+                    前往 Komari 后台登录 (/admin)
+                  </a>
+                )}
               </div>
             </section>
 
+            {renderLayoutSyncCard()}
+
             <section className="d-sec">
               <div className="d-sec-head">
-                <h3 className="d-title">编排配置同步</h3>
+                <h3 className="d-title">本地配置备份 / 恢复</h3>
                 <span className="d-meta">JSON</span>
               </div>
               <div className="d-two-col">
@@ -769,15 +1048,18 @@ export function InspectorDrawer({
                 <button
                   type="button"
                   className="d-ghost-btn"
+                  disabled={!canEdit}
+                  title={canEdit ? '导入 JSON 覆盖当前编排' : '需管理员进入编排模式后导入'}
                   onClick={() => {
+                    if (!canEdit) return;
                     setShowImportBox((v) => !v);
                     setImportErr(null);
                   }}
                 >
-                  {showImportBox ? '收起导入' : '导入 JSON'}
+                  {showImportBox ? '收起导入' : canEdit ? '导入 JSON' : '导入 (只读)'}
                 </button>
               </div>
-              {showImportBox && (
+              {showImportBox && canEdit && (
                 <div className="d-import-box">
                   <textarea
                     className="d-textarea"

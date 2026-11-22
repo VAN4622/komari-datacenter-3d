@@ -1,9 +1,33 @@
-import type { KomariPublicInfo, NodeInfo, RecordHours, TelemetryPoint } from '@/types/rack';
+import type {
+  CabinetThemePreference,
+  CameraPreset,
+  KomariMeInfo,
+  KomariPublicInfo,
+  KomariThemeSettings,
+  NodeInfo,
+  RecordHours,
+  RoomAtmosphere,
+  TelemetryPoint,
+} from '@/types/rack';
 
 interface ApiEnvelope<T> {
   status?: string;
   message?: string;
   data?: T;
+}
+
+export type KomariErrorCode = 'auth' | 'cors' | 'mixed_content' | 'http' | 'network' | 'invalid';
+
+export class KomariApiError extends Error {
+  readonly code: KomariErrorCode;
+  readonly status?: number;
+
+  constructor(message: string, code: KomariErrorCode, status?: number) {
+    super(message);
+    this.name = 'KomariApiError';
+    this.code = code;
+    this.status = status;
+  }
 }
 
 export interface KomariRawNode {
@@ -26,12 +50,35 @@ export interface KomariRawNode {
 }
 
 export interface KomariLiveEntry {
-  cpu?: { usage?: number };
+  cpu?: { usage?: number } | number;
   ram?: { total?: number; used?: number };
   swap?: { total?: number; used?: number };
-  load?: { load1?: number; load5?: number; load15?: number };
+  load?: { load1?: number; load5?: number; load15?: number } | number;
   disk?: { total?: number; used?: number };
-  network?: { up?: number; down?: number; totalUp?: number; totalDown?: number };
+  network?: {
+    up?: number;
+    down?: number;
+    up_speed?: number;
+    down_speed?: number;
+    tx?: number;
+    rx?: number;
+    out?: number;
+    in?: number;
+    upload?: number;
+    download?: number;
+    totalUp?: number;
+    totalDown?: number;
+    total_up?: number;
+    total_down?: number;
+    total_tx?: number;
+    total_rx?: number;
+  };
+  net_in?: number;
+  net_out?: number;
+  net_down?: number;
+  net_up?: number;
+  net_total_down?: number;
+  net_total_up?: number;
   connections?: { tcp?: number; udp?: number };
   uptime?: number;
   process?: number;
@@ -59,16 +106,69 @@ interface RawPingRecord {
   value?: number;
   ping?: number;
   latency?: number;
+  task_id?: number;
 }
 
+function isLocalOrIpHost(hostPort: string): boolean {
+  const host = hostPort.split('/')[0].split(':')[0].toLowerCase();
+  if (!host) return false;
+  if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1' || host.endsWith('.local')) {
+    return true;
+  }
+  // Private IPv4 ranges & raw IPv4 addresses
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Normalizes a user-supplied Komari server URL:
+ * - Empty string -> '' (same-origin /api)
+ * - Relative proxy prefix like '/komari' -> '/komari'
+ * - ws:// / wss:// -> http:// / https://
+ * - Bare hostname like 'status.example.com' -> 'https://status.example.com'
+ * - Bare local/IP host like '192.168.1.5:25774' -> 'http://192.168.1.5:25774'
+ * - Strips trailing slashes and trailing '/api'
+ */
 export function normalizeBaseUrl(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return '';
+
   let normalized = trimmed.replace(/\/+$/, '');
-  if (normalized.endsWith('/api')) {
-    normalized = normalized.slice(0, -4);
+  normalized = normalized.replace(/\/api(?:\/(?:clients|nodes|public))?$/i, '').replace(/\/+$/, '');
+  if (!normalized || normalized === '/') return '';
+
+  // Relative proxy path (e.g. '/komari')
+  if (normalized.startsWith('/') && !normalized.startsWith('//')) {
+    return normalized;
   }
-  return normalized;
+
+  // Protocol-relative URL (e.g. '//status.example.com')
+  if (normalized.startsWith('//')) {
+    const proto = typeof window !== 'undefined' && window.location.protocol === 'http:' ? 'http:' : 'https:';
+    normalized = `${proto}${normalized}`;
+  } else if (/^wss:\/\//i.test(normalized)) {
+    normalized = `https://${normalized.slice(6)}`;
+  } else if (/^ws:\/\//i.test(normalized)) {
+    normalized = `http://${normalized.slice(5)}`;
+  } else if (!/^https?:\/\//i.test(normalized)) {
+    const scheme = isLocalOrIpHost(normalized) ? 'http://' : 'https://';
+    normalized = `${scheme}${normalized}`;
+  }
+
+  return normalized.replace(/\/+$/, '');
+}
+
+export function isSameOriginTarget(baseUrl: string): boolean {
+  const cleanBase = normalizeBaseUrl(baseUrl);
+  if (!cleanBase || cleanBase.startsWith('/')) return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    return new URL(cleanBase).origin === window.location.origin;
+  } catch {
+    return false;
+  }
 }
 
 export function buildApiUrl(baseUrl: string, path: string): string {
@@ -77,24 +177,28 @@ export function buildApiUrl(baseUrl: string, path: string): string {
   return cleanBase ? `${cleanBase}${cleanPath}` : cleanPath;
 }
 
+export function buildAdminUrl(baseUrl: string): string {
+  const cleanBase = normalizeBaseUrl(baseUrl);
+  return cleanBase ? `${cleanBase}/admin` : '/admin';
+}
+
 export function buildWsUrl(baseUrl: string, path = '/api/clients'): string {
   const cleanBase = normalizeBaseUrl(baseUrl);
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  if (cleanBase) {
-    if (cleanBase.startsWith('https://')) {
+
+  if (cleanBase && !cleanBase.startsWith('/')) {
+    if (/^https:\/\//i.test(cleanBase)) {
       return `wss://${cleanBase.slice('https://'.length)}${cleanPath}`;
     }
-    if (cleanBase.startsWith('http://')) {
+    if (/^http:\/\//i.test(cleanBase)) {
       return `ws://${cleanBase.slice('http://'.length)}${cleanPath}`;
     }
-    if (cleanBase.startsWith('ws://') || cleanBase.startsWith('wss://')) {
-      return `${cleanBase}${cleanPath}`;
-    }
-    return `https://${cleanBase}${cleanPath}`.replace(/^https:\/\//, 'wss://');
   }
+
   const proto = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = typeof window !== 'undefined' ? window.location.host : '127.0.0.1:5173';
-  return `${proto}//${host}${cleanPath}`;
+  const host = typeof window !== 'undefined' ? window.location.host : '127.0.0.1:5174';
+  const prefix = cleanBase.startsWith('/') ? cleanBase : '';
+  return `${proto}//${host}${prefix}${cleanPath}`;
 }
 
 export function regionToFlag(region?: string): string {
@@ -122,7 +226,11 @@ function unwrapEnvelope<T>(payload: unknown): T {
   if (payload && typeof payload === 'object' && 'data' in payload) {
     const env = payload as ApiEnvelope<T>;
     if (env.status && env.status !== 'success' && env.status !== 'ok') {
-      throw new Error(env.message || `Komari API returned status: ${env.status}`);
+      const msg = env.message || `Komari API 返回异常状态: ${env.status}`;
+      if (/unauthor|forbidden|login|private|auth/i.test(msg)) {
+        throw new KomariApiError(msg, 'auth');
+      }
+      throw new KomariApiError(msg, 'http');
     }
     if (env.data !== undefined) {
       return env.data;
@@ -131,40 +239,348 @@ function unwrapEnvelope<T>(payload: unknown): T {
   return payload as T;
 }
 
-async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-    credentials: 'omit',
-    signal,
-  });
+function isMixedContentUrl(url: string): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.protocol === 'https:' && /^http:\/\//i.test(url);
+}
+
+async function fetchJson<T>(url: string, baseUrl: string, signal?: AbortSignal): Promise<T> {
+  const sameOrigin = isSameOriginTarget(baseUrl);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      // Same-origin requests include Komari session cookies so logged-in private_site works;
+      // cross-origin requests omit credentials so Komari's `Access-Control-Allow-Origin: *` succeeds.
+      credentials: sameOrigin ? 'same-origin' : 'omit',
+      signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw err;
+    }
+    if (isMixedContentUrl(url)) {
+      throw new KomariApiError(
+        '混合内容受阻：当前页面为 HTTPS，浏览器禁止直接请求 HTTP 接口，请改为 HTTPS 地址。',
+        'mixed_content',
+      );
+    }
+    if (!sameOrigin) {
+      throw new KomariApiError(
+        '跨域或网络受限：请确认目标 Komari 后台已开启 allow_cors（允许跨域），或将其作为同源主题部署。',
+        'cors',
+      );
+    }
+    throw new KomariApiError(
+      err instanceof Error ? err.message : '网络请求失败，请检查服务端连通性。',
+      'network',
+    );
+  }
+
   if (res.status === 401 || res.status === 403) {
-    throw new Error(`HTTP ${res.status}（目标站点可能已开启私密模式或未开放跨域读取）`);
+    let backendMsg = '';
+    try {
+      const body = (await res.json()) as { message?: string };
+      backendMsg = body?.message || '';
+    } catch {
+      // ignore non-json error body
+    }
+    throw new KomariApiError(
+      backendMsg ||
+        (sameOrigin
+          ? `HTTP ${res.status}：站点已开启私密模式，请先前往 /admin 登录管理员账号。`
+          : `HTTP ${res.status}：目标站点已开启私密模式（private_site），跨域访客无法拉取节点。`),
+      'auth',
+      res.status,
+    );
   }
+
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    throw new KomariApiError(`HTTP ${res.status} ${res.statusText || ''}`.trim(), 'http', res.status);
   }
-  const json = (await res.json()) as unknown;
+
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType && !/json/i.test(contentType)) {
+    throw new KomariApiError(
+      '接口返回了非 JSON 内容（可能地址填写有误，或当前非 Komari 后端环境）。',
+      'invalid',
+      res.status,
+    );
+  }
+
+  let json: unknown;
+  try {
+    json = await res.json();
+  } catch {
+    throw new KomariApiError('响应 JSON 解析失败，请确认填写的是 Komari 站点根地址。', 'invalid', res.status);
+  }
+
   return unwrapEnvelope<T>(json);
 }
 
+export function parseKomariThemeSettings(raw?: Record<string, unknown>): KomariThemeSettings {
+  if (!raw || typeof raw !== 'object') return {};
+
+  const out: KomariThemeSettings = {};
+
+  const atmo = raw.defaultAtmosphere;
+  if (atmo === 'cold-aisle' || atmo === 'cleanroom' || atmo === 'obsidian-noc' || atmo === 'showroom') {
+    out.defaultAtmosphere = atmo as RoomAtmosphere;
+  }
+
+  const preset = raw.defaultCameraPreset;
+  if (preset === 'iso34' || preset === 'corridor' || preset === 'overhead' || preset === 'front') {
+    out.defaultCameraPreset = preset as CameraPreset;
+  }
+
+  const cabTheme = raw.defaultCabinetTheme;
+  if (cabTheme === 'auto' || cabTheme === 'obsidian' || cabTheme === 'titanium' || cabTheme === 'silver') {
+    out.defaultCabinetTheme = cabTheme as CabinetThemePreference;
+  }
+
+  if (typeof raw.showStatusStrip === 'boolean') {
+    out.showStatusStrip = raw.showStatusStrip;
+  } else if (raw.showStatusStrip === 'true' || raw.showStatusStrip === 'false') {
+    out.showStatusStrip = raw.showStatusStrip === 'true';
+  }
+
+  if (typeof raw.compactRackWidth === 'boolean') {
+    out.compactRackWidth = raw.compactRackWidth;
+  } else if (raw.compactRackWidth === 'true' || raw.compactRackWidth === 'false') {
+    out.compactRackWidth = raw.compactRackWidth === 'true';
+  }
+
+  if (typeof raw.enablePingPolling === 'boolean') {
+    out.enablePingPolling = raw.enablePingPolling;
+  } else if (raw.enablePingPolling === 'true' || raw.enablePingPolling === 'false') {
+    out.enablePingPolling = raw.enablePingPolling === 'true';
+  }
+
+  const hoursNum = Number(raw.recordHours);
+  if (hoursNum === 1 || hoursNum === 6 || hoursNum === 24) {
+    out.recordHours = hoursNum as RecordHours;
+  }
+
+  if (typeof raw.showAdminLink === 'boolean') {
+    out.showAdminLink = raw.showAdminLink;
+  } else if (raw.showAdminLink === 'true' || raw.showAdminLink === 'false') {
+    out.showAdminLink = raw.showAdminLink === 'true';
+  }
+
+  if (typeof raw.customHallTitle === 'string' && raw.customHallTitle.trim()) {
+    out.customHallTitle = raw.customHallTitle.trim();
+  }
+
+  if (typeof raw.rackLayoutJson === 'string' && raw.rackLayoutJson.trim()) {
+    out.rackLayoutJson = raw.rackLayoutJson.trim();
+  }
+
+  return out;
+}
+
+/**
+ * Verifies whether the current browser session is logged into Komari as an administrator.
+ * Only works on same-origin deployments (cross-origin requests cannot carry HttpOnly session cookies).
+ */
+export async function fetchKomariMe(baseUrl: string, signal?: AbortSignal): Promise<KomariMeInfo> {
+  if (!isSameOriginTarget(baseUrl)) {
+    return { loggedIn: false };
+  }
+  try {
+    const res = await fetch(buildApiUrl(baseUrl, '/api/me'), {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+      signal,
+    });
+    if (!res.ok) {
+      return { loggedIn: false };
+    }
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType && !/json/i.test(contentType)) {
+      return { loggedIn: false };
+    }
+    const raw = (await res.json()) as Record<string, unknown>;
+    const unwrapped =
+      raw && typeof raw === 'object' && 'data' in raw && raw.data && typeof raw.data === 'object'
+        ? (raw.data as Record<string, unknown>)
+        : raw;
+
+    const loggedInFlag = unwrapped.logged_in ?? unwrapped.loggedIn ?? unwrapped.authenticated;
+    const username = typeof unwrapped.username === 'string' ? unwrapped.username.trim() : '';
+    const uuid = typeof unwrapped.uuid === 'string' ? unwrapped.uuid : undefined;
+    const ssoType = typeof unwrapped.sso_type === 'string' ? unwrapped.sso_type : undefined;
+
+    if (loggedInFlag === false) {
+      return { loggedIn: false };
+    }
+    if (loggedInFlag === true || username.length > 0) {
+      return {
+        loggedIn: true,
+        username: username || 'Admin',
+        uuid,
+        ssoType,
+      };
+    }
+    return { loggedIn: false };
+  } catch {
+    return { loggedIn: false };
+  }
+}
+
+export interface SaveThemeLayoutResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Persists the serialized rack layout JSON to Komari's managed theme settings on the server
+ * so every visitor sees the exact layout published by the administrator.
+ * Requires an authenticated same-origin Komari admin session.
+ */
+export async function saveKomariThemeLayout(
+  baseUrl: string,
+  themeShort: string,
+  existingThemeSettings: Record<string, unknown> | undefined,
+  rackLayoutJson: string,
+): Promise<SaveThemeLayoutResult> {
+  if (!isSameOriginTarget(baseUrl)) {
+    return { ok: false, error: '跨域远程连接无法写入服务端设置，请同源部署后登录后台保存。' };
+  }
+
+  const mergedSettings: Record<string, unknown> = {
+    ...(existingThemeSettings ?? {}),
+    rackLayoutJson,
+  };
+
+  // Komari official managed theme settings endpoints (across 0.x / 1.x releases)
+  const candidates: Array<{ url: string; method: 'POST' | 'PUT'; body: unknown }> = [
+    {
+      url: buildApiUrl(baseUrl, `/api/admin/theme/settings?theme=${encodeURIComponent(themeShort)}`),
+      method: 'POST',
+      body: mergedSettings,
+    },
+    {
+      url: buildApiUrl(baseUrl, '/api/admin/theme/settings'),
+      method: 'POST',
+      body: { theme: themeShort, settings: mergedSettings, ...mergedSettings },
+    },
+    {
+      url: buildApiUrl(baseUrl, '/api/admin/settings'),
+      method: 'POST',
+      body: { theme_settings: mergedSettings },
+    },
+  ];
+
+  let lastErr = '服务端未接受主题配置写入';
+  for (const cand of candidates) {
+    try {
+      const res = await fetch(cand.url, {
+        method: cand.method,
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(cand.body),
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        return { ok: false, error: '管理员登录状态已失效，请重新登录 /admin 后保存。' };
+      }
+
+      if (res.ok) {
+        const text = await res.text();
+        if (!text) return { ok: true };
+        try {
+          const parsed = JSON.parse(text) as { status?: string; message?: string };
+          if (!parsed.status || parsed.status === 'success' || parsed.status === 'ok') {
+            return { ok: true };
+          }
+          lastErr = parsed.message || `状态 ${parsed.status}`;
+        } catch {
+          return { ok: true };
+        }
+      } else {
+        lastErr = `HTTP ${res.status}`;
+      }
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : '网络请求异常';
+    }
+  }
+
+  return { ok: false, error: lastErr };
+}
+
 export async function fetchKomariPublic(baseUrl: string, signal?: AbortSignal): Promise<KomariPublicInfo> {
-  const data = await fetchJson<Partial<KomariPublicInfo>>(buildApiUrl(baseUrl, '/api/public'), signal);
+  const data = await fetchJson<Partial<KomariPublicInfo>>(buildApiUrl(baseUrl, '/api/public'), baseUrl, signal);
+  if (!data || typeof data !== 'object') {
+    throw new KomariApiError('/api/public 返回数据结构异常', 'invalid');
+  }
   return {
-    sitename: data?.sitename || 'Komari Monitor',
-    description: data?.description || '',
-    allow_cors: Boolean(data?.allow_cors),
-    private_site: Boolean(data?.private_site),
-    record_enabled: data?.record_enabled !== false,
-    record_preserve_time: data?.record_preserve_time,
-    ping_record_preserve_time: data?.ping_record_preserve_time,
-    theme: data?.theme,
-    theme_settings: data?.theme_settings,
+    sitename: data.sitename || 'Komari Monitor',
+    description: data.description || '',
+    allow_cors: Boolean(data.allow_cors),
+    private_site: Boolean(data.private_site),
+    record_enabled: data.record_enabled !== false,
+    record_preserve_time: data.record_preserve_time,
+    ping_record_preserve_time: data.ping_record_preserve_time,
+    theme: data.theme,
+    theme_settings: data.theme_settings && typeof data.theme_settings === 'object' ? data.theme_settings : undefined,
+    custom_head: typeof data.custom_head === 'string' ? data.custom_head : undefined,
+    custom_body: typeof data.custom_body === 'string' ? data.custom_body : undefined,
   };
 }
 
+/**
+ * Silently probes whether the current origin is a real Komari backend.
+ * Returns KomariPublicInfo when deployed as a Komari theme / same-origin proxy,
+ * or null on standalone dev servers (which return HTML or 404 for /api/public).
+ */
+export async function probeSameOriginKomari(signal?: AbortSignal): Promise<KomariPublicInfo | null> {
+  try {
+    const res = await fetch('/api/public', {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+      signal,
+    });
+    if (!res.ok) return null;
+    const contentType = res.headers.get('content-type') || '';
+    if (!/json/i.test(contentType)) return null;
+    const raw = (await res.json()) as unknown;
+    const data = unwrapEnvelope<Partial<KomariPublicInfo>>(raw);
+    if (!data || typeof data !== 'object') return null;
+    // Confirm genuine Komari payload keys
+    const looksLikeKomari =
+      typeof data.sitename === 'string' ||
+      typeof data.allow_cors === 'boolean' ||
+      typeof data.private_site === 'boolean' ||
+      typeof data.record_enabled === 'boolean';
+    if (!looksLikeKomari) return null;
+
+    return {
+      sitename: data.sitename || 'Komari Monitor',
+      description: data.description || '',
+      allow_cors: Boolean(data.allow_cors),
+      private_site: Boolean(data.private_site),
+      record_enabled: data.record_enabled !== false,
+      record_preserve_time: data.record_preserve_time,
+      ping_record_preserve_time: data.ping_record_preserve_time,
+      theme: data.theme,
+      theme_settings: data.theme_settings && typeof data.theme_settings === 'object' ? data.theme_settings : undefined,
+      custom_head: typeof data.custom_head === 'string' ? data.custom_head : undefined,
+      custom_body: typeof data.custom_body === 'string' ? data.custom_body : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchKomariNodes(baseUrl: string, signal?: AbortSignal): Promise<NodeInfo[]> {
-  const raw = await fetchJson<KomariRawNode[]>(buildApiUrl(baseUrl, '/api/nodes'), signal);
+  const raw = await fetchJson<KomariRawNode[]>(buildApiUrl(baseUrl, '/api/nodes'), baseUrl, signal);
   const list = Array.isArray(raw) ? raw : [];
   return list
     .slice()
@@ -205,16 +621,32 @@ export function parseClientsMessage(raw: unknown): KomariClientsSnapshot | null 
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     const payload = unwrapEnvelope<Partial<KomariClientsSnapshot>>(parsed);
     if (!payload || typeof payload !== 'object') return null;
-    const online = Array.isArray(payload.online) ? payload.online.map(String) : [];
     const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
+    const online = Array.isArray(payload.online)
+      ? payload.online.map(String)
+      : payload.online === undefined
+        ? Object.keys(data)
+        : [];
     return { online, data };
   } catch {
     return null;
   }
 }
 
+const lastSampleAtByUuid = new Map<string, number>();
+
+function firstFiniteNonNegative(...values: unknown[]): number | undefined {
+  for (const v of values) {
+    if (v === undefined || v === null || v === '') continue;
+    const n = Number(v);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return undefined;
+}
+
 export function applyClientsSnapshot(nodes: NodeInfo[], snapshot: KomariClientsSnapshot): NodeInfo[] {
   const onlineSet = new Set(snapshot.online);
+  const nowMs = Date.now();
   return nodes.map((node) => {
     const entry = snapshot.data[node.uuid];
     const isOnline = onlineSet.has(node.uuid);
@@ -224,7 +656,8 @@ export function applyClientsSnapshot(nodes: NodeInfo[], snapshot: KomariClientsS
         : { ...node, online: false, cpu: 0, ram: 0, netUp: 0, netDown: 0, uptime: 'OFFLINE' };
     }
 
-    const cpuRaw = Number(entry.cpu?.usage ?? 0);
+    const cpuRaw =
+      typeof entry.cpu === 'number' ? entry.cpu : Number(entry.cpu?.usage ?? 0);
     const cpu = isOnline ? Math.max(0, Math.min(100, Math.round(cpuRaw))) : 0;
 
     const ramTotal = Number(entry.ram?.total || node.mem_total || 1);
@@ -235,9 +668,73 @@ export function applyClientsSnapshot(nodes: NodeInfo[], snapshot: KomariClientsS
     const diskUsed = Number(entry.disk?.used ?? 0);
     const disk = diskTotal > 0 ? Math.max(0, Math.min(100, Math.round((diskUsed / diskTotal) * 100))) : node.disk;
 
-    // Komari network.up / network.down are reported in bytes/sec -> convert to Mbps
-    const netUpMbps = isOnline ? Number((((Number(entry.network?.up ?? 0) * 8) / 1_000_000)).toFixed(1)) : 0;
-    const netDownMbps = isOnline ? Number((((Number(entry.network?.down ?? 0) * 8) / 1_000_000)).toFixed(1)) : 0;
+    // Extract native Bytes/sec without premature Mbps truncation
+    const netObj = entry.network;
+    let rawUpBps =
+      firstFiniteNonNegative(
+        netObj?.up,
+        netObj?.up_speed,
+        netObj?.tx,
+        netObj?.out,
+        netObj?.upload,
+        entry.net_out,
+        entry.net_up,
+      ) ?? 0;
+
+    let rawDownBps =
+      firstFiniteNonNegative(
+        netObj?.down,
+        netObj?.down_speed,
+        netObj?.rx,
+        netObj?.in,
+        netObj?.download,
+        entry.net_in,
+        entry.net_down,
+      ) ?? 0;
+
+    const nextTotalUp = firstFiniteNonNegative(
+      netObj?.totalUp,
+      netObj?.total_up,
+      netObj?.total_tx,
+      entry.net_total_up,
+    );
+    const nextTotalDown = firstFiniteNonNegative(
+      netObj?.totalDown,
+      netObj?.total_down,
+      netObj?.total_rx,
+      entry.net_total_down,
+    );
+
+    // Fallback: if instant speed reported as 0 while cumulative traffic counters advanced, derive B/s from delta
+    const prevSampleMs = lastSampleAtByUuid.get(node.uuid);
+    let deltaSec = 0;
+    if (entry.updated_at && node.updatedAt && entry.updated_at !== node.updatedAt) {
+      const prevTs = Date.parse(node.updatedAt);
+      const nextTs = Date.parse(entry.updated_at);
+      if (Number.isFinite(prevTs) && Number.isFinite(nextTs) && nextTs > prevTs) {
+        deltaSec = (nextTs - prevTs) / 1000;
+      }
+    }
+    if (deltaSec <= 0 && prevSampleMs !== undefined && nowMs > prevSampleMs) {
+      deltaSec = (nowMs - prevSampleMs) / 1000;
+    }
+    lastSampleAtByUuid.set(node.uuid, nowMs);
+
+    if (isOnline && Number.isFinite(deltaSec) && deltaSec >= 0.5 && deltaSec <= 30) {
+      if (rawUpBps === 0 && nextTotalUp !== undefined && node.totalUp !== undefined && nextTotalUp > node.totalUp) {
+        rawUpBps = (nextTotalUp - node.totalUp) / deltaSec;
+      }
+      if (
+        rawDownBps === 0 &&
+        nextTotalDown !== undefined &&
+        node.totalDown !== undefined &&
+        nextTotalDown > node.totalDown
+      ) {
+        rawDownBps = (nextTotalDown - node.totalDown) / deltaSec;
+      }
+    }
+
+    const load1Val = typeof entry.load === 'number' ? entry.load : entry.load?.load1;
 
     return {
       ...node,
@@ -245,11 +742,11 @@ export function applyClientsSnapshot(nodes: NodeInfo[], snapshot: KomariClientsS
       cpu,
       ram,
       disk,
-      netUp: netUpMbps,
-      netDown: netDownMbps,
-      totalUp: entry.network?.totalUp,
-      totalDown: entry.network?.totalDown,
-      load1: entry.load?.load1,
+      netUp: isOnline ? Math.max(0, rawUpBps) : 0,
+      netDown: isOnline ? Math.max(0, rawDownBps) : 0,
+      totalUp: nextTotalUp ?? node.totalUp,
+      totalDown: nextTotalDown ?? node.totalDown,
+      load1: load1Val,
       tcp: entry.connections?.tcp,
       udp: entry.connections?.udp,
       uptime: isOnline ? formatUptimeSeconds(entry.uptime) : 'OFFLINE',
@@ -275,6 +772,29 @@ function extractArray<T>(payload: unknown): T[] {
   return [];
 }
 
+function extractLatestPing(rawPings: RawPingRecord[]): number | null {
+  let latestTs = -Infinity;
+  let latestVal: number | null = null;
+  let fallbackLast: number | null = null;
+
+  for (const p of rawPings) {
+    const val = Number(p.value ?? p.ping ?? p.latency ?? -1);
+    if (!Number.isFinite(val) || val <= 0) continue;
+    fallbackLast = val;
+    const rawTime = p.time ?? p.updated_at;
+    if (rawTime !== undefined) {
+      const ts = typeof rawTime === 'number' ? rawTime : Date.parse(String(rawTime));
+      if (Number.isFinite(ts) && ts >= latestTs) {
+        latestTs = ts;
+        latestVal = val;
+      }
+    }
+  }
+
+  const chosen = latestVal ?? fallbackLast;
+  return chosen !== null ? Math.round(chosen) : null;
+}
+
 function downsample<T>(arr: T[], maxPoints: number): T[] {
   if (arr.length <= maxPoints) return arr;
   const result: T[] = [];
@@ -283,6 +803,50 @@ function downsample<T>(arr: T[], maxPoints: number): T[] {
     result.push(arr[Math.round(i * step)]);
   }
   return result;
+}
+
+export async function fetchNodeLatestPing(
+  baseUrl: string,
+  uuid: string,
+  signal?: AbortSignal,
+): Promise<number | null> {
+  const pingUrl = buildApiUrl(baseUrl, `/api/records/ping?uuid=${encodeURIComponent(uuid)}&hours=1`);
+  const payload = await fetchJson<unknown>(pingUrl, baseUrl, signal);
+  const rawPings = extractArray<RawPingRecord>(payload);
+  return extractLatestPing(rawPings);
+}
+
+/**
+ * Gently fetches the latest valid ping latency for a list of node UUIDs
+ * using a small concurrency limit so Komari servers are never flooded.
+ */
+export async function fetchBatchLatestPings(
+  baseUrl: string,
+  uuids: string[],
+  signal?: AbortSignal,
+  concurrency = 3,
+): Promise<Record<string, number>> {
+  const results: Record<string, number> = {};
+  if (uuids.length === 0) return results;
+
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(concurrency, uuids.length) }, async () => {
+    while (cursor < uuids.length && !signal?.aborted) {
+      const idx = cursor++;
+      const uuid = uuids[idx];
+      try {
+        const ping = await fetchNodeLatestPing(baseUrl, uuid, signal);
+        if (ping !== null && ping > 0) {
+          results[uuid] = ping;
+        }
+      } catch {
+        // Ignore individual node ping errors (ping tasks may be disabled)
+      }
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
 }
 
 export async function fetchNodeTelemetryRecords(
@@ -295,8 +859,8 @@ export async function fetchNodeTelemetryRecords(
   const pingUrl = buildApiUrl(baseUrl, `/api/records/ping?uuid=${encodeURIComponent(node.uuid)}&hours=${hours}`);
 
   const [loadRes, pingRes] = await Promise.allSettled([
-    fetchJson<unknown>(loadUrl, signal),
-    fetchJson<unknown>(pingUrl, signal),
+    fetchJson<unknown>(loadUrl, baseUrl, signal),
+    fetchJson<unknown>(pingUrl, baseUrl, signal),
   ]);
 
   const rawLoads = loadRes.status === 'fulfilled' ? extractArray<RawLoadRecord>(loadRes.value) : [];
@@ -305,7 +869,7 @@ export async function fetchNodeTelemetryRecords(
   const validPings = rawPings
     .map((p) => Number(p.value ?? p.ping ?? p.latency ?? -1))
     .filter((v) => Number.isFinite(v) && v > 0);
-  const latestPing = validPings.length > 0 ? Math.round(validPings[validPings.length - 1]) : null;
+  const latestPing = extractLatestPing(rawPings);
 
   if (rawLoads.length === 0) {
     return { points: [], latestPing };

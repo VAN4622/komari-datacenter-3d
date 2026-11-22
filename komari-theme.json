@@ -1,0 +1,104 @@
+{
+  "name": "Komari Data Center 3D",
+  "short": "komari-datacenter-3d",
+  "description": "2.5D 轻写实拟物数据中心机房监控主题：固定 2.5D 建筑视角与受控微倾、管理员鉴权编排与云端布局持久化、自适应网络吞吐单位、B1-B4 机型涂装与机下遥测状态条。",
+  "version": "1.1.0",
+  "author": "VAN4622",
+  "url": "https://github.com/VAN4622/komari-datacenter-3d",
+  "preview": "preview.png",
+  "configuration": {
+    "type": "managed",
+    "data": [
+      {
+        "name": "机房空间与视角",
+        "type": "title"
+      },
+      {
+        "key": "defaultAtmosphere",
+        "name": "默认 3D 机房场景",
+        "type": "select",
+        "options": "cold-aisle,cleanroom,obsidian-noc,showroom",
+        "default": "cold-aisle",
+        "help": "访客首次打开时默认进入的机房建筑风格：cold-aisle（冷通道）、cleanroom（洁净室）、obsidian-noc（暗夜战情）、showroom（极简展厅）。"
+      },
+      {
+        "key": "defaultCameraPreset",
+        "name": "默认 2.5D 机位",
+        "type": "select",
+        "options": "iso34,corridor,overhead,front",
+        "default": "iso34",
+        "help": "固定 2.5D 建筑透视机位：iso34（标准 3/4 轴测）、corridor（左侧走道）、overhead（高位俯视）、front（正立面平视）。"
+      },
+      {
+        "key": "defaultCabinetTheme",
+        "name": "自动建柜默认涂装",
+        "type": "select",
+        "options": "auto,obsidian,titanium,silver",
+        "default": "auto",
+        "help": "按分组自动生成机柜时的默认柜体材质：auto（循环混搭）、obsidian（曜石黑）、titanium（钛金灰）、silver（阳极银）。"
+      },
+      {
+        "key": "compactRackWidth",
+        "name": "默认启用紧凑机柜宽度",
+        "type": "switch",
+        "default": false,
+        "help": "节点或机柜较多时开启，可在单屏同时容纳更多机柜。"
+      },
+      {
+        "name": "遥测与状态条",
+        "type": "title"
+      },
+      {
+        "key": "showStatusStrip",
+        "name": "默认显示服务器状态指示条",
+        "type": "switch",
+        "default": true,
+        "help": "在每台 3D 服务器正下方挂载独立双排遥测状态条（显示 CPU/RAM/DISK 进度条、网络吞吐、运行时长与 Ping 延迟）。"
+      },
+      {
+        "key": "enablePingPolling",
+        "name": "后台拉取所有节点延迟（Ping）",
+        "type": "switch",
+        "default": true,
+        "help": "自动拉取各节点最近一次 /api/records/ping 延迟值显示在状态条上；若站点未配置延迟任务可关闭以减少请求。"
+      },
+      {
+        "key": "recordHours",
+        "name": "默认历史曲线时长（小时）",
+        "type": "select",
+        "options": "1,6,24",
+        "default": "1",
+        "help": "检视单台服务器历史曲线时默认查询的小时窗口。"
+      },
+      {
+        "name": "站点标牌与后台入口",
+        "type": "title"
+      },
+      {
+        "key": "customHallTitle",
+        "name": "自定义大屏与机房标题",
+        "type": "string",
+        "default": "",
+        "help": "留空时自动同步 Komari 后台的站点名称（sitename）。"
+      },
+      {
+        "key": "showAdminLink",
+        "name": "顶部栏显示管理后台入口",
+        "type": "switch",
+        "default": true,
+        "help": "在左上角概览栏中提供快捷前往 /admin 管理后台的入口按钮。"
+      },
+      {
+        "name": "机柜编排与云端持久化",
+        "type": "title"
+      },
+      {
+        "key": "rackLayoutJson",
+        "name": "已发布的机柜编排 JSON",
+        "type": "string",
+        "default": "",
+        "help": "保存机柜结构、节点 U 位与单机涂装的 JSON。管理员登录 Komari 后可在页面右上角进入「编辑模式」并点击「发布到站点」自动写入，也可在此手动粘贴从前端复制的 JSON 以同步给所有访客。"
+      }
+    ]
+  }
+}
