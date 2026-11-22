@@ -1,8 +1,8 @@
 {
   "name": "Komari Data Center 3D",
   "short": "komari-datacenter-3d",
-  "description": "2.5D 轻写实拟物数据中心机房监控主题：固定 2.5D 建筑视角与受控微倾、管理员鉴权编排与云端布局持久化、自适应网络吞吐单位、B1-B4 机型涂装与机下遥测状态条。",
-  "version": "1.1.0",
+  "description": "2.5D 轻写实拟物数据中心机房监控主题：默认服务器特写近景与固定摄像机机位锁定、悬浮式服务器实时状态 HUD、极简收起菜单与完整移动端适配、管理员鉴权编排与云端布局持久化。",
+  "version": "1.2.0",
   "author": "VAN4622",
   "url": "https://github.com/VAN4622/komari-datacenter-3d",
   "preview": "preview.png",
@@ -23,11 +23,19 @@
       },
       {
         "key": "defaultCameraPreset",
-        "name": "默认 2.5D 机位",
+        "name": "默认固定机位",
         "type": "select",
-        "options": "iso34,corridor,overhead,front",
-        "default": "iso34",
-        "help": "固定 2.5D 建筑透视机位：iso34（标准 3/4 轴测）、corridor（左侧走道）、overhead（高位俯视）、front（正立面平视）。"
+        "options": "closeup,front,iso34,corridor,overhead",
+        "default": "closeup",
+        "help": "默认进入的固定摄像机机位：closeup（服务器近景特写）、front（机柜正立面）、iso34（2.5D 建筑轴测）、corridor（冷通道走道）、overhead（高位俯视）。"
+      },
+      {
+        "key": "defaultCameraLock",
+        "name": "默认摄像机锁定模式",
+        "type": "select",
+        "options": "fixed,locked25d,micro_tilt",
+        "default": "fixed",
+        "help": "fixed（严格锁定固定机位，禁止拖拽偏移，仅通过机位栏切换）、locked25d（固定 2.5D 角度，允许平移与缩放）、micro_tilt（允许小幅受限微倾）。"
       },
       {
         "key": "defaultCabinetTheme",

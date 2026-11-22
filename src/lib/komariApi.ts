@@ -331,8 +331,13 @@ export function parseKomariThemeSettings(raw?: Record<string, unknown>): KomariT
   }
 
   const preset = raw.defaultCameraPreset;
-  if (preset === 'iso34' || preset === 'corridor' || preset === 'overhead' || preset === 'front') {
+  if (preset === 'closeup' || preset === 'iso34' || preset === 'corridor' || preset === 'overhead' || preset === 'front') {
     out.defaultCameraPreset = preset as CameraPreset;
+  }
+
+  const camLock = raw.defaultCameraLock;
+  if (camLock === 'fixed' || camLock === 'locked25d' || camLock === 'micro_tilt') {
+    out.defaultCameraLock = camLock;
   }
 
   const cabTheme = raw.defaultCabinetTheme;

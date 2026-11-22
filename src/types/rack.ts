@@ -11,13 +11,14 @@ export type RecordHours = 1 | 6 | 24;
 export type ApiConnectionStatus = 'demo' | 'connecting' | 'live' | 'degraded' | 'auth_required' | 'error';
 export type AdminAuthStatus = 'checking' | 'authenticated' | 'guest' | 'remote_readonly';
 export type LayoutSyncSource = 'server' | 'local_draft' | 'auto';
-export type CameraControlMode = 'locked25d' | 'micro_tilt';
+export type CameraControlMode = 'fixed' | 'locked25d' | 'micro_tilt';
 
 export type CabinetThemePreference = 'auto' | CabinetTheme;
 
 export interface KomariThemeSettings {
   defaultAtmosphere?: RoomAtmosphere;
   defaultCameraPreset?: CameraPreset;
+  defaultCameraLock?: CameraControlMode;
   defaultCabinetTheme?: CabinetThemePreference;
   showStatusStrip?: boolean;
   compactRackWidth?: boolean;
@@ -43,7 +44,7 @@ export interface PersistedRackLayoutPayload {
   updatedBy?: string;
 }
 
-export type CameraPreset = 'iso34' | 'corridor' | 'overhead' | 'front';
+export type CameraPreset = 'closeup' | 'front' | 'iso34' | 'corridor' | 'overhead';
 export type RoomAtmosphere = 'cold-aisle' | 'cleanroom' | 'obsidian-noc' | 'showroom';
 
 export interface NodeInfo {

@@ -35,10 +35,12 @@ textarea {
   position: relative;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: var(--room-bg);
   color: var(--hud-ink);
   transition: background-color 0.45s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* 1. Cold Aisle (Default): Architectural Slate-Indigo Data Center */
@@ -1529,14 +1531,16 @@ textarea {
   pointer-events: none;
 }
 
-/* Quiet Bottom-Left Notice Pill */
+/* Quiet Top-Center Notice Pill (zero collision with bottom HUD & camera dock) */
 .hud-notice {
   position: fixed;
-  bottom: 20px;
-  left: 20px;
-  z-index: 40;
-  padding: 9px 14px;
-  border-radius: 10px;
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 28px);
+  z-index: 45;
+  padding: 8px 14px;
+  border-radius: 999px;
   background: var(--hud-glass-solid);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -1544,9 +1548,10 @@ textarea {
   box-shadow: var(--hud-shadow);
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   font-size: 12px;
   color: var(--hud-ink);
+  text-align: center;
 }
 
 .hud-notice-action {
@@ -2790,17 +2795,780 @@ textarea {
 }
 
 /* ============================================================================
-   Responsive Adjustments
+   Streamlined Top Bar, Compact Menu Popover, Server Status HUD & Mobile Layout
    ============================================================================ */
-@media (max-width: 960px) {
-  .hud-metrics,
-  .hud-atmo-pill,
-  .hud-orbit-hint {
+.hud-top-bar {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
+  z-index: 32;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.hud-top-bar .hud-top-left,
+.hud-top-bar .hud-top-right {
+  position: static;
+  pointer-events: auto;
+}
+
+.hud-top-bar .hud-top-left {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.hud-top-bar .hud-brand-pill {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.hud-top-bar .hud-site-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-menu-wrap {
+  position: relative;
+}
+
+.hud-menu-btn {
+  height: 38px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 580;
+  color: var(--hud-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
+
+.hud-menu-btn:hover {
+  border-color: var(--hud-border-strong);
+}
+
+.hud-menu-btn.is-open {
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+  border-color: transparent;
+}
+
+.hud-menu-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 264px;
+  max-width: calc(100vw - 24px);
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--hud-glass-solid);
+  backdrop-filter: blur(26px) saturate(160%);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+  border: 1px solid var(--hud-border-strong);
+  box-shadow:
+    inset 0 1px 0 var(--hud-highlight),
+    var(--hud-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 42;
+}
+
+.hud-pop-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hud-pop-label {
+  font-size: 10.5px;
+  font-weight: 620;
+  letter-spacing: 0.04em;
+  color: var(--hud-ink-subtle);
+  padding: 0 2px;
+}
+
+.hud-pop-atmo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.hud-pop-atmo-btn {
+  height: 32px;
+  padding: 0 9px;
+  border-radius: 8px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-chip-bg);
+  color: var(--hud-ink-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 560;
+  cursor: pointer;
+  transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+
+.hud-pop-atmo-btn:hover {
+  background: var(--hud-chip-hover);
+  color: var(--hud-ink);
+}
+
+.hud-pop-atmo-btn.is-active {
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+  border-color: transparent;
+}
+
+.hud-pop-divider {
+  height: 1px;
+  background: var(--hud-border);
+}
+
+.hud-pop-row {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--hud-ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 540;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.14s ease;
+}
+
+.hud-pop-row:hover {
+  background: var(--hud-chip-hover);
+}
+
+.hud-pop-row.is-highlight {
+  background: color-mix(in srgb, var(--hud-accent) 16%, transparent);
+}
+
+.hud-pop-row-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.hud-pop-row-lead span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-pop-hint {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  color: var(--hud-ink-muted);
+  flex-shrink: 0;
+}
+
+.hud-switch-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-chip-bg);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--hud-ink-muted);
+  flex-shrink: 0;
+}
+
+.hud-switch-pill.is-on {
+  background: color-mix(in srgb, var(--hud-accent) 20%, transparent);
+  border-color: color-mix(in srgb, var(--hud-accent) 55%, transparent);
+  color: var(--hud-ink);
+}
+
+/* Camera Lock Mode Button in Bottom Dock */
+.hud-lock-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.hud-lock-btn.is-locked {
+  background: color-mix(in srgb, var(--hud-accent) 18%, var(--hud-chip-bg));
+  color: var(--hud-ink);
+}
+
+.hud-lock-btn.is-unlocked {
+  background: var(--hud-chip-bg);
+  color: var(--hud-ink-muted);
+}
+
+/* ============================================================================
+   Floating Server Status HUD (Bottom-Left Desktop / Docked Mobile Card)
+   ============================================================================ */
+.hud-server-card {
+  position: fixed;
+  left: max(16px, env(safe-area-inset-left, 0px));
+  bottom: max(18px, env(safe-area-inset-bottom, 0px));
+  width: 312px;
+  max-width: calc(100vw - 32px);
+  z-index: 31;
+  padding: 12px 13px;
+  border-radius: 16px;
+  background: var(--hud-glass-solid);
+  backdrop-filter: blur(24px) saturate(155%);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  border: 1px solid var(--hud-border);
+  box-shadow:
+    inset 0 1px 0 var(--hud-highlight),
+    var(--hud-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--hud-ink);
+  transition: transform 0.24s ease, opacity 0.2s ease, border-color 0.2s ease;
+}
+
+.hud-server-card.is-collapsed {
+  gap: 7px;
+  padding: 9px 12px;
+}
+
+.hud-server-card.is-offline {
+  border-color: rgba(239, 68, 68, 0.36);
+}
+
+.hud-srv-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hud-srv-identity {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  padding: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hud-srv-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.hud-srv-dot.is-on {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.72);
+}
+
+.hud-srv-dot.is-off {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.65);
+}
+
+.hud-srv-title-wrap {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hud-srv-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.hud-srv-name {
+  font-size: 13px;
+  font-weight: 660;
+  color: var(--hud-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-srv-tag {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--hud-chip-bg);
+  border: 1px solid var(--hud-border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 650;
+  color: var(--hud-ink-muted);
+  flex-shrink: 0;
+}
+
+.hud-srv-meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--hud-ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-srv-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.hud-srv-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--hud-chip-bg);
+}
+
+.hud-srv-idx {
+  min-width: 24px;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-ink-muted);
+}
+
+.hud-srv-icon {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--hud-ink-muted);
+  font-size: 14px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.hud-srv-icon:hover {
+  background: var(--hud-chip-hover);
+  color: var(--hud-ink);
+}
+
+.hud-srv-compact-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 5px;
+  border-top: 1px solid var(--hud-border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-ink-muted);
+  cursor: pointer;
+}
+
+.hud-srv-compact-strip b {
+  color: var(--hud-ink);
+  font-weight: 650;
+}
+
+.hud-srv-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hud-srv-bar-row {
+  display: grid;
+  grid-template-columns: 34px 1fr 34px;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-srv-bar-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 650;
+  color: var(--hud-ink-muted);
+}
+
+.hud-srv-bar-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--hud-chip-bg);
+  overflow: hidden;
+}
+
+.hud-srv-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.hud-srv-bar-fill.is-cpu {
+  background: var(--chart-cpu);
+}
+
+.hud-srv-bar-fill.is-ram {
+  background: var(--chart-ram);
+}
+
+.hud-srv-bar-fill.is-disk {
+  background: #10b981;
+}
+
+.hud-srv-bar-fill.tone-warn {
+  background: #f59e0b;
+}
+
+.hud-srv-bar-fill.tone-crit {
+  background: #ef4444;
+}
+
+.hud-srv-bar-val {
+  text-align: right;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-ink);
+}
+
+.hud-srv-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  background: var(--hud-chip-bg);
+}
+
+.hud-srv-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hud-srv-stat span {
+  font-size: 9.5px;
+  color: var(--hud-ink-subtle);
+}
+
+.hud-srv-stat b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-srv-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-srv-action {
+  flex: 1;
+  height: 29px;
+  padding: 0 9px;
+  border-radius: 8px;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-chip-bg);
+  color: var(--hud-ink);
+  font-size: 11px;
+  font-weight: 580;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+
+.hud-srv-action:hover {
+  background: var(--hud-chip-hover);
+  border-color: var(--hud-border-strong);
+}
+
+.hud-srv-action.is-active {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: rgba(56, 189, 248, 0.58);
+  color: #7dd3fc;
+}
+
+.hud-srv-action.is-primary {
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+  border-color: transparent;
+}
+
+.hud-srv-action.is-primary:hover {
+  opacity: 0.9;
+}
+
+.hud-server-restore {
+  position: fixed;
+  left: max(16px, env(safe-area-inset-left, 0px));
+  bottom: max(18px, env(safe-area-inset-bottom, 0px));
+  z-index: 31;
+  height: 36px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 580;
+  color: var(--hud-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.hud-srv-restore-name {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-srv-restore-stat {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  color: var(--hud-ink-muted);
+}
+
+/* Mobile Sheet Handle & Backdrop (hidden on desktop) */
+.drawer-sheet-handle,
+.drawer-mobile-backdrop {
+  display: none;
+}
+
+/* Prevent bottom-left server HUD from colliding with centered camera dock on medium viewports */
+@media (max-width: 1160px) and (min-width: 769px) {
+  .hud-server-card {
+    bottom: 68px;
+    width: 288px;
+  }
+
+  .hud-server-restore {
+    bottom: 68px;
+  }
+}
+
+/* ============================================================================
+   Responsive Mobile & Tablet Layout (<= 768px)
+   ============================================================================ */
+@media (max-width: 768px) {
+  .hud-hide-sm {
+    display: none !important;
+  }
+
+  .hud-top-bar {
+    top: max(10px, env(safe-area-inset-top, 0px));
+    left: max(10px, env(safe-area-inset-left, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
+    gap: 6px;
+  }
+
+  .hud-brand-pill {
+    height: 36px;
+    padding: 0 10px;
+    gap: 7px;
+  }
+
+  .hud-site-name {
+    font-size: 12px;
+    max-width: 120px;
+  }
+
+  .hud-menu-btn,
+  .hud-drawer-toggle,
+  .hud-publish-btn {
+    height: 36px;
+    padding: 0 11px;
+    font-size: 11.5px;
+  }
+
+  .hud-top-right {
+    gap: 6px;
+  }
+
+  /* Bottom Camera Station Bar */
+  .hud-bottom-dock {
+    bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    left: 10px;
+    right: 10px;
+    transform: none;
+    align-items: center;
+  }
+
+  .hud-camera-pill {
+    max-width: 100%;
+    height: 42px;
+    padding: 4px 6px;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hud-camera-pill::-webkit-scrollbar {
     display: none;
   }
 
-  .hall-viewport {
-    --rack-w: 320px;
-    --rack-d: 140px;
+  .hud-seg-btn {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 11.5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .hud-mini-toggle,
+  .hud-reset-btn {
+    height: 32px;
+    padding: 0 9px;
+    font-size: 11px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Docked Floating Server Status HUD above Mobile Camera Bar */
+  .hud-server-card {
+    left: max(10px, env(safe-area-inset-left, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
+    bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-width: none;
+    border-radius: 14px;
+    padding: 10px 12px;
+  }
+
+  .hud-server-card.is-collapsed {
+    padding: 8px 11px;
+  }
+
+  .hud-server-restore {
+    left: max(10px, env(safe-area-inset-left, 0px));
+    bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Bottom-Sheet Inspector Drawer on Mobile */
+  .drawer-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 34;
+    background: rgba(5, 9, 16, 0.45);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  .drawer-sheet-handle {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 4px;
+    cursor: pointer;
+  }
+
+  .drawer-sheet-handle span {
+    width: 38px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--hud-border-strong);
+  }
+
+  .inspector-drawer {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    height: min(76dvh, 620px);
+    border-radius: 20px 20px 0 0;
+    border-bottom: none;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    transform: translateY(105%);
+  }
+
+  .inspector-drawer.is-open {
+    transform: translateY(0);
+  }
+
+  .drawer-head {
+    padding: 6px 12px 10px;
+  }
+
+  .drawer-tab {
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .hud-notice {
+    top: calc(54px + env(safe-area-inset-top, 0px));
+    font-size: 11.5px;
+    padding: 7px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hud-hide-xs,
+  .hud-btn-text {
+    display: none !important;
+  }
+
+  .hud-site-name {
+    max-width: 96px;
+  }
+
+  .hud-menu-btn,
+  .hud-drawer-toggle {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .hud-srv-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hud-srv-compact-strip span:last-child {
+    display: none;
+  }
+}
+
+/* Hide mouse-only hover tooltip on touch screens */
+@media (hover: none) {
+  .hud-hover-pill {
+    display: none;
   }
 }

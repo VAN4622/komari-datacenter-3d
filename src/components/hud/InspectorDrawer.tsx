@@ -314,12 +314,17 @@ export function InspectorDrawer({
   };
 
   return (
-    <aside
-      className={`inspector-drawer${open ? ' is-open' : ''}`}
-      aria-label="机房精调检视面板"
-      aria-hidden={!open}
-    >
-      <div className="drawer-head">
+    <>
+      {open && <div className="drawer-mobile-backdrop" onClick={onClose} aria-hidden="true" />}
+      <aside
+        className={`inspector-drawer${open ? ' is-open' : ''}`}
+        aria-label="机房精调检视面板"
+        aria-hidden={!open}
+      >
+        <div className="drawer-sheet-handle" onClick={onClose} aria-hidden="true">
+          <span />
+        </div>
+        <div className="drawer-head">
         <div className="drawer-tabs" role="tablist" aria-label="检视功能页签">
           {TABS.map((t) => (
             <button
@@ -1078,6 +1083,7 @@ export function InspectorDrawer({
           </div>
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

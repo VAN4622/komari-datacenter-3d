@@ -354,37 +354,45 @@ export interface CameraPresetSpec {
 }
 
 export const CAMERA_PRESETS: Record<CameraPreset, CameraPresetSpec> = {
+  closeup: {
+    id: 'closeup',
+    label: '固定机位 · 服务器特写近景',
+    short: '近景',
+    position: [0.76, 1.94, 4.18],
+    target: [0.0, 1.72, 0.25],
+    fov: 26,
+  },
+  front: {
+    id: 'front',
+    label: '固定机位 · 机柜正立面',
+    short: '正立面',
+    position: [0.0, 2.16, 8.9],
+    target: [0.0, 1.96, -0.25],
+    fov: 27,
+  },
   iso34: {
     id: 'iso34',
-    label: '固定 2.5D 建筑 3/4 视角',
-    short: '2.5D 标准',
-    position: [4.25, 3.32, 8.95],
-    target: [0.0, 2.02, -0.35],
+    label: '固定机位 · 2.5D 建筑轴测',
+    short: '轴测',
+    position: [4.15, 3.22, 8.7],
+    target: [0.0, 1.96, -0.35],
     fov: 28,
   },
   corridor: {
     id: 'corridor',
-    label: '固定 2.5D 左侧走道视角',
-    short: '左侧',
-    position: [-4.65, 2.86, 8.7],
-    target: [0.22, 2.02, -0.35],
+    label: '固定机位 · 冷通道纵深',
+    short: '走道',
+    position: [-4.45, 2.52, 7.85],
+    target: [0.22, 1.94, -0.35],
     fov: 28,
   },
   overhead: {
     id: 'overhead',
-    label: '固定 2.5D 高位俯视总览',
+    label: '固定机位 · 高位俯视总览',
     short: '俯视',
-    position: [2.85, 5.05, 8.65],
-    target: [0.0, 1.72, -0.45],
+    position: [2.75, 4.95, 8.4],
+    target: [0.0, 1.7, -0.45],
     fov: 29,
-  },
-  front: {
-    id: 'front',
-    label: '固定 2.5D 机柜正立面',
-    short: '正立面',
-    position: [0.0, 2.38, 9.6],
-    target: [0.0, 2.08, -0.35],
-    fov: 28,
   },
 };
 
@@ -407,7 +415,7 @@ export const STORAGE_KEY = 'komari_datacenter_hall_v2';
 
 export function getDefaultConfig(): AppConfig {
   return {
-    cameraPreset: 'iso34',
+    cameraPreset: 'closeup',
     atmosphere: 'cold-aisle',
     scale: 'standard',
     activeRackId: 'rack-a1',
@@ -475,9 +483,12 @@ export function loadConfig(): AppConfig {
       const parsed = JSON.parse(raw) as Partial<AppConfig>;
       if (parsed && Array.isArray(parsed.racks) && parsed.racks.length > 0) {
         const fallback = getDefaultConfig();
+        const validPreset =
+          parsed.cameraPreset && parsed.cameraPreset in CAMERA_PRESETS ? parsed.cameraPreset : fallback.cameraPreset;
         return {
           ...fallback,
           ...parsed,
+          cameraPreset: validPreset,
           nodeStyles: parsed.nodeStyles ?? fallback.nodeStyles,
           liveRacks: Array.isArray(parsed.liveRacks) && parsed.liveRacks.length > 0 ? parsed.liveRacks : undefined,
           api: {

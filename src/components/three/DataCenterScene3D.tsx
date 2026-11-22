@@ -179,7 +179,8 @@ const SCENE_LIGHTING: Record<
 const CAM_MAX_X = ROOM_W / 2 - 0.85;
 const CAM_MAX_Y = ROOM_H - 0.42;
 const CAM_MAX_Z = ROOM_FRONT_Z - 0.85;
-const MIN_CAM_DIST = 5.2;
+const CAM_MIN_Z = 2.05;
+const MIN_CAM_DIST = 2.65;
 const MAX_CAM_DIST = 12.6;
 
 function CameraRig({
@@ -187,6 +188,9 @@ function CameraRig({
   cameraControlMode,
   drawerOpen,
   rackCount,
+  activeRackX,
+  rackWidth,
+  rowSpan,
   onUserOrbit,
   onZoomPercentChange,
 }: {
@@ -194,20 +198,27 @@ function CameraRig({
   cameraControlMode: CameraControlMode;
   drawerOpen: boolean;
   rackCount: number;
+  activeRackX: number;
+  rackWidth: number;
+  rowSpan: number;
   onUserOrbit: () => void;
   onZoomPercentChange: (pct: number) => void;
 }) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
-  const { camera } = useThree();
+  const { camera, size } = useThree();
 
-  const desiredPos = useRef(new THREE.Vector3(...CAMERA_PRESETS.iso34.position));
-  const desiredTarget = useRef(new THREE.Vector3(...CAMERA_PRESETS.iso34.target));
-  const desiredFov = useRef<number>(CAMERA_PRESETS.iso34.fov);
+  const desiredPos = useRef(new THREE.Vector3(...CAMERA_PRESETS.closeup.position));
+  const desiredTarget = useRef(new THREE.Vector3(...CAMERA_PRESETS.closeup.target));
+  const desiredFov = useRef<number>(CAMERA_PRESETS.closeup.fov);
   const isAnimating = useRef(false);
   const lastZoomNonce = useRef<number>(0);
 
+  const aspect = size.width / Math.max(1, size.height);
+  const isNarrow = size.width < 768;
+  const isPortrait = aspect < 0.92;
+
   const presetGeometry = useMemo(() => {
-    const spec = CAMERA_PRESETS[cameraSignal.preset] ?? CAMERA_PRESETS.iso34;
+    const spec = CAMERA_PRESETS[cameraSignal.preset] ?? CAMERA_PRESETS.closeup;
     const vPos = new THREE.Vector3(...spec.position);
     const vTgt = new THREE.Vector3(...spec.target);
     const offset = vPos.clone().sub(vTgt);
@@ -222,37 +233,77 @@ function CameraRig({
 
   const { baseDist, azimuth: presetAzimuth, polar: presetPolar } = presetGeometry;
 
-  // Apply preset, drawer offset, or camera lock transition (strictly clamped inside enclosed room)
+  // Apply preset, active rack focus (in closeup), mobile aspect framing, or lock mode transition
   useEffect(() => {
-    const spec = CAMERA_PRESETS[cameraSignal.preset] ?? CAMERA_PRESETS.iso34;
-    const rackScaleBoost = Math.max(0, rackCount - 3) * 0.72;
-    const drawerShiftX = drawerOpen ? 0.65 : 0;
-
-    // Preserve exact 2.5D viewing direction while scaling distance gracefully for 4-5 racks
+    const spec = CAMERA_PRESETS[cameraSignal.preset] ?? CAMERA_PRESETS.closeup;
+    const isCloseup = cameraSignal.preset === 'closeup';
     const baseOffset = new THREE.Vector3(...spec.position).sub(new THREE.Vector3(...spec.target));
-    const targetDist = THREE.MathUtils.clamp(baseOffset.length() + rackScaleBoost, MIN_CAM_DIST, MAX_CAM_DIST);
+
+    let nextFov = spec.fov;
+    let targetDist = baseOffset.length();
+
+    if (isCloseup) {
+      // Portrait / narrow mobile compensation: ensure the hero cabinet width fits cleanly above the floating HUD
+      if (aspect < 1.05) {
+        nextFov = THREE.MathUtils.clamp(spec.fov + (1.05 - aspect) * 9.5, spec.fov, 33);
+        const halfFovRad = THREE.MathUtils.degToRad(nextFov / 2);
+        const requiredHalfW = rackWidth * 0.72;
+        const neededDist = requiredHalfW / (Math.tan(halfFovRad) * Math.max(0.42, aspect));
+        targetDist = THREE.MathUtils.clamp(Math.max(targetDist, neededDist), MIN_CAM_DIST, 7.2);
+      }
+    } else {
+      const rackScaleBoost = Math.max(0, rackCount - 3) * 0.72;
+      targetDist = baseOffset.length() + rackScaleBoost;
+      if (aspect < 1.05) {
+        nextFov = THREE.MathUtils.clamp(spec.fov + (1.05 - aspect) * 11, spec.fov, 36);
+        const halfFovRad = THREE.MathUtils.degToRad(nextFov / 2);
+        const requiredHalfW = Math.min(rowSpan * 0.52, 2.35);
+        const neededDist = requiredHalfW / (Math.tan(halfFovRad) * Math.max(0.44, aspect));
+        targetDist = Math.max(targetDist, neededDist);
+      }
+      targetDist = THREE.MathUtils.clamp(targetDist, MIN_CAM_DIST, MAX_CAM_DIST);
+    }
+
     baseOffset.setLength(targetDist);
 
-    const tgtX = THREE.MathUtils.clamp(spec.target[0] + drawerShiftX, -3.2, 3.2);
-    const tgtY = spec.target[1];
+    const drawerShiftX = !isNarrow && drawerOpen ? (isCloseup ? 0.34 : 0.65) : 0;
+    const anchorX = isCloseup ? activeRackX : spec.target[0];
+    const portraitYShift = isPortrait ? (isCloseup ? -0.22 : -0.2) : 0;
+
+    const tgtX = THREE.MathUtils.clamp(anchorX + drawerShiftX, -3.4, 3.4);
+    const tgtY = THREE.MathUtils.clamp(spec.target[1] + portraitYShift, 1.15, 2.65);
     const tgtZ = spec.target[2];
 
     desiredTarget.current.set(tgtX, tgtY, tgtZ);
     desiredPos.current.set(
       THREE.MathUtils.clamp(tgtX + baseOffset.x, -CAM_MAX_X, CAM_MAX_X),
-      THREE.MathUtils.clamp(tgtY + baseOffset.y, 1.0, CAM_MAX_Y),
-      THREE.MathUtils.clamp(tgtZ + baseOffset.z, 3.2, CAM_MAX_Z),
+      THREE.MathUtils.clamp(tgtY + baseOffset.y, 0.95, CAM_MAX_Y),
+      THREE.MathUtils.clamp(tgtZ + baseOffset.z, CAM_MIN_Z, CAM_MAX_Z),
     );
-    desiredFov.current = spec.fov;
+    desiredFov.current = nextFov;
     isAnimating.current = true;
     onZoomPercentChange(100);
-  }, [cameraSignal.preset, cameraSignal.nonce, cameraControlMode, drawerOpen, rackCount, onZoomPercentChange]);
+  }, [
+    cameraSignal.preset,
+    cameraSignal.nonce,
+    cameraControlMode,
+    drawerOpen,
+    rackCount,
+    activeRackX,
+    rackWidth,
+    rowSpan,
+    aspect,
+    isNarrow,
+    isPortrait,
+    onZoomPercentChange,
+  ]);
 
-  // Apply discrete zoom +/- steps from HUD buttons along locked viewing ray
+  // Apply discrete zoom +/- steps from HUD buttons along locked viewing ray (ignored when camera is strictly fixed)
   useEffect(() => {
     const step = cameraSignal.zoomStep;
     if (!step || step.nonce === lastZoomNonce.current) return;
     lastZoomNonce.current = step.nonce;
+    if (cameraControlMode === 'fixed') return;
 
     const controls = controlsRef.current;
     if (!controls) return;
@@ -265,16 +316,16 @@ function CameraRig({
     offset.setLength(nextDist);
     desiredPos.current.copy(tgt).add(offset);
     desiredPos.current.x = THREE.MathUtils.clamp(desiredPos.current.x, -CAM_MAX_X, CAM_MAX_X);
-    desiredPos.current.y = THREE.MathUtils.clamp(desiredPos.current.y, 1.0, CAM_MAX_Y);
-    desiredPos.current.z = THREE.MathUtils.clamp(desiredPos.current.z, 2.8, CAM_MAX_Z);
+    desiredPos.current.y = THREE.MathUtils.clamp(desiredPos.current.y, 0.95, CAM_MAX_Y);
+    desiredPos.current.z = THREE.MathUtils.clamp(desiredPos.current.z, CAM_MIN_Z, CAM_MAX_Z);
     desiredTarget.current.copy(tgt);
     isAnimating.current = true;
 
     const pct = Math.round(THREE.MathUtils.clamp((baseDist / nextDist) * 100, 65, 175));
     onZoomPercentChange(pct);
-  }, [cameraSignal.zoomStep, camera, baseDist, onZoomPercentChange]);
+  }, [cameraSignal.zoomStep, camera, cameraControlMode, baseDist, onZoomPercentChange]);
 
-  const maxPanX = Math.max(2.2, rackCount * 0.92);
+  const maxPanX = Math.max(2.4, rackCount * 0.96);
 
   useFrame((_, delta) => {
     const controls = controlsRef.current;
@@ -290,12 +341,12 @@ function CameraRig({
     }
 
     if (isAnimating.current) {
-      const alpha = Math.min(1, delta * 7.2);
+      const alpha = Math.min(1, delta * 7.4);
       camera.position.lerp(desiredPos.current, alpha);
       controls.target.lerp(desiredTarget.current, alpha);
       if (
-        camera.position.distanceTo(desiredPos.current) < 0.015 &&
-        controls.target.distanceTo(desiredTarget.current) < 0.015
+        camera.position.distanceTo(desiredPos.current) < 0.012 &&
+        controls.target.distanceTo(desiredTarget.current) < 0.012
       ) {
         camera.position.copy(desiredPos.current);
         controls.target.copy(desiredTarget.current);
@@ -305,59 +356,68 @@ function CameraRig({
 
     // Strictly enforce enclosed 2.5D aisle bounds so walls/backfaces never clip into view
     controls.target.x = THREE.MathUtils.clamp(controls.target.x, -maxPanX, maxPanX);
-    controls.target.y = THREE.MathUtils.clamp(controls.target.y, 1.35, 2.85);
-    controls.target.z = THREE.MathUtils.clamp(controls.target.z, -0.85, 0.35);
+    controls.target.y = THREE.MathUtils.clamp(controls.target.y, 1.05, 2.85);
+    controls.target.z = THREE.MathUtils.clamp(controls.target.z, -0.85, 0.5);
 
     camera.position.x = THREE.MathUtils.clamp(camera.position.x, -CAM_MAX_X, CAM_MAX_X);
-    camera.position.y = THREE.MathUtils.clamp(camera.position.y, 0.95, CAM_MAX_Y);
-    camera.position.z = THREE.MathUtils.clamp(camera.position.z, 2.8, CAM_MAX_Z);
+    camera.position.y = THREE.MathUtils.clamp(camera.position.y, 0.9, CAM_MAX_Y);
+    camera.position.z = THREE.MathUtils.clamp(camera.position.z, CAM_MIN_Z, CAM_MAX_Z);
 
     controls.update();
   });
 
+  const isFixedCam = cameraControlMode === 'fixed';
+  const isLocked25D = cameraControlMode === 'locked25d';
+
   const handleStart = useCallback(() => {
+    if (isFixedCam) return;
     isAnimating.current = false;
     onUserOrbit();
-  }, [onUserOrbit]);
+  }, [isFixedCam, onUserOrbit]);
 
   const handleEnd = useCallback(() => {
+    if (isFixedCam) return;
     const controls = controlsRef.current;
     if (!controls) return;
     const dist = camera.position.distanceTo(controls.target);
     const pct = Math.round(THREE.MathUtils.clamp((baseDist / Math.max(1, dist)) * 100, 65, 175));
     onZoomPercentChange(pct);
-  }, [camera, baseDist, onZoomPercentChange]);
+  }, [isFixedCam, camera, baseDist, onZoomPercentChange]);
 
-  const isLocked25D = cameraControlMode === 'locked25d';
+  const lockAngles = isFixedCam || isLocked25D;
 
-  // Tight angular envelope: locked to exact preset in locked25d, or subtle ±14° azimuth / ±9° polar micro-tilt
-  const minAzimuth = isLocked25D
+  // Tight angular envelope: locked to exact station angle in fixed/locked25d, or subtle ±14° azimuth / ±9° polar micro-tilt
+  const minAzimuth = lockAngles
     ? presetAzimuth
     : THREE.MathUtils.clamp(presetAzimuth - 0.24, -0.78, 0.78);
-  const maxAzimuth = isLocked25D
+  const maxAzimuth = lockAngles
     ? presetAzimuth
     : THREE.MathUtils.clamp(presetAzimuth + 0.24, -0.78, 0.78);
-  const minPolar = isLocked25D
+  const minPolar = lockAngles
     ? presetPolar
-    : THREE.MathUtils.clamp(presetPolar - 0.16, 0.58, Math.PI / 2 - 0.08);
-  const maxPolar = isLocked25D
+    : THREE.MathUtils.clamp(presetPolar - 0.16, 0.58, Math.PI / 2 - 0.06);
+  const maxPolar = lockAngles
     ? presetPolar
-    : THREE.MathUtils.clamp(presetPolar + 0.16, 0.58, Math.PI / 2 - 0.08);
+    : THREE.MathUtils.clamp(presetPolar + 0.16, 0.58, Math.PI / 2 - 0.06);
 
   const mouseButtons = useMemo(
     () =>
-      isLocked25D
-        ? { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }
-        : { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN },
-    [isLocked25D],
+      isFixedCam
+        ? {}
+        : isLocked25D
+          ? { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }
+          : { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN },
+    [isFixedCam, isLocked25D],
   );
 
   const touches = useMemo(
     () =>
-      isLocked25D
-        ? { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN }
-        : { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN },
-    [isLocked25D],
+      isFixedCam
+        ? {}
+        : isLocked25D
+          ? { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN }
+          : { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN },
+    [isFixedCam, isLocked25D],
   );
 
   return (
@@ -366,9 +426,9 @@ function CameraRig({
       makeDefault
       enableDamping
       dampingFactor={0.085}
-      enableRotate={!isLocked25D}
-      enablePan
-      enableZoom
+      enableRotate={!lockAngles}
+      enablePan={!isFixedCam}
+      enableZoom={!isFixedCam}
       screenSpacePanning
       rotateSpeed={0.42}
       zoomSpeed={0.76}
@@ -430,6 +490,12 @@ export function DataCenterScene3D({
     return { rackPositions: positions, rowSpan: span, ghostBayX: ghostX };
   }, [racks, rackWidth, rackGap]);
 
+  const activeRackX = useMemo(() => {
+    const idx = racks.findIndex((r) => r.id === activeRackId);
+    if (idx >= 0 && rackPositions[idx] !== undefined) return rackPositions[idx];
+    return rackPositions[0] ?? 0;
+  }, [racks, activeRackId, rackPositions]);
+
   const rackFloorY = atmosphere === 'showroom' ? 0.08 : 0;
 
   return (
@@ -438,8 +504,8 @@ export function DataCenterScene3D({
         shadows="percentage"
         dpr={[1, 2]}
         camera={{
-          position: CAMERA_PRESETS.iso34.position,
-          fov: CAMERA_PRESETS.iso34.fov,
+          position: CAMERA_PRESETS.closeup.position,
+          fov: CAMERA_PRESETS.closeup.fov,
           near: 0.2,
           far: 45,
         }}
@@ -544,6 +610,9 @@ export function DataCenterScene3D({
           cameraControlMode={cameraControlMode}
           drawerOpen={drawerOpen}
           rackCount={racks.length}
+          activeRackX={activeRackX}
+          rackWidth={rackWidth}
+          rowSpan={rowSpan}
           onUserOrbit={onUserOrbit}
           onZoomPercentChange={onZoomPercentChange}
         />

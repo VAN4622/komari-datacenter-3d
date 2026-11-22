@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DataCenterScene3D, type CameraControlSignal } from '@/components/three/DataCenterScene3D';
 import { FloatingHud } from '@/components/hud/FloatingHud';
 import { InspectorDrawer } from '@/components/hud/InspectorDrawer';
+import { ServerStatusHud } from '@/components/hud/ServerStatusHud';
 import {
   ATMOSPHERES,
   DEMO_NODES,
@@ -102,14 +103,20 @@ export default function App() {
   const [wsFramesCount, setWsFramesCount] = useState(0);
   const [liveConnectNonce, setLiveConnectNonce] = useState(0);
 
-  // React Three Fiber spatial camera signal (fixed 2.5D default)
+  // React Three Fiber spatial camera signal (strict fixed station close-up default)
   const [cameraSignal, setCameraSignal] = useState<CameraControlSignal>(() => ({
     preset: config.cameraPreset,
     nonce: 0,
   }));
-  const [cameraControlMode, setCameraControlMode] = useState<CameraControlMode>('locked25d');
+  const [cameraControlMode, setCameraControlMode] = useState<CameraControlMode>('fixed');
   const [zoomPercent, setZoomPercent] = useState(100);
   const [cameraCustomized, setCameraCustomized] = useState(false);
+
+  // Floating Server Status HUD visibility & mobile-friendly collapse state
+  const [showServerHud, setShowServerHud] = useState(true);
+  const [serverHudCollapsed, setServerHudCollapsed] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
+  );
 
   // Admin auth & read-only / edit-mode gating
   const [adminAuthStatus, setAdminAuthStatus] = useState<AdminAuthStatus>('guest');
@@ -270,6 +277,9 @@ export default function App() {
         if (ts.defaultCameraPreset) {
           setCameraSignal((prev) => ({ preset: ts.defaultCameraPreset!, nonce: prev.nonce + 1 }));
           setCameraCustomized(false);
+        }
+        if (ts.defaultCameraLock) {
+          setCameraControlMode(ts.defaultCameraLock);
         }
       }
     });
@@ -552,6 +562,9 @@ export default function App() {
           setCameraSignal((prev) => ({ preset: parsedTheme.defaultCameraPreset!, nonce: prev.nonce + 1 }));
           setCameraCustomized(false);
         }
+        if (shouldApplyThemeDefaults && parsedTheme.defaultCameraLock) {
+          setCameraControlMode(parsedTheme.defaultCameraLock);
+        }
 
         connectWebSocket();
       } catch (err) {
@@ -686,6 +699,52 @@ export default function App() {
     [nodesMap, selectedNodeId, nodes],
   );
 
+  // Ordered list of nodes following rack order for floating HUD prev/next navigation
+  const orderedNodes = useMemo(() => {
+    const ordered: { node: NodeInfo; rackId: string; rackName: string }[] = [];
+    const seen = new Set<string>();
+    for (const r of activeRackList) {
+      for (const item of r.items) {
+        if (item.type === 'node') {
+          const n = nodesMap.get(item.nodeId);
+          if (n && !seen.has(n.uuid)) {
+            seen.add(n.uuid);
+            ordered.push({ node: n, rackId: r.id, rackName: r.name });
+          }
+        }
+      }
+    }
+    for (const n of nodes) {
+      if (!seen.has(n.uuid)) {
+        seen.add(n.uuid);
+        ordered.push({ node: n, rackId: activeRack?.id ?? '', rackName: '未上架' });
+      }
+    }
+    return ordered;
+  }, [activeRackList, nodesMap, nodes, activeRack?.id]);
+
+  const selectedNodeEntryIndex = useMemo(() => {
+    if (!selectedNode) return 0;
+    const idx = orderedNodes.findIndex((entry) => entry.node.uuid === selectedNode.uuid);
+    return idx >= 0 ? idx : 0;
+  }, [orderedNodes, selectedNode]);
+
+  const selectedNodeRackName = orderedNodes[selectedNodeEntryIndex]?.rackName;
+
+  const handleStepNode = useCallback(
+    (delta: -1 | 1) => {
+      if (orderedNodes.length <= 1) return;
+      const nextIdx = (selectedNodeEntryIndex + delta + orderedNodes.length) % orderedNodes.length;
+      const target = orderedNodes[nextIdx];
+      if (!target) return;
+      setSelectedNodeId(target.node.uuid);
+      if (target.rackId) {
+        setConfig((prev) => (prev.activeRackId === target.rackId ? prev : { ...prev, activeRackId: target.rackId }));
+      }
+    },
+    [orderedNodes, selectedNodeEntryIndex],
+  );
+
   const fleetStats = useMemo(() => {
     const onlineNodes = nodes.filter((n) => n.online).length;
     const totalWatts = activeRackList.reduce((sum, r) => sum + estimateRackWatts(r, nodesMap, config.nodeStyles), 0);
@@ -814,13 +873,18 @@ export default function App() {
 
   const handleToggleCameraControlMode = () => {
     setCameraControlMode((prev) => {
-      const next: CameraControlMode = prev === 'locked25d' ? 'micro_tilt' : 'locked25d';
-      if (next === 'locked25d') {
+      const next: CameraControlMode =
+        prev === 'fixed' ? 'locked25d' : prev === 'locked25d' ? 'micro_tilt' : 'fixed';
+      if (next === 'fixed') {
         setCameraSignal((sig) => ({ preset: config.cameraPreset, nonce: sig.nonce + 1 }));
         setCameraCustomized(false);
-        showNotice('已锁定 2.5D 建筑视角（支持横向平移与定焦缩放）');
+        showNotice('已锁定固定摄像机机位（禁止拖拽偏移，点击下方切换机位）');
+      } else if (next === 'locked25d') {
+        setCameraSignal((sig) => ({ preset: config.cameraPreset, nonce: sig.nonce + 1 }));
+        setCameraCustomized(false);
+        showNotice('已切换为 2.5D 平移缩放（锁定视角，可拖拽平移与缩放）');
       } else {
-        showNotice('已开启 2.5D 微调视角（受限角度微倾，防穿模）');
+        showNotice('已开启 2.5D 微倾观察（允许受限小角度倾斜）');
       }
       return next;
     });
@@ -1158,15 +1222,26 @@ export default function App() {
         cameraSignal={cameraSignal}
         onUserOrbit={handleUserOrbit}
         onZoomPercentChange={setZoomPercent}
-        onSelectRack={(rackId) => setConfig((prev) => ({ ...prev, activeRackId: rackId }))}
+        onSelectRack={(rackId) => {
+          setConfig((prev) => ({ ...prev, activeRackId: rackId }));
+          const rack = activeRackList.find((r) => r.id === rackId);
+          const firstNodeItem = rack?.items.find((it) => it.type === 'node');
+          if (firstNodeItem && firstNodeItem.type === 'node') {
+            setSelectedNodeId(firstNodeItem.nodeId);
+          }
+        }}
         onSelectNode={(nodeId, rackId) => {
           setSelectedNodeId(nodeId);
           setConfig((prev) => ({ ...prev, activeRackId: rackId }));
-          setDrawerOpen(true);
-          if (!canEdit) {
+          setShowServerHud(true);
+          setServerHudCollapsed(false);
+          if (canEdit) {
+            setDrawerOpen(true);
+            if (drawerTab === 'builder' || drawerTab === 'api') {
+              setDrawerTab('style');
+            }
+          } else if (drawerOpen) {
             setDrawerTab('telemetry');
-          } else if (drawerTab === 'builder' || drawerTab === 'api') {
-            setDrawerTab('style');
           }
         }}
         onAddRack={handleAddRack}
@@ -1178,11 +1253,7 @@ export default function App() {
         apiStatus={apiStatus}
         onlineNodes={fleetStats.onlineNodes}
         totalNodes={fleetStats.totalNodes}
-        totalWatts={fleetStats.totalWatts}
-        totalU={fleetStats.totalU}
         totalNetDown={fleetStats.totalNetDown}
-        totalNetUp={fleetStats.totalNetUp}
-        rackCount={activeRackList.length}
         cameraPreset={config.cameraPreset}
         cameraControlMode={cameraControlMode}
         zoomPercent={zoomPercent}
@@ -1190,6 +1261,7 @@ export default function App() {
         atmosphere={config.atmosphere}
         scale={config.scale}
         showStrip={config.showStrip}
+        showServerHud={showServerHud}
         drawerOpen={drawerOpen}
         showAdminLink={showAdminLink}
         adminUrl={adminUrl}
@@ -1209,11 +1281,42 @@ export default function App() {
           setConfig((prev) => ({ ...prev, scale: prev.scale === 'standard' ? 'compact' : 'standard' }))
         }
         onToggleStrip={() => setConfig((prev) => ({ ...prev, showStrip: !prev.showStrip }))}
+        onToggleServerHud={() => setShowServerHud((v) => !v)}
         onToggleDrawer={() => setDrawerOpen((v) => !v)}
         onToggleEditMode={handleToggleEditMode}
         onPublishLayout={handlePublishLayoutToServer}
         onOpenApiTab={() => {
           setDrawerTab('api');
+          setDrawerOpen(true);
+        }}
+      />
+
+      <ServerStatusHud
+        node={selectedNode}
+        nodeIndex={selectedNodeEntryIndex}
+        totalNodes={orderedNodes.length}
+        rackName={selectedNodeRackName}
+        visible={showServerHud}
+        collapsed={serverHudCollapsed}
+        uidBlinking={selectedNode ? uidBlinkingIds.has(selectedNode.uuid) : false}
+        canEdit={canEdit}
+        onPrevNode={() => handleStepNode(-1)}
+        onNextNode={() => handleStepNode(1)}
+        onToggleCollapse={() => setServerHudCollapsed((v) => !v)}
+        onHide={() => setShowServerHud(false)}
+        onShow={() => {
+          setShowServerHud(true);
+          setServerHudCollapsed(false);
+        }}
+        onToggleUid={() => {
+          if (selectedNode) handleToggleUid(selectedNode.uuid);
+        }}
+        onOpenTelemetry={() => {
+          setDrawerTab('telemetry');
+          setDrawerOpen(true);
+        }}
+        onOpenStyle={() => {
+          setDrawerTab('style');
           setDrawerOpen(true);
         }}
       />
