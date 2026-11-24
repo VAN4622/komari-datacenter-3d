@@ -2,7 +2,6 @@ import type {
   AccentId,
   AppConfig,
   CabinetTheme,
-  CameraPreset,
   ChassisFinish,
   ChassisModel,
   EffectiveNodeStyle,
@@ -10,8 +9,12 @@ import type {
   NodeStyleOverride,
   OledId,
   PersistedRackLayoutPayload,
+  PingProbeSample,
+  PingProbeSeries,
   RackCabinetData,
   RackItem,
+  RackViewAngle,
+  RecordHours,
   RoomAtmosphere,
   TelemetryPoint,
 } from '@/types/rack';
@@ -25,20 +28,36 @@ export const DEMO_NODES: NodeInfo[] = [
     uuid: 'node-hk-nano',
     name: 'HK-NAT-Nano',
     region: '🇭🇰',
+    group: '亚太线路',
+    tags: 'NAT-LITE;BGP',
     cpu_cores: 1,
     mem_total: 1024 ** 3,
+    swap_total: 512 * MB,
     disk_total: 20 * 1024 ** 3,
     os: 'Debian 12',
+    kernel_version: '6.1.0-26-amd64',
     cpu_name: 'Intel Xeon E5-2680 v4',
+    arch: 'x86_64',
+    virtualization: 'KVM',
     tag: 'NAT-LITE',
     online: true,
     cpu: 24,
     ram: 42,
+    ramUsed: Math.round(0.42 * 1024 ** 3),
+    swap: 12,
+    swapUsed: Math.round(0.12 * 512 * MB),
     disk: 31,
+    diskUsed: Math.round(0.31 * 20 * 1024 ** 3),
     netUp: 240 * KB,
     netDown: 815 * KB,
     totalUp: 412 * GB,
     totalDown: 1.28 * 1024 * GB,
+    load1: 0.28,
+    load5: 0.31,
+    load15: 0.24,
+    tcp: 64,
+    udp: 18,
+    process: 88,
     ping: 19,
     uptime: '64d 11h',
   },
@@ -46,20 +65,36 @@ export const DEMO_NODES: NodeInfo[] = [
     uuid: 'node-jp-edge',
     name: 'JP-TYO-CN2',
     region: '🇯🇵',
+    group: '核心算力',
+    tags: 'CN2-GIA;Edge',
     cpu_cores: 2,
     mem_total: 2 * 1024 ** 3,
+    swap_total: 1024 ** 3,
     disk_total: 40 * 1024 ** 3,
     os: 'Ubuntu 24.04',
+    kernel_version: '6.8.0-49-generic',
     cpu_name: 'AMD EPYC 7763',
+    arch: 'x86_64',
+    virtualization: 'KVM',
     tag: 'CN2-GIA',
     online: true,
     cpu: 46,
     ram: 53,
+    ramUsed: Math.round(0.53 * 2 * 1024 ** 3),
+    swap: 8,
+    swapUsed: Math.round(0.08 * 1024 ** 3),
     disk: 44,
+    diskUsed: Math.round(0.44 * 40 * 1024 ** 3),
     netUp: 4.2 * MB,
     netDown: 11.8 * MB,
     totalUp: 2.1 * 1024 * GB,
     totalDown: 5.4 * 1024 * GB,
+    load1: 0.94,
+    load5: 0.86,
+    load15: 0.79,
+    tcp: 248,
+    udp: 41,
+    process: 142,
     ping: 34,
     uptime: '112d 05h',
   },
@@ -67,20 +102,36 @@ export const DEMO_NODES: NodeInfo[] = [
     uuid: 'node-de-sto',
     name: 'DE-FRA-Storage',
     region: '🇩🇪',
+    group: '核心算力',
+    tags: 'RAID10-NAS;NVMe',
     cpu_cores: 8,
     mem_total: 16 * 1024 ** 3,
+    swap_total: 4 * 1024 ** 3,
     disk_total: 4000 * 1024 ** 3,
     os: 'Debian 12',
+    kernel_version: '6.1.0-28-amd64',
     cpu_name: 'AMD Ryzen 9 5950X',
+    arch: 'x86_64',
+    virtualization: 'Dedicated',
     tag: 'RAID10-NAS',
     online: true,
     cpu: 58,
     ram: 67,
+    ramUsed: Math.round(0.67 * 16 * 1024 ** 3),
+    swap: 4,
+    swapUsed: Math.round(0.04 * 4 * 1024 ** 3),
     disk: 71,
+    diskUsed: Math.round(0.71 * 4000 * 1024 ** 3),
     netUp: 8.6 * MB,
     netDown: 19.4 * MB,
     totalUp: 9.8 * 1024 * GB,
     totalDown: 18.2 * 1024 * GB,
+    load1: 3.12,
+    load5: 2.84,
+    load15: 2.51,
+    tcp: 412,
+    udp: 67,
+    process: 236,
     ping: 138,
     uptime: '204d 19h',
   },
@@ -88,20 +139,37 @@ export const DEMO_NODES: NodeInfo[] = [
     uuid: 'node-us-blade',
     name: 'US-LAX-Compute',
     region: '🇺🇸',
+    group: '核心算力',
+    tags: 'K8S-NODE01;GPU',
     cpu_cores: 32,
     mem_total: 128 * 1024 ** 3,
+    swap_total: 16 * 1024 ** 3,
     disk_total: 2000 * 1024 ** 3,
     os: 'Rocky Linux 9',
+    kernel_version: '5.14.0-427.el9',
     cpu_name: 'AMD EPYC 9654 96C',
+    gpu_name: 'NVIDIA L40S 48GB',
+    arch: 'x86_64',
+    virtualization: 'Dedicated',
     tag: 'K8S-NODE01',
     online: true,
     cpu: 72,
     ram: 78,
+    ramUsed: Math.round(0.78 * 128 * 1024 ** 3),
+    swap: 11,
+    swapUsed: Math.round(0.11 * 16 * 1024 ** 3),
     disk: 54,
+    diskUsed: Math.round(0.54 * 2000 * 1024 ** 3),
     netUp: 26.5 * MB,
     netDown: 54.2 * MB,
     totalUp: 31.4 * 1024 * GB,
     totalDown: 64.9 * 1024 * GB,
+    load1: 18.4,
+    load5: 16.9,
+    load15: 15.2,
+    tcp: 1184,
+    udp: 192,
+    process: 518,
     ping: 142,
     uptime: '89d 03h',
   },
@@ -109,20 +177,36 @@ export const DEMO_NODES: NodeInfo[] = [
     uuid: 'node-sg-edge',
     name: 'SG-SIN-IEPL',
     region: '🇸🇬',
+    group: '亚太线路',
+    tags: 'IEPL-10G;LowLat',
     cpu_cores: 2,
     mem_total: 4 * 1024 ** 3,
+    swap_total: 2 * 1024 ** 3,
     disk_total: 60 * 1024 ** 3,
     os: 'Debian 12',
+    kernel_version: '6.1.0-26-amd64',
     cpu_name: 'AMD EPYC 7R13',
+    arch: 'x86_64',
+    virtualization: 'KVM',
     tag: 'IEPL-10G',
     online: true,
     cpu: 33,
     ram: 48,
+    ramUsed: Math.round(0.48 * 4 * 1024 ** 3),
+    swap: 5,
+    swapUsed: Math.round(0.05 * 2 * 1024 ** 3),
     disk: 39,
+    diskUsed: Math.round(0.39 * 60 * 1024 ** 3),
     netUp: 6.9 * MB,
     netDown: 14.3 * MB,
     totalUp: 4.5 * 1024 * GB,
     totalDown: 8.7 * 1024 * GB,
+    load1: 0.62,
+    load5: 0.58,
+    load15: 0.54,
+    tcp: 316,
+    udp: 52,
+    process: 129,
     ping: 41,
     uptime: '178d 17h',
   },
@@ -130,20 +214,36 @@ export const DEMO_NODES: NodeInfo[] = [
     uuid: 'node-kr-db',
     name: 'KR-SEL-DB01',
     region: '🇰🇷',
+    group: '亚太线路',
+    tags: 'PG-PRIMARY;NVMe',
     cpu_cores: 4,
     mem_total: 8 * 1024 ** 3,
+    swap_total: 2 * 1024 ** 3,
     disk_total: 320 * 1024 ** 3,
     os: 'Ubuntu 22.04',
+    kernel_version: '5.15.0-125-generic',
     cpu_name: 'Intel Xeon Gold 6338',
+    arch: 'x86_64',
+    virtualization: 'KVM',
     tag: 'PG-PRIMARY',
     online: true,
     cpu: 41,
     ram: 61,
+    ramUsed: Math.round(0.61 * 8 * 1024 ** 3),
+    swap: 14,
+    swapUsed: Math.round(0.14 * 2 * 1024 ** 3),
     disk: 58,
+    diskUsed: Math.round(0.58 * 320 * 1024 ** 3),
     netUp: 2.4 * MB,
     netDown: 5.8 * MB,
     totalUp: 1.9 * 1024 * GB,
     totalDown: 4.2 * 1024 * GB,
+    load1: 1.48,
+    load5: 1.32,
+    load15: 1.24,
+    tcp: 194,
+    udp: 23,
+    process: 176,
     ping: 38,
     uptime: '152d 08h',
   },
@@ -151,20 +251,36 @@ export const DEMO_NODES: NodeInfo[] = [
     uuid: 'node-uk-mini',
     name: 'UK-LON-Probe',
     region: '🇬🇧',
+    group: '边缘探针',
+    tags: 'ARM-NANO;Probe',
     cpu_cores: 1,
     mem_total: 1024 ** 3,
+    swap_total: 0,
     disk_total: 15 * 1024 ** 3,
     os: 'Debian 12',
+    kernel_version: '6.1.0-26-arm64',
     cpu_name: 'ARM Neoverse N1',
+    arch: 'aarch64',
+    virtualization: 'KVM',
     tag: 'ARM-NANO',
     online: true,
     cpu: 14,
     ram: 29,
+    ramUsed: Math.round(0.29 * 1024 ** 3),
+    swap: 0,
+    swapUsed: 0,
     disk: 22,
+    diskUsed: Math.round(0.22 * 15 * 1024 ** 3),
     netUp: 96 * KB,
     netDown: 285 * KB,
     totalUp: 185 * GB,
     totalDown: 420 * GB,
+    load1: 0.14,
+    load5: 0.12,
+    load15: 0.11,
+    tcp: 32,
+    udp: 9,
+    process: 64,
     ping: 162,
     uptime: '310d 04h',
   },
@@ -172,20 +288,36 @@ export const DEMO_NODES: NodeInfo[] = [
     uuid: 'node-nl-backup',
     name: 'NL-AMS-Cold',
     region: '🇳🇱',
+    group: '边缘探针',
+    tags: 'OFFLINE-DR',
     cpu_cores: 4,
     mem_total: 8 * 1024 ** 3,
+    swap_total: 2 * 1024 ** 3,
     disk_total: 1000 * 1024 ** 3,
     os: 'Debian 12',
+    kernel_version: '6.1.0-22-amd64',
     cpu_name: 'Intel Xeon E-2388G',
+    arch: 'x86_64',
+    virtualization: 'KVM',
     tag: 'OFFLINE-DR',
     online: false,
     cpu: 0,
     ram: 0,
+    ramUsed: 0,
+    swap: 0,
+    swapUsed: 0,
     disk: 64,
+    diskUsed: Math.round(0.64 * 1000 * 1024 ** 3),
     netUp: 0,
     netDown: 0,
     totalUp: 620 * GB,
     totalDown: 2.3 * 1024 * GB,
+    load1: 0,
+    load5: 0,
+    load15: 0,
+    tcp: 0,
+    udp: 0,
+    process: 0,
     ping: 0,
     uptime: 'OFFLINE',
   },
@@ -344,55 +476,22 @@ export const CABINET_THEMES: { id: CabinetTheme; label: string }[] = [
   { id: 'silver', label: '阳极银' },
 ];
 
-export interface CameraPresetSpec {
-  id: CameraPreset;
+export interface ViewAngleSpec {
+  id: RackViewAngle;
   label: string;
   short: string;
-  position: [number, number, number];
-  target: [number, number, number];
-  fov: number;
 }
 
-export const CAMERA_PRESETS: Record<CameraPreset, CameraPresetSpec> = {
-  closeup: {
-    id: 'closeup',
-    label: '固定机位 · 服务器特写近景',
-    short: '近景',
-    position: [0.76, 1.94, 4.18],
-    target: [0.0, 1.72, 0.25],
-    fov: 26,
+export const VIEW_ANGLES: Record<RackViewAngle, ViewAngleSpec> = {
+  side: {
+    id: 'side',
+    label: '固定微侧透视（展现机柜厚度与拉出导轨）',
+    short: '微侧 15°',
   },
   front: {
     id: 'front',
-    label: '固定机位 · 机柜正立面',
-    short: '正立面',
-    position: [0.0, 2.16, 8.9],
-    target: [0.0, 1.96, -0.25],
-    fov: 27,
-  },
-  iso34: {
-    id: 'iso34',
-    label: '固定机位 · 2.5D 建筑轴测',
-    short: '轴测',
-    position: [4.15, 3.22, 8.7],
-    target: [0.0, 1.96, -0.35],
-    fov: 28,
-  },
-  corridor: {
-    id: 'corridor',
-    label: '固定机位 · 冷通道纵深',
-    short: '走道',
-    position: [-4.45, 2.52, 7.85],
-    target: [0.22, 1.94, -0.35],
-    fov: 28,
-  },
-  overhead: {
-    id: 'overhead',
-    label: '固定机位 · 高位俯视总览',
-    short: '俯视',
-    position: [2.75, 4.95, 8.4],
-    target: [0.0, 1.7, -0.45],
-    fov: 29,
+    label: '正面平视（1:1 硬件面板正立面）',
+    short: '正视',
   },
 };
 
@@ -405,18 +504,27 @@ export interface SceneMeta {
 }
 
 export const ATMOSPHERES: SceneMeta[] = [
-  { id: 'cold-aisle', label: '冷通道', subtitle: '封闭式 Tier-IV 冷通道机房', swatch: '#142642', isLight: false },
-  { id: 'cleanroom', label: '洁净室', subtitle: '瑞士日光模块化实验室', swatch: '#dde4ee', isLight: true },
-  { id: 'obsidian-noc', label: '暗夜战情', subtitle: '炭黑高密 NOC 指挥舱', swatch: '#111318', isLight: false },
-  { id: 'showroom', label: '极简展厅', subtitle: '建筑感工业硬件展廊', swatch: '#181e2a', isLight: false },
+  { id: 'studio-dark', label: '深石墨影棚', subtitle: '低干扰碳灰金属柔光棚拍', swatch: '#141923', isLight: false },
+  { id: 'studio-light', label: '浅银画廊', subtitle: '瑞士极简工业展台白昼光', swatch: '#e6ebf2', isLight: true },
 ];
 
 export const STORAGE_KEY = 'komari_datacenter_hall_v2';
 
+export function normalizeAtmosphere(value: unknown): RoomAtmosphere {
+  if (value === 'studio-light' || value === 'cleanroom') return 'studio-light';
+  return 'studio-dark';
+}
+
+export function normalizeViewAngle(value: unknown, legacyPreset?: unknown): RackViewAngle {
+  if (value === 'front' || value === 'side') return value;
+  if (legacyPreset === 'front') return 'front';
+  return 'side';
+}
+
 export function getDefaultConfig(): AppConfig {
   return {
-    cameraPreset: 'closeup',
-    atmosphere: 'cold-aisle',
+    viewAngle: 'side',
+    atmosphere: 'studio-dark',
     scale: 'standard',
     activeRackId: 'rack-a1',
     showStrip: true,
@@ -480,15 +588,14 @@ export function loadConfig(): AppConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as Partial<AppConfig>;
+      const parsed = JSON.parse(raw) as Partial<AppConfig> & { cameraPreset?: string };
       if (parsed && Array.isArray(parsed.racks) && parsed.racks.length > 0) {
         const fallback = getDefaultConfig();
-        const validPreset =
-          parsed.cameraPreset && parsed.cameraPreset in CAMERA_PRESETS ? parsed.cameraPreset : fallback.cameraPreset;
         return {
           ...fallback,
           ...parsed,
-          cameraPreset: validPreset,
+          viewAngle: normalizeViewAngle(parsed.viewAngle, parsed.cameraPreset),
+          atmosphere: normalizeAtmosphere(parsed.atmosphere),
           nodeStyles: parsed.nodeStyles ?? fallback.nodeStyles,
           liveRacks: Array.isArray(parsed.liveRacks) && parsed.liveRacks.length > 0 ? parsed.liveRacks : undefined,
           api: {
@@ -647,17 +754,15 @@ export function parseImportedConfig(rawJson: string, current: AppConfig): AppCon
       ? parsed.activeRackId
       : activePool[0]?.id ?? current.activeRackId;
 
+  const legacy = parsed as Partial<AppConfig> & { cameraPreset?: string };
   return {
     ...current,
-    cameraPreset:
-      parsed.cameraPreset && parsed.cameraPreset in CAMERA_PRESETS ? parsed.cameraPreset : current.cameraPreset,
+    viewAngle:
+      legacy.viewAngle !== undefined || legacy.cameraPreset !== undefined
+        ? normalizeViewAngle(legacy.viewAngle, legacy.cameraPreset)
+        : current.viewAngle,
     atmosphere:
-      parsed.atmosphere === 'cold-aisle' ||
-      parsed.atmosphere === 'cleanroom' ||
-      parsed.atmosphere === 'obsidian-noc' ||
-      parsed.atmosphere === 'showroom'
-        ? parsed.atmosphere
-        : current.atmosphere,
+      parsed.atmosphere !== undefined ? normalizeAtmosphere(parsed.atmosphere) : current.atmosphere,
     scale: parsed.scale === 'compact' || parsed.scale === 'standard' ? parsed.scale : current.scale,
     showStrip: typeof parsed.showStrip === 'boolean' ? parsed.showStrip : current.showStrip,
     racks: nextRacks,
@@ -726,21 +831,146 @@ export function formatBytesGiB(bytes: number): string {
   return `${Math.round(gib)} GB`;
 }
 
-export function buildInitialHistory(node: NodeInfo): TelemetryPoint[] {
+export function buildInitialHistory(node: NodeInfo, hours: RecordHours = 1): TelemetryPoint[] {
   const points: TelemetryPoint[] = [];
-  const total = 18;
+  const total = 24;
+  const stepMin = Math.max(1, Math.round((hours * 60) / (total - 1)));
+  const baseDown = Math.max(32 * KB, node.netDown || 256 * KB);
+  const baseUp = Math.max(16 * KB, node.netUp || 96 * KB);
+  const baseLoad = node.load1 ?? Math.max(0.1, (node.cpu / 100) * node.cpu_cores * 0.65);
+
   for (let i = 0; i < total; i++) {
-    const minsAgo = (total - 1 - i) * 3;
-    const label = minsAgo === 0 ? '现在' : `-${minsAgo}m`;
+    const minsAgo = (total - 1 - i) * stepMin;
+    const label =
+      minsAgo === 0
+        ? '现在'
+        : minsAgo >= 60
+          ? `-${Math.round((minsAgo / 60) * 10) / 10}h`
+          : `-${minsAgo}m`;
     if (!node.online) {
-      points.push({ time: label, cpu: 0, ram: 0, ping: 0 });
+      points.push({ time: label, cpu: 0, ram: 0, ping: 0, netDown: 0, netUp: 0, load1: 0 });
       continue;
     }
     const wave = Math.sin(i * 0.55 + node.cpu_cores) * 6 + Math.cos(i * 0.32) * 4;
     const cpu = Math.max(4, Math.min(98, Math.round(node.cpu + wave)));
     const ram = Math.max(8, Math.min(96, Math.round(node.ram + wave * 0.45)));
     const ping = Math.max(6, Math.round(node.ping + Math.sin(i * 0.7) * Math.max(2, node.ping * 0.08)));
-    points.push({ time: label, cpu, ram, ping });
+    const netWave = 0.72 + Math.sin(i * 0.62 + node.cpu_cores * 0.4) * 0.24 + Math.cos(i * 0.27) * 0.18;
+    const netDown = Math.max(8 * KB, Math.round(baseDown * netWave));
+    const netUp = Math.max(4 * KB, Math.round(baseUp * (0.76 + Math.cos(i * 0.58 + 0.9) * 0.28)));
+    const load1 = Math.max(0.02, Math.round((baseLoad * (0.85 + Math.sin(i * 0.45) * 0.22)) * 100) / 100);
+    points.push({ time: label, cpu, ram, ping, netDown, netUp, load1 });
   }
   return points;
+}
+
+function summarizePingProbe(id: string, name: string, points: PingProbeSample[]): PingProbeSeries {
+  const validVals: number[] = [];
+  let dropped = 0;
+  let latest: number | null = null;
+  let jitterSum = 0;
+  let jitterPairs = 0;
+  let prevValid: number | null = null;
+
+  for (const pt of points) {
+    if (pt.value !== null && Number.isFinite(pt.value) && pt.value > 0) {
+      validVals.push(pt.value);
+      latest = pt.value;
+      if (prevValid !== null) {
+        jitterSum += Math.abs(pt.value - prevValid);
+        jitterPairs += 1;
+      }
+      prevValid = pt.value;
+    } else {
+      dropped += 1;
+    }
+  }
+
+  const sorted = validVals.slice().sort((a, b) => a - b);
+  const min = sorted.length > 0 ? Math.round(sorted[0] * 10) / 10 : null;
+  const max = sorted.length > 0 ? Math.round(sorted[sorted.length - 1] * 10) / 10 : null;
+  const avg =
+    validVals.length > 0 ? Math.round((validVals.reduce((s, v) => s + v, 0) / validVals.length) * 10) / 10 : null;
+  const p95Idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(0.95 * sorted.length) - 1));
+  const p95 = sorted.length > 0 ? Math.round(sorted[p95Idx] * 10) / 10 : null;
+  const jitter = jitterPairs > 0 ? Math.round((jitterSum / jitterPairs) * 10) / 10 : null;
+  const loss = points.length > 0 ? Math.round((dropped / points.length) * 1000) / 10 : 0;
+
+  return {
+    id,
+    name,
+    latest: latest !== null ? Math.round(latest * 10) / 10 : null,
+    min,
+    avg,
+    p95,
+    max,
+    jitter,
+    loss,
+    totalSamples: points.length,
+    points,
+  };
+}
+
+export function buildInitialPingProbes(node: NodeInfo, hours: RecordHours = 1): PingProbeSeries[] {
+  const total = 24;
+  const stepMin = Math.max(1, Math.round((hours * 60) / (total - 1)));
+  const seed = node.uuid.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+
+  const probeDefs = [
+    { id: 'demo-ct', name: '上海电信 CT', mult: 1.0, jitterPct: 0.055, dropAt: -1 },
+    { id: 'demo-cu', name: '北京联通 CU', mult: 1.16, jitterPct: 0.085, dropAt: node.ping > 120 ? 14 : -1 },
+    { id: 'demo-cm', name: '广州移动 CM', mult: 0.94, jitterPct: 0.11, dropAt: node.ping > 100 ? 8 : -1 },
+  ];
+
+  return probeDefs.map((def, pIdx) => {
+    const base = Math.max(6, node.ping * def.mult);
+    const points: PingProbeSample[] = [];
+    for (let i = 0; i < total; i++) {
+      const minsAgo = (total - 1 - i) * stepMin;
+      const label =
+        minsAgo === 0
+          ? '现在'
+          : minsAgo >= 60
+            ? `-${Math.round((minsAgo / 60) * 10) / 10}h`
+            : `-${minsAgo}m`;
+      if (!node.online) {
+        points.push({ time: label, value: null });
+        continue;
+      }
+      if (def.dropAt === i) {
+        points.push({ time: label, value: null });
+        continue;
+      }
+      const wave =
+        Math.sin(i * 0.58 + pIdx * 1.9 + (seed % 7)) * base * def.jitterPct +
+        Math.cos(i * 0.29 + pIdx) * base * (def.jitterPct * 0.65);
+      const spike = i === ((seed + pIdx * 5) % (total - 4)) + 2 ? base * 0.16 : 0;
+      const val = Math.max(4, Math.round((base + wave + spike) * 10) / 10);
+      points.push({ time: label, value: val });
+    }
+    return summarizePingProbe(def.id, def.name, points);
+  });
+}
+
+export function appendDemoPingSample(
+  existing: PingProbeSeries[],
+  node: NodeInfo,
+  timeLabel: string,
+): PingProbeSeries[] {
+  const baseList = existing.length > 0 ? existing : buildInitialPingProbes(node);
+  const mults = [1.0, 1.16, 0.94];
+  return baseList.map((probe, idx) => {
+    const mult = mults[idx] ?? 1.05;
+    let nextVal: number | null = null;
+    if (node.online && node.ping > 0) {
+      const dropChance = node.ping > 120 && idx > 0 ? 0.025 : 0.005;
+      if (Math.random() >= dropChance) {
+        const target = node.ping * mult;
+        const delta = (Math.random() - 0.48) * Math.max(1.8, target * 0.09);
+        nextVal = Math.max(4, Math.round((target + delta) * 10) / 10);
+      }
+    }
+    const nextPoints = [...probe.points.slice(-23), { time: timeLabel, value: nextVal }];
+    return summarizePingProbe(probe.id, probe.name, nextPoints);
+  });
 }

@@ -1,20 +1,19 @@
 import { useState, type DragEvent } from 'react';
-import { RackUnit3D } from '@/components/hall/RackUnit3D';
+import { StudioRackUnit } from '@/components/studio/StudioRackUnit';
 import { estimateRackWatts, getEffectiveStyle, getUnitHeightU } from '@/data/fleet';
 import type { AppConfig, NodeInfo, RackCabinetData } from '@/types/rack';
 
-interface RackCabinet3DProps {
+interface StudioRackCabinetProps {
   rack: RackCabinetData;
   rackIndex: number;
   nodesMap: Map<string, NodeInfo>;
   nodeStyles: AppConfig['nodeStyles'];
-  isActive: boolean;
   selectedNodeId: string | null;
   uidBlinkingIds: Set<string>;
   showStrip: boolean;
+  editMode: boolean;
   dragOverUid: string | null;
   dragOverRackId: string | null;
-  onActivateRack: (rackId: string) => void;
   onRenameRack: (rackId: string, name: string) => void;
   onSelectNode: (nodeId: string, rackId: string) => void;
   onMoveItem: (rackId: string, index: number, delta: -1 | 1) => void;
@@ -29,18 +28,17 @@ interface RackCabinet3DProps {
   onDropOnRack: (e: DragEvent<HTMLDivElement>, targetRackId: string) => void;
 }
 
-export function RackCabinet3D({
+export function StudioRackCabinet({
   rack,
   rackIndex,
   nodesMap,
   nodeStyles,
-  isActive,
   selectedNodeId,
   uidBlinkingIds,
   showStrip,
+  editMode,
   dragOverUid,
   dragOverRackId,
-  onActivateRack,
   onRenameRack,
   onSelectNode,
   onMoveItem,
@@ -53,11 +51,11 @@ export function RackCabinet3D({
   onDragOverRack,
   onDragLeaveRack,
   onDropOnRack,
-}: RackCabinet3DProps) {
+}: StudioRackCabinetProps) {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(rack.name);
 
-  const bayCode = `A-${String(rackIndex + 1).padStart(2, '0')}`;
+  const bayCode = `R-${String(rackIndex + 1).padStart(2, '0')}`;
   const totalU = rack.items.reduce((sum, item) => sum + getUnitHeightU(item, nodesMap, nodeStyles), 0);
   const watts = estimateRackWatts(rack, nodesMap, nodeStyles);
   const onlineCount = rack.items.reduce((count, item) => {
@@ -71,7 +69,7 @@ export function RackCabinet3D({
     return n?.online && n.cpu >= 80;
   });
 
-  // Compute U range numbers top-down from 42U standard data center numbering
+  // Top-down EIA-310D U numbering
   let uCursor = Math.max(12, totalU + 2);
   const uLabels = rack.items.map((item) => {
     const h = getUnitHeightU(item, nodesMap, nodeStyles);
@@ -91,76 +89,64 @@ export function RackCabinet3D({
     setEditingName(false);
   };
 
-  const beaconClass = totalNodes === 0 ? 'is-idle' : hasHotNode ? 'is-warn' : onlineCount > 0 ? 'is-ok' : 'is-off';
+  const beaconClass =
+    totalNodes === 0 ? 'is-idle' : hasHotNode ? 'is-warn' : onlineCount > 0 ? 'is-ok' : 'is-off';
+
+  // Render subtle realistic matte blanking baffles when rack has fewer U units
+  const blankBaffleCount = Math.max(1, Math.min(3, 7 - Math.min(7, totalU)));
 
   return (
     <section
-      className={`cab3d-enclosure theme-${rack.theme}${isActive ? ' is-active' : ''}`}
+      className={`srack-cabinet theme-${rack.theme}`}
       data-rack-id={rack.id}
-      onClick={(e) => {
-        e.stopPropagation();
-        onActivateRack(rack.id);
-      }}
+      aria-label={`机柜 ${rack.name}`}
     >
-      {/* Floor Contact Shadow & Painted Aisle Bay Marker (flat on floor plane) */}
-      <div className="cab3d-floor-shadow" aria-hidden="true">
-        <div className="cab3d-floor-bay-tag">
-          <span className="bay-code">{bayCode}</span>
-          <span className="bay-sep" />
-          <span className="bay-meta">{watts}W</span>
+      {/* Grounded Photographic Studio Shadow */}
+      <div className="srack-studio-shadow" aria-hidden="true" />
+      <div className="srack-studio-reflection" aria-hidden="true" />
+
+      {/* True 3D Extruded Top Roof Cap */}
+      <div className="srack-face srack-face-top" aria-hidden="true">
+        <div className={`srack-roof-led ${beaconClass}`} />
+        <div className="srack-roof-vents">
+          <span className="srack-roof-fan" />
+          <span className="srack-roof-fan" />
         </div>
       </div>
 
-      {/* True 3D Top Roof Panel (extruded backward along -Z) */}
-      <div className="cab3d-face cab3d-top" aria-hidden="true">
-        <div className={`cab3d-roof-beacon ${beaconClass}`} />
-        <div className="cab3d-roof-grid">
-          <div className="cab3d-roof-vent">
-            <span className="cab3d-fan-ring" />
-            <span className="cab3d-fan-ring" />
+      {/* True 3D Extruded Right Side Chassis Wall (Visible in Fixed Side Perspective) */}
+      <div className="srack-face srack-face-right" aria-hidden="true">
+        <div className="srack-side-chamfer" />
+        <div className="srack-side-panel">
+          <div className="srack-side-rivets top">
+            <span />
+            <span />
           </div>
-          <div className="cab3d-roof-grommets">
-            <span className="cab3d-grommet" />
-            <span className="cab3d-grommet" />
+          <div className="srack-side-louver" />
+          <div className="srack-side-handle" />
+          <div className="srack-side-louver is-lower" />
+          <div className="srack-side-rivets bottom">
+            <span />
+            <span />
           </div>
         </div>
-        <div className="cab3d-roof-stencil">{bayCode} // 42U-EIA</div>
       </div>
 
-      {/* True 3D Right Side Wall (perforated industrial enclosure panel) */}
-      <div className="cab3d-face cab3d-right" aria-hidden="true">
-        <div className="cab3d-side-frame">
-          <div className="cab3d-side-louver-top" />
-          <div className="cab3d-side-latch" />
-          <div className="cab3d-side-louver-bot" />
-          <div className="cab3d-side-exhaust-glow" />
-        </div>
-      </div>
+      {/* Left Edge Thickness */}
+      <div className="srack-face srack-face-left" aria-hidden="true" />
 
-      {/* True 3D Left Side Wall */}
-      <div className="cab3d-face cab3d-left" aria-hidden="true">
-        <div className="cab3d-side-frame">
-          <div className="cab3d-side-louver-top" />
-          <div className="cab3d-side-latch" />
-          <div className="cab3d-side-louver-bot" />
-        </div>
-      </div>
-
-      {/* True 3D Rear Wall */}
-      <div className="cab3d-face cab3d-back" aria-hidden="true" />
-
-      {/* Front Faceplate (at z = 0 for razor-sharp SVG & typography) */}
-      <div className="cab3d-face cab3d-front">
-        <header className="cab3d-header">
-          <div className="cab3d-head-left">
-            <span className={`cab3d-beacon-dot ${beaconClass}`} />
-            {editingName ? (
+      {/* Main Front Precision Hardware Enclosure */}
+      <div className="srack-face srack-face-front">
+        <header className="srack-header">
+          <div className="srack-header-left">
+            <span className={`srack-beacon ${beaconClass}`} />
+            <span className="srack-bay-code">{bayCode}</span>
+            {editMode && editingName ? (
               <input
-                className="cab3d-name-input"
+                type="text"
+                className="srack-name-input"
                 value={nameDraft}
                 autoFocus
-                maxLength={28}
-                onClick={(e) => e.stopPropagation()}
                 onChange={(e) => setNameDraft(e.target.value)}
                 onBlur={commitName}
                 onKeyDown={(e) => {
@@ -171,53 +157,54 @@ export function RackCabinet3D({
                   }
                 }}
               />
-            ) : (
+            ) : editMode ? (
               <button
                 type="button"
-                className="cab3d-name-btn"
+                className="srack-name-btn"
                 title="点击重命名机柜"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onActivateRack(rack.id);
                   setNameDraft(rack.name);
                   setEditingName(true);
                 }}
               >
                 {rack.name}
               </button>
+            ) : (
+              <span className="srack-name-text">{rack.name}</span>
             )}
           </div>
 
-          <div className="cab3d-head-right">
-            <span className="cab3d-stat">{totalU}U</span>
-            <span className="cab3d-stat">{watts}W</span>
+          <div className="srack-header-right">
+            <span className="srack-head-pill">{totalU}U</span>
+            <span className="srack-head-pill">{watts}W</span>
           </div>
         </header>
 
-        <div className="cab3d-body">
-          <div className="cab3d-post cab3d-post-left" aria-hidden="true" />
+        <div className="srack-body">
+          <div className="srack-post left" aria-hidden="true" />
 
           <div
-            className={`cab3d-bay${dragOverRackId === rack.id ? ' is-drop-target' : ''}`}
-            onDragOver={(e) => onDragOverRack(e, rack.id)}
-            onDragLeave={onDragLeaveRack}
-            onDrop={(e) => onDropOnRack(e, rack.id)}
+            className={`srack-bay${dragOverRackId === rack.id ? ' is-drop-target' : ''}`}
+            onDragOver={editMode ? (e) => onDragOverRack(e, rack.id) : undefined}
+            onDragLeave={editMode ? onDragLeaveRack : undefined}
+            onDrop={editMode ? (e) => onDropOnRack(e, rack.id) : undefined}
           >
-            <div className="cab3d-rail cab3d-rail-left" aria-hidden="true" />
-            <div className="cab3d-rail cab3d-rail-right" aria-hidden="true" />
+            <div className="srack-rail left" aria-hidden="true" />
+            <div className="srack-rail right" aria-hidden="true" />
 
             {rack.items.length === 0 ? (
-              <div className="cab3d-empty">
-                <p className="cab3d-empty-title">空置机柜槽位</p>
-                <p className="cab3d-empty-hint">拖入设备或打开右侧面板上架</p>
+              <div className="srack-empty">
+                <p>空置机柜槽位</p>
+                <span>{editMode ? '打开右侧面板即可上架设备' : '暂无已上架节点'}</span>
               </div>
             ) : (
-              <div className="cab3d-stack">
+              <div className="srack-stack">
                 {rack.items.map((item, idx) => {
                   const node = item.type === 'node' ? nodesMap.get(item.nodeId) : undefined;
                   const style = node ? getEffectiveStyle(node, nodeStyles) : undefined;
                   return (
-                    <RackUnit3D
+                    <StudioRackUnit
                       key={item.uid}
                       rackId={rack.id}
                       item={item}
@@ -231,9 +218,9 @@ export function RackCabinet3D({
                       isSelected={item.type === 'node' && selectedNodeId === item.nodeId}
                       uidBlinking={item.type === 'node' && uidBlinkingIds.has(item.nodeId)}
                       showStrip={showStrip}
+                      editMode={editMode}
                       isDragOver={dragOverUid === item.uid}
                       onSelect={() => {
-                        onActivateRack(rack.id);
                         if (item.type === 'node') {
                           onSelectNode(item.nodeId, rack.id);
                         }
@@ -254,23 +241,28 @@ export function RackCabinet3D({
               </div>
             )}
 
-            {/* Open dark lower rail cavity so every cabinet feels full-height & architectural */}
-            <div className="cab3d-lower-cavity" aria-hidden="true">
-              <div className="cab3d-cavity-rail-l" />
-              <div className="cab3d-cavity-rail-r" />
-              <span className="cab3d-cavity-mark">EIA-310D // COLD INTAKE</span>
+            {/* Realistic Dark Blanking Plates & Recessed Lower Cold Intake */}
+            <div className="srack-lower-baffles" aria-hidden="true">
+              {Array.from({ length: blankBaffleCount }).map((_, i) => (
+                <div key={i} className="srack-baffle-plate">
+                  <span className="srack-baffle-screw" />
+                  <span className="srack-baffle-mesh" />
+                  <span className="srack-baffle-screw" />
+                </div>
+              ))}
+              <div className="srack-intake-footer">EIA-310D // STUDIO CHASSIS</div>
             </div>
           </div>
 
-          <div className="cab3d-post cab3d-post-right" aria-hidden="true" />
+          <div className="srack-post right" aria-hidden="true" />
         </div>
 
-        <footer className="cab3d-plinth">
-          <span className="cab3d-plinth-vent" aria-hidden="true" />
-          <span className="cab3d-plinth-label">
+        <footer className="srack-plinth">
+          <span className="srack-plinth-vent" aria-hidden="true" />
+          <span className="srack-plinth-text">
             {bayCode} · {onlineCount}/{totalNodes} ONLINE
           </span>
-          <span className="cab3d-plinth-vent" aria-hidden="true" />
+          <span className="srack-plinth-vent" aria-hidden="true" />
         </footer>
       </div>
     </section>

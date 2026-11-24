@@ -1,12 +1,16 @@
 import type {
   CabinetThemePreference,
-  CameraPreset,
   KomariMeInfo,
   KomariPublicInfo,
   KomariThemeSettings,
   NodeInfo,
+  NodeTelemetryBundle,
+  PingProbeSample,
+  PingProbeSeries,
+  RackViewAngle,
   RecordHours,
   RoomAtmosphere,
+  StageViewMode,
   TelemetryPoint,
 } from '@/types/rack';
 
@@ -46,6 +50,9 @@ export interface KomariRawNode {
   mem_total?: number;
   swap_total?: number;
   disk_total?: number;
+  traffic_limit?: number;
+  traffic_limit_type?: string;
+  expired_at?: string;
   weight?: number;
 }
 
@@ -97,7 +104,17 @@ interface RawLoadRecord {
   cpu?: number;
   ram?: number;
   ram_total?: number;
+  swap?: number;
+  swap_total?: number;
   load?: number;
+  disk?: number;
+  net_in?: number;
+  net_out?: number;
+  net_down?: number;
+  net_up?: number;
+  connections?: number;
+  connections_udp?: number;
+  process?: number;
 }
 
 interface RawPingRecord {
@@ -107,6 +124,21 @@ interface RawPingRecord {
   ping?: number;
   latency?: number;
   task_id?: number;
+}
+
+interface RawPingTask {
+  id?: number;
+  name?: string;
+  interval?: number;
+  min?: number;
+  max?: number;
+  avg?: number;
+  loss?: number;
+  latest?: number;
+  total?: number;
+  p50?: number;
+  p95?: number;
+  p99?: number;
 }
 
 function isLocalOrIpHost(hostPort: string): boolean {
@@ -326,18 +358,24 @@ export function parseKomariThemeSettings(raw?: Record<string, unknown>): KomariT
   const out: KomariThemeSettings = {};
 
   const atmo = raw.defaultAtmosphere;
-  if (atmo === 'cold-aisle' || atmo === 'cleanroom' || atmo === 'obsidian-noc' || atmo === 'showroom') {
+  if (atmo === 'studio-dark' || atmo === 'studio-light') {
     out.defaultAtmosphere = atmo as RoomAtmosphere;
+  } else if (atmo === 'cleanroom') {
+    out.defaultAtmosphere = 'studio-light';
+  } else if (atmo === 'cold-aisle' || atmo === 'obsidian-noc' || atmo === 'showroom') {
+    out.defaultAtmosphere = 'studio-dark';
   }
 
-  const preset = raw.defaultCameraPreset;
-  if (preset === 'closeup' || preset === 'iso34' || preset === 'corridor' || preset === 'overhead' || preset === 'front') {
-    out.defaultCameraPreset = preset as CameraPreset;
+  const angle = raw.defaultViewAngle;
+  if (angle === 'side' || angle === 'front') {
+    out.defaultViewAngle = angle as RackViewAngle;
+  } else if (raw.defaultCameraPreset === 'front') {
+    out.defaultViewAngle = 'front';
   }
 
-  const camLock = raw.defaultCameraLock;
-  if (camLock === 'fixed' || camLock === 'locked25d' || camLock === 'micro_tilt') {
-    out.defaultCameraLock = camLock;
+  const stageView = raw.defaultStageView;
+  if (stageView === 'rack' || stageView === 'map') {
+    out.defaultStageView = stageView as StageViewMode;
   }
 
   const cabTheme = raw.defaultCabinetTheme;
@@ -603,15 +641,22 @@ export async function fetchKomariNodes(baseUrl: string, signal?: AbortSignal): P
         tags: n.tags || '',
         cpu_cores: Math.max(1, Number(n.cpu_cores) || 1),
         mem_total: Math.max(256 * 1024 ** 2, Number(n.mem_total) || 1024 ** 3),
+        swap_total: Number(n.swap_total) > 0 ? Number(n.swap_total) : 0,
         disk_total: Math.max(1024 ** 3, Number(n.disk_total) || 20 * 1024 ** 3),
         os: n.os || 'Linux',
+        kernel_version: n.kernel_version || undefined,
         cpu_name: n.cpu_name || 'Unknown CPU',
+        gpu_name: n.gpu_name && n.gpu_name.toLowerCase() !== 'none' ? n.gpu_name : undefined,
         arch: n.arch,
         virtualization: n.virtualization,
+        trafficLimit: Number(n.traffic_limit) > 0 ? Number(n.traffic_limit) : undefined,
+        trafficLimitType: n.traffic_limit_type || undefined,
+        expiredAt: n.expired_at || undefined,
         tag: firstTag || (n.group ? n.group.slice(0, 12) : 'KOMARI-NODE'),
         online: false,
         cpu: 0,
         ram: 0,
+        swap: 0,
         disk: 0,
         netUp: 0,
         netDown: 0,
@@ -668,6 +713,11 @@ export function applyClientsSnapshot(nodes: NodeInfo[], snapshot: KomariClientsS
     const ramTotal = Number(entry.ram?.total || node.mem_total || 1);
     const ramUsed = Number(entry.ram?.used ?? 0);
     const ram = isOnline && ramTotal > 0 ? Math.max(0, Math.min(100, Math.round((ramUsed / ramTotal) * 100))) : 0;
+
+    const swapTotal = Number(entry.swap?.total ?? node.swap_total ?? 0);
+    const swapUsed = Number(entry.swap?.used ?? 0);
+    const swap =
+      isOnline && swapTotal > 0 ? Math.max(0, Math.min(100, Math.round((swapUsed / swapTotal) * 100))) : 0;
 
     const diskTotal = Number(entry.disk?.total || node.disk_total || 1);
     const diskUsed = Number(entry.disk?.used ?? 0);
@@ -740,20 +790,33 @@ export function applyClientsSnapshot(nodes: NodeInfo[], snapshot: KomariClientsS
     }
 
     const load1Val = typeof entry.load === 'number' ? entry.load : entry.load?.load1;
+    const load5Val = typeof entry.load === 'object' ? entry.load?.load5 : undefined;
+    const load15Val = typeof entry.load === 'object' ? entry.load?.load15 : undefined;
 
     return {
       ...node,
       online: isOnline,
       cpu,
       ram,
+      ramUsed: isOnline ? Math.max(0, ramUsed) : 0,
+      mem_total: ramTotal > 0 ? ramTotal : node.mem_total,
+      swap_total: swapTotal >= 0 ? swapTotal : node.swap_total,
+      swap,
+      swapUsed: isOnline ? Math.max(0, swapUsed) : 0,
       disk,
+      diskUsed: diskUsed > 0 ? diskUsed : node.diskUsed,
+      disk_total: diskTotal > 0 ? diskTotal : node.disk_total,
       netUp: isOnline ? Math.max(0, rawUpBps) : 0,
       netDown: isOnline ? Math.max(0, rawDownBps) : 0,
       totalUp: nextTotalUp ?? node.totalUp,
       totalDown: nextTotalDown ?? node.totalDown,
       load1: load1Val,
+      load5: load5Val,
+      load15: load15Val,
       tcp: entry.connections?.tcp,
       udp: entry.connections?.udp,
+      process: typeof entry.process === 'number' && Number.isFinite(entry.process) ? entry.process : node.process,
+      message: typeof entry.message === 'string' && entry.message.trim() ? entry.message.trim() : undefined,
       uptime: isOnline ? formatUptimeSeconds(entry.uptime) : 'OFFLINE',
       updatedAt: entry.updated_at,
     };
@@ -854,12 +917,136 @@ export async function fetchBatchLatestPings(
   return results;
 }
 
+function extractPingTasks(payload: unknown): RawPingTask[] {
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    const obj = payload as Record<string, unknown>;
+    if (Array.isArray(obj.tasks)) return obj.tasks as RawPingTask[];
+  }
+  return [];
+}
+
+function computePercentile(sortedAsc: number[], pct: number): number | null {
+  if (sortedAsc.length === 0) return null;
+  const idx = Math.min(sortedAsc.length - 1, Math.max(0, Math.ceil((pct / 100) * sortedAsc.length) - 1));
+  return Math.round(sortedAsc[idx] * 10) / 10;
+}
+
+function buildPingProbes(rawPings: RawPingRecord[], rawTasks: RawPingTask[]): PingProbeSeries[] {
+  if (rawPings.length === 0 && rawTasks.length === 0) return [];
+
+  const taskMetaById = new Map<string, RawPingTask>();
+  for (const t of rawTasks) {
+    if (t.id !== undefined) {
+      taskMetaById.set(String(t.id), t);
+    }
+  }
+
+  const grouped = new Map<string, RawPingRecord[]>();
+  for (const rec of rawPings) {
+    const key = rec.task_id !== undefined ? String(rec.task_id) : 'default';
+    const arr = grouped.get(key) ?? [];
+    arr.push(rec);
+    grouped.set(key, arr);
+  }
+
+  // Ensure tasks returned with metadata also appear even if records are sparse
+  for (const t of rawTasks) {
+    if (t.id !== undefined && !grouped.has(String(t.id))) {
+      grouped.set(String(t.id), []);
+    }
+  }
+
+  const seriesList: PingProbeSeries[] = [];
+  let fallbackIndex = 1;
+
+  for (const [taskKey, recs] of grouped.entries()) {
+    const meta = taskMetaById.get(taskKey);
+    const sortedRecs = recs.slice().sort((a, b) => {
+      const ta = Date.parse(String(a.time ?? a.updated_at ?? 0));
+      const tb = Date.parse(String(b.time ?? b.updated_at ?? 0));
+      return (Number.isFinite(ta) ? ta : 0) - (Number.isFinite(tb) ? tb : 0);
+    });
+
+    const validVals: number[] = [];
+    let droppedCount = 0;
+    let latestValid: number | null = null;
+    let jitterSum = 0;
+    let jitterPairs = 0;
+    let prevValid: number | null = null;
+
+    for (const r of sortedRecs) {
+      const val = Number(r.value ?? r.ping ?? r.latency ?? -1);
+      if (Number.isFinite(val) && val > 0) {
+        validVals.push(val);
+        latestValid = val;
+        if (prevValid !== null) {
+          jitterSum += Math.abs(val - prevValid);
+          jitterPairs += 1;
+        }
+        prevValid = val;
+      } else {
+        droppedCount += 1;
+      }
+    }
+
+    const totalSamples = sortedRecs.length || Number(meta?.total ?? 0);
+    const sortedValid = validVals.slice().sort((a, b) => a - b);
+    const computedMin = sortedValid.length > 0 ? Math.round(sortedValid[0] * 10) / 10 : null;
+    const computedMax = sortedValid.length > 0 ? Math.round(sortedValid[sortedValid.length - 1] * 10) / 10 : null;
+    const computedAvg =
+      validVals.length > 0 ? Math.round((validVals.reduce((s, v) => s + v, 0) / validVals.length) * 10) / 10 : null;
+    const computedP95 = computePercentile(sortedValid, 95);
+    const computedJitter = jitterPairs > 0 ? Math.round((jitterSum / jitterPairs) * 10) / 10 : null;
+    const computedLoss =
+      sortedRecs.length > 0
+        ? Math.round((droppedCount / sortedRecs.length) * 1000) / 10
+        : typeof meta?.loss === 'number' && Number.isFinite(meta.loss)
+          ? Math.round(meta.loss * 10) / 10
+          : 0;
+
+    const sampledRecs = downsample(sortedRecs, 28);
+    const points: PingProbeSample[] = sampledRecs.map((r) => {
+      const val = Number(r.value ?? r.ping ?? r.latency ?? -1);
+      return {
+        time: formatShortTime(r.time ?? r.updated_at),
+        value: Number.isFinite(val) && val > 0 ? Math.round(val * 10) / 10 : null,
+      };
+    });
+
+    const probeName =
+      meta?.name?.trim() || (taskKey === 'default' ? '默认探针' : `探针 #${fallbackIndex}`);
+    fallbackIndex += 1;
+
+    seriesList.push({
+      id: taskKey,
+      name: probeName,
+      latest:
+        latestValid !== null
+          ? Math.round(latestValid * 10) / 10
+          : typeof meta?.latest === 'number' && meta.latest > 0
+            ? Math.round(meta.latest * 10) / 10
+            : null,
+      min: computedMin ?? (typeof meta?.min === 'number' && meta.min > 0 ? Math.round(meta.min * 10) / 10 : null),
+      avg: computedAvg ?? (typeof meta?.avg === 'number' && meta.avg > 0 ? Math.round(meta.avg * 10) / 10 : null),
+      p95: computedP95 ?? (typeof meta?.p95 === 'number' && meta.p95 > 0 ? Math.round(meta.p95 * 10) / 10 : null),
+      max: computedMax ?? (typeof meta?.max === 'number' && meta.max > 0 ? Math.round(meta.max * 10) / 10 : null),
+      jitter: computedJitter,
+      loss: Math.max(0, Math.min(100, computedLoss)),
+      totalSamples,
+      points,
+    });
+  }
+
+  // Cap to 4 probes to stay strictly within the 4-color validated categorical palette
+  return seriesList.slice(0, 4);
+}
+
 export async function fetchNodeTelemetryRecords(
   baseUrl: string,
   node: NodeInfo,
   hours: RecordHours,
   signal?: AbortSignal,
-): Promise<{ points: TelemetryPoint[]; latestPing: number | null }> {
+): Promise<NodeTelemetryBundle> {
   const loadUrl = buildApiUrl(baseUrl, `/api/records/load?uuid=${encodeURIComponent(node.uuid)}&hours=${hours}`);
   const pingUrl = buildApiUrl(baseUrl, `/api/records/ping?uuid=${encodeURIComponent(node.uuid)}&hours=${hours}`);
 
@@ -870,17 +1057,19 @@ export async function fetchNodeTelemetryRecords(
 
   const rawLoads = loadRes.status === 'fulfilled' ? extractArray<RawLoadRecord>(loadRes.value) : [];
   const rawPings = pingRes.status === 'fulfilled' ? extractArray<RawPingRecord>(pingRes.value) : [];
+  const rawPingTasks = pingRes.status === 'fulfilled' ? extractPingTasks(pingRes.value) : [];
 
   const validPings = rawPings
     .map((p) => Number(p.value ?? p.ping ?? p.latency ?? -1))
     .filter((v) => Number.isFinite(v) && v > 0);
   const latestPing = extractLatestPing(rawPings);
+  const pingProbes = buildPingProbes(rawPings, rawPingTasks);
 
   if (rawLoads.length === 0) {
-    return { points: [], latestPing };
+    return { points: [], pingProbes, latestPing };
   }
 
-  const sampledLoads = downsample(rawLoads, 24);
+  const sampledLoads = downsample(rawLoads, 28);
   const sampledPings = downsample(validPings, sampledLoads.length);
 
   const points: TelemetryPoint[] = sampledLoads.map((rec, i) => {
@@ -890,15 +1079,24 @@ export async function fetchNodeTelemetryRecords(
     const ramPct = rawRam > 100 && totalMem > 0 ? (rawRam / totalMem) * 100 : rawRam;
     const ram = Math.max(0, Math.min(100, Math.round(ramPct)));
     const ping = sampledPings[i] !== undefined ? Math.round(sampledPings[i]) : latestPing ?? node.ping;
+    const netDown = firstFiniteNonNegative(rec.net_in, rec.net_down);
+    const netUp = firstFiniteNonNegative(rec.net_out, rec.net_up);
+    const load1 =
+      typeof rec.load === 'number' && Number.isFinite(rec.load) && rec.load >= 0
+        ? Math.round(rec.load * 100) / 100
+        : undefined;
     return {
       time: formatShortTime(rec.time ?? rec.updated_at),
       cpu,
       ram,
       ping,
+      netDown,
+      netUp,
+      load1,
     };
   });
 
-  return { points, latestPing };
+  return { points, pingProbes, latestPing };
 }
 
 export interface KomariWsHandle {

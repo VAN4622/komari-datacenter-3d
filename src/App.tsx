@@ -1,13 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DataCenterScene3D, type CameraControlSignal } from '@/components/three/DataCenterScene3D';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { StudioRackStage } from '@/components/studio/StudioRackStage';
+import { GlobalNodeMap } from '@/components/map/GlobalNodeMap';
 import { FloatingHud } from '@/components/hud/FloatingHud';
 import { InspectorDrawer } from '@/components/hud/InspectorDrawer';
 import { ServerStatusHud } from '@/components/hud/ServerStatusHud';
 import {
   ATMOSPHERES,
   DEMO_NODES,
+  VIEW_ANGLES,
+  appendDemoPingSample,
   buildAutoRacksFromNodes,
   buildInitialHistory,
+  buildInitialPingProbes,
   estimateRackWatts,
   getDefaultConfig,
   getUnitHeightU,
@@ -18,6 +22,7 @@ import {
   saveConfig,
   serializePersistedLayout,
 } from '@/data/fleet';
+import { buildRegionClusters } from '@/lib/geoRegions';
 import {
   KomariApiError,
   applyClientsSnapshot,
@@ -40,8 +45,6 @@ import type {
   ApiConnectionStatus,
   AppConfig,
   CabinetTheme,
-  CameraControlMode,
-  CameraPreset,
   DataSourceMode,
   DrawerTab,
   KomariMeInfo,
@@ -49,10 +52,13 @@ import type {
   LayoutSyncSource,
   NodeInfo,
   NodeStyleOverride,
+  PingProbeSeries,
   RackCabinetData,
   RackItem,
+  RackViewAngle,
   RecordHours,
   RoomAtmosphere,
+  StageViewMode,
   TelemetryPoint,
 } from '@/types/rack';
 
@@ -103,19 +109,20 @@ export default function App() {
   const [wsFramesCount, setWsFramesCount] = useState(0);
   const [liveConnectNonce, setLiveConnectNonce] = useState(0);
 
-  // React Three Fiber spatial camera signal (strict fixed station close-up default)
-  const [cameraSignal, setCameraSignal] = useState<CameraControlSignal>(() => ({
-    preset: config.cameraPreset,
-    nonce: 0,
-  }));
-  const [cameraControlMode, setCameraControlMode] = useState<CameraControlMode>('fixed');
-  const [zoomPercent, setZoomPercent] = useState(100);
-  const [cameraCustomized, setCameraCustomized] = useState(false);
+  // Stage mode ('rack' showcase vs 'map' global overview) + map focus
+  const [stageView, setStageView] = useState<StageViewMode>('rack');
+  const [focusedMapRegion, setFocusedMapRegion] = useState<string | null>(null);
+  const [rackNavHint, setRackNavHint] = useState<{ seq: number; dir: 'next' | 'prev' } | null>(null);
 
-  // Floating Server Status HUD visibility & mobile-friendly collapse state
+  // Drag-and-drop state for edit mode
+  const dragSourceRef = useRef<{ rackId: string; uid: string } | null>(null);
+  const [dragOverUid, setDragOverUid] = useState<string | null>(null);
+  const [dragOverRackId, setDragOverRackId] = useState<string | null>(null);
+
+  // Floating Sci-Fi Server Status HUD visibility & mobile-friendly collapse state
   const [showServerHud, setShowServerHud] = useState(true);
   const [serverHudCollapsed, setServerHudCollapsed] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
+    typeof window !== 'undefined' ? window.innerWidth <= 900 : false,
   );
 
   // Admin auth & read-only / edit-mode gating
@@ -135,7 +142,14 @@ export default function App() {
   const [telemetryMap, setTelemetryMap] = useState<Record<string, TelemetryPoint[]>>(() => {
     const initial: Record<string, TelemetryPoint[]> = {};
     for (const n of DEMO_NODES) {
-      initial[n.uuid] = buildInitialHistory(n);
+      initial[n.uuid] = buildInitialHistory(n, config.api.recordHours);
+    }
+    return initial;
+  });
+  const [pingProbesMap, setPingProbesMap] = useState<Record<string, PingProbeSeries[]>>(() => {
+    const initial: Record<string, PingProbeSeries[]> = {};
+    for (const n of DEMO_NODES) {
+      initial[n.uuid] = buildInitialPingProbes(n, config.api.recordHours);
     }
     return initial;
   });
@@ -264,7 +278,7 @@ export default function App() {
         setConfig((prev) => ({
           ...prev,
           atmosphere: ts.defaultAtmosphere ?? prev.atmosphere,
-          cameraPreset: ts.defaultCameraPreset ?? prev.cameraPreset,
+          viewAngle: ts.defaultViewAngle ?? prev.viewAngle,
           showStrip: ts.showStatusStrip ?? prev.showStrip,
           scale: ts.compactRackWidth !== undefined ? (ts.compactRackWidth ? 'compact' : 'standard') : prev.scale,
           api: {
@@ -274,12 +288,8 @@ export default function App() {
             recordHours: ts.recordHours ?? prev.api.recordHours,
           },
         }));
-        if (ts.defaultCameraPreset) {
-          setCameraSignal((prev) => ({ preset: ts.defaultCameraPreset!, nonce: prev.nonce + 1 }));
-          setCameraCustomized(false);
-        }
-        if (ts.defaultCameraLock) {
-          setCameraControlMode(ts.defaultCameraLock);
+        if (ts.defaultStageView) {
+          setStageView(ts.defaultStageView);
         }
       }
     });
@@ -292,7 +302,7 @@ export default function App() {
     if (isLiveMode && (customTitle || publicInfo?.sitename)) {
       document.title = customTitle || publicInfo?.sitename || 'Komari Monitor';
     } else {
-      document.title = 'Komari Data Center Hall — 3D Perspective Rack Monitor';
+      document.title = 'Komari Studio — 拟物机柜展台与全球节点态势';
     }
 
     if (isLiveMode && publicInfo?.description) {
@@ -328,15 +338,28 @@ export default function App() {
           const upBase = Math.max(16 * 1024, n.netUp);
           const nextDown = Math.max(16 * 1024, Math.round(downBase * (0.86 + Math.random() * 0.28)));
           const nextUp = Math.max(8 * 1024, Math.round(upBase * (0.86 + Math.random() * 0.28)));
+          const nextLoad1 = Math.max(
+            0.04,
+            Math.round(((n.load1 ?? (nextCpu / 100) * n.cpu_cores * 0.65) + (Math.random() - 0.5) * 0.14) * 100) /
+              100,
+          );
+          const nextTcp =
+            n.tcp !== undefined ? Math.max(8, Math.round(n.tcp + (Math.random() - 0.5) * 10)) : undefined;
+          const nextUdp =
+            n.udp !== undefined ? Math.max(2, Math.round(n.udp + (Math.random() - 0.5) * 4)) : undefined;
           return {
             ...n,
             cpu: nextCpu,
             ram: nextRam,
+            ramUsed: Math.round((nextRam / 100) * n.mem_total),
             ping: nextPing,
             netDown: nextDown,
             netUp: nextUp,
             totalDown: (n.totalDown ?? 0) + nextDown * 3.2,
             totalUp: (n.totalUp ?? 0) + nextUp * 3.2,
+            load1: nextLoad1,
+            tcp: nextTcp,
+            udp: nextUdp,
           };
         }),
       );
@@ -344,26 +367,38 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [isLiveMode]);
 
-  // Append telemetry history in demo mode
+  // Append telemetry & ping history in demo mode only on real heartbeat ticks (avoids extra frame-1 rerender on rack switch)
+  const lastDemoNodesRef = useRef(demoNodes);
   useEffect(() => {
     if (isLiveMode) return;
+    const isTick = lastDemoNodesRef.current !== demoNodes;
+    lastDemoNodesRef.current = demoNodes;
+    if (!isTick) return;
+
     const current = demoNodes.find((n) => n.uuid === selectedNodeId);
     if (!current) return;
+    const nowLabel = new Date().toLocaleTimeString('zh-CN', { hour12: false, minute: '2-digit', second: '2-digit' });
     setTelemetryMap((prev) => {
-      const hist = prev[current.uuid] ?? buildInitialHistory(current);
-      const nowLabel = new Date().toLocaleTimeString('zh-CN', { hour12: false, minute: '2-digit', second: '2-digit' });
-      const next = [
-        ...hist.slice(-17),
+      const hist = prev[current.uuid] ?? buildInitialHistory(current, config.api.recordHours);
+      const next: TelemetryPoint[] = [
+        ...hist.slice(-23),
         {
           time: nowLabel,
           cpu: current.online ? current.cpu : 0,
           ram: current.online ? current.ram : 0,
           ping: current.online ? current.ping : 0,
+          netDown: current.online ? current.netDown : 0,
+          netUp: current.online ? current.netUp : 0,
+          load1: current.online ? current.load1 : 0,
         },
       ];
       return { ...prev, [current.uuid]: next };
     });
-  }, [demoNodes, selectedNodeId, isLiveMode]);
+    setPingProbesMap((prev) => {
+      const existing = prev[current.uuid] ?? buildInitialPingProbes(current, config.api.recordHours);
+      return { ...prev, [current.uuid]: appendDemoPingSample(existing, current, nowLabel) };
+    });
+  }, [demoNodes, selectedNodeId, isLiveMode, config.api.recordHours]);
 
   // Live Komari REST + WebSocket connection
   useEffect(() => {
@@ -532,10 +567,10 @@ export default function App() {
           return {
             ...prev,
             atmosphere: shouldApplyThemeDefaults && parsedTheme.defaultAtmosphere ? parsedTheme.defaultAtmosphere : prev.atmosphere,
-            cameraPreset:
-              shouldApplyThemeDefaults && parsedTheme.defaultCameraPreset
-                ? parsedTheme.defaultCameraPreset
-                : prev.cameraPreset,
+            viewAngle:
+              shouldApplyThemeDefaults && parsedTheme.defaultViewAngle
+                ? parsedTheme.defaultViewAngle
+                : prev.viewAngle,
             showStrip:
               shouldApplyThemeDefaults && parsedTheme.showStatusStrip !== undefined
                 ? parsedTheme.showStatusStrip
@@ -558,12 +593,8 @@ export default function App() {
         setLayoutSyncSource(resolvedSource);
         setHasUnpublishedChanges(resolvedSource === 'local_draft');
 
-        if (shouldApplyThemeDefaults && parsedTheme.defaultCameraPreset) {
-          setCameraSignal((prev) => ({ preset: parsedTheme.defaultCameraPreset!, nonce: prev.nonce + 1 }));
-          setCameraCustomized(false);
-        }
-        if (shouldApplyThemeDefaults && parsedTheme.defaultCameraLock) {
-          setCameraControlMode(parsedTheme.defaultCameraLock);
+        if (shouldApplyThemeDefaults && parsedTheme.defaultStageView) {
+          setStageView(parsedTheme.defaultStageView);
         }
 
         connectWebSocket();
@@ -654,7 +685,7 @@ export default function App() {
     };
   }, [isLiveMode, liveNodeUuidsKey, config.api.baseUrl, publicInfo?.record_enabled, themeSettings.enablePingPolling]);
 
-  // Fetch historical telemetry for selected node in live mode
+  // Fetch historical telemetry & multi-probe ping records for selected node in live mode
   useEffect(() => {
     if (!isLiveMode || !selectedNodeId) return;
     const selected = liveNodes.find((n) => n.uuid === selectedNodeId);
@@ -662,10 +693,11 @@ export default function App() {
 
     const controller = new AbortController();
     fetchNodeTelemetryRecords(config.api.baseUrl, selected, config.api.recordHours, controller.signal)
-      .then(({ points, latestPing }) => {
+      .then(({ points, pingProbes, latestPing }) => {
         if (points.length > 0) {
           setTelemetryMap((prev) => ({ ...prev, [selectedNodeId]: points }));
         }
+        setPingProbesMap((prev) => ({ ...prev, [selectedNodeId]: pingProbes }));
         if (latestPing !== null) {
           setLiveNodes((prev) => prev.map((n) => (n.uuid === selectedNodeId ? { ...n, ping: latestPing } : n)));
         }
@@ -738,11 +770,12 @@ export default function App() {
       const target = orderedNodes[nextIdx];
       if (!target) return;
       setSelectedNodeId(target.node.uuid);
-      if (target.rackId) {
+      if (target.rackId && target.rackId !== activeRack?.id) {
+        setRackNavHint((h) => ({ seq: (h?.seq ?? 0) + 1, dir: delta > 0 ? 'next' : 'prev' }));
         setConfig((prev) => (prev.activeRackId === target.rackId ? prev : { ...prev, activeRackId: target.rackId }));
       }
     },
-    [orderedNodes, selectedNodeEntryIndex],
+    [orderedNodes, selectedNodeEntryIndex, activeRack?.id],
   );
 
   const fleetStats = useMemo(() => {
@@ -754,7 +787,8 @@ export default function App() {
     );
     const totalNetDown = nodes.reduce((sum, n) => sum + (n.online ? n.netDown : 0), 0);
     const totalNetUp = nodes.reduce((sum, n) => sum + (n.online ? n.netUp : 0), 0);
-    return { onlineNodes, totalNodes: nodes.length, totalWatts, totalU, totalNetDown, totalNetUp };
+    const regionCount = buildRegionClusters(nodes).length;
+    return { onlineNodes, totalNodes: nodes.length, totalWatts, totalU, totalNetDown, totalNetUp, regionCount };
   }, [nodes, activeRackList, nodesMap, config.nodeStyles]);
 
   const ensureCanEdit = useCallback((): boolean => {
@@ -871,54 +905,148 @@ export default function App() {
     showNotice('已拉取并恢复 Komari 服务端线上编排');
   };
 
-  const handleToggleCameraControlMode = () => {
-    setCameraControlMode((prev) => {
-      const next: CameraControlMode =
-        prev === 'fixed' ? 'locked25d' : prev === 'locked25d' ? 'micro_tilt' : 'fixed';
-      if (next === 'fixed') {
-        setCameraSignal((sig) => ({ preset: config.cameraPreset, nonce: sig.nonce + 1 }));
-        setCameraCustomized(false);
-        showNotice('已锁定固定摄像机机位（禁止拖拽偏移，点击下方切换机位）');
-      } else if (next === 'locked25d') {
-        setCameraSignal((sig) => ({ preset: config.cameraPreset, nonce: sig.nonce + 1 }));
-        setCameraCustomized(false);
-        showNotice('已切换为 2.5D 平移缩放（锁定视角，可拖拽平移与缩放）');
-      } else {
-        showNotice('已开启 2.5D 微倾观察（允许受限小角度倾斜）');
+  // Studio perspective angle & stage view handlers
+  const handleChangeViewAngle = (angle: RackViewAngle) => {
+    setConfig((prev) => ({ ...prev, viewAngle: angle }));
+    const spec = VIEW_ANGLES[angle];
+    if (spec) {
+      showNotice(`视角已切换：${spec.short}`);
+    }
+  };
+
+  const handleSelectRack = useCallback(
+    (rackId: string, dir?: 'next' | 'prev') => {
+      if (dir) {
+        setRackNavHint((prev) => ({ seq: (prev?.seq ?? 0) + 1, dir }));
       }
-      return next;
-    });
-  };
+      setConfig((prev) => ({ ...prev, activeRackId: rackId }));
+      const rack = activeRackList.find((r) => r.id === rackId);
+      if (!rack) return;
+      const alreadyInRack = rack.items.some((it) => it.type === 'node' && it.nodeId === selectedNodeId);
+      if (!alreadyInRack) {
+        const firstNodeItem = rack.items.find((it) => it.type === 'node');
+        if (firstNodeItem && firstNodeItem.type === 'node') {
+          setSelectedNodeId(firstNodeItem.nodeId);
+        }
+      }
+    },
+    [activeRackList, selectedNodeId],
+  );
 
-  // Camera handlers
-  const handleSelectPreset = (preset: CameraPreset) => {
-    setConfig((prev) => ({ ...prev, cameraPreset: preset }));
-    setCameraSignal((prev) => ({ preset, nonce: prev.nonce + 1 }));
-    setCameraCustomized(false);
-  };
-
-  const handleResetCamera = () => {
-    setCameraSignal((prev) => ({ preset: config.cameraPreset, nonce: prev.nonce + 1 }));
-    setCameraCustomized(false);
-  };
-
-  const handleUserOrbit = useCallback(() => {
-    setCameraCustomized(true);
+  const handleLocateOnMap = useCallback((regionCode: string) => {
+    setFocusedMapRegion(regionCode);
+    setStageView('map');
   }, []);
 
-  const handleZoomStep = (delta: number) => {
-    setCameraSignal((prev) => ({
-      ...prev,
-      zoomStep: { delta, nonce: (prev.zoomStep?.nonce ?? 0) + 1 },
-    }));
-    setCameraCustomized(true);
+  const handleJumpToNodeFromMap = useCallback(
+    (nodeId: string) => {
+      const hostRack = activeRackList.find((r) =>
+        r.items.some((it) => it.type === 'node' && it.nodeId === nodeId),
+      );
+      if (hostRack) {
+        setConfig((prev) => ({ ...prev, activeRackId: hostRack.id }));
+      }
+      setSelectedNodeId(nodeId);
+      setStageView('rack');
+      setShowServerHud(true);
+      setServerHudCollapsed(false);
+    },
+    [activeRackList],
+  );
+
+  // Edit-mode drag-and-drop handlers for StudioRackStage
+  const handleDragStartItem = (e: DragEvent<HTMLDivElement>, rackId: string, uid: string) => {
+    if (!canEdit) return;
+    dragSourceRef.current = { rackId, uid };
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      e.dataTransfer.setData('text/plain', `${rackId}:${uid}`);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleDragOverItem = (e: DragEvent<HTMLDivElement>, uid: string) => {
+    if (!canEdit || !dragSourceRef.current) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverUid !== uid) setDragOverUid(uid);
+  };
+
+  const handleDragLeaveItem = () => {
+    setDragOverUid(null);
+  };
+
+  const handleDropOnItem = (e: DragEvent<HTMLDivElement>, targetRackId: string, targetUid: string) => {
+    e.preventDefault();
+    const src = dragSourceRef.current;
+    dragSourceRef.current = null;
+    setDragOverUid(null);
+    setDragOverRackId(null);
+    if (!canEdit || !src) return;
+    if (src.rackId === targetRackId && src.uid === targetUid) return;
+
+    updateCurrentRacks((racks) => {
+      let movedItem: RackItem | null = null;
+      const stripped = racks.map((r) => {
+        if (r.id !== src.rackId) return r;
+        const found = r.items.find((it) => it.uid === src.uid);
+        if (found) movedItem = found;
+        return { ...r, items: r.items.filter((it) => it.uid !== src.uid) };
+      });
+      if (!movedItem) return racks;
+      return stripped.map((r) => {
+        if (r.id !== targetRackId) return r;
+        const idx = r.items.findIndex((it) => it.uid === targetUid);
+        const nextItems = [...r.items];
+        if (idx >= 0) nextItems.splice(idx, 0, movedItem!);
+        else nextItems.push(movedItem!);
+        return { ...r, items: nextItems };
+      });
+    });
+    markLayoutDirty();
+  };
+
+  const handleDragOverRack = (e: DragEvent<HTMLDivElement>, rackId: string) => {
+    if (!canEdit || !dragSourceRef.current) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverRackId !== rackId) setDragOverRackId(rackId);
+  };
+
+  const handleDragLeaveRack = () => {
+    setDragOverRackId(null);
+  };
+
+  const handleDropOnRack = (e: DragEvent<HTMLDivElement>, targetRackId: string) => {
+    e.preventDefault();
+    const src = dragSourceRef.current;
+    dragSourceRef.current = null;
+    setDragOverUid(null);
+    setDragOverRackId(null);
+    if (!canEdit || !src) return;
+
+    updateCurrentRacks((racks) => {
+      let movedItem: RackItem | null = null;
+      const stripped = racks.map((r) => {
+        if (r.id !== src.rackId) return r;
+        const found = r.items.find((it) => it.uid === src.uid);
+        if (found) movedItem = found;
+        return { ...r, items: r.items.filter((it) => it.uid !== src.uid) };
+      });
+      if (!movedItem) return racks;
+      return stripped.map((r) =>
+        r.id === targetRackId ? { ...r, items: [...r.items, movedItem!] } : r,
+      );
+    });
+    markLayoutDirty();
   };
 
   const handleChangeAtmosphere = (atmosphere: RoomAtmosphere) => {
     setConfig((prev) => ({ ...prev, atmosphere }));
     const meta = ATMOSPHERES.find((a) => a.id === atmosphere);
     if (meta) {
-      showNotice(`已切换场景：${meta.label} · ${meta.subtitle}`);
+      showNotice(`已切换影棚光效：${meta.label} · ${meta.subtitle}`);
     }
   };
 
@@ -1052,12 +1180,12 @@ export default function App() {
     const fresh = getDefaultConfig();
     setConfig((prev) => ({
       ...fresh,
-      cameraPreset: prev.cameraPreset,
+      viewAngle: prev.viewAngle,
       atmosphere: prev.atmosphere,
       api: prev.api,
       liveRacks: prev.liveRacks,
     }));
-    showNotice('已恢复默认三柜冷通道编排');
+    showNotice('已恢复默认三柜影棚编排');
   };
 
   const handleMoveItem = (rackId: string, index: number, delta: -1 | 1) => {
@@ -1161,6 +1289,22 @@ export default function App() {
 
   const handleChangeRecordHours = (hours: RecordHours) => {
     setConfig((prev) => ({ ...prev, api: { ...prev.api, recordHours: hours } }));
+    if (!isLiveMode) {
+      setTelemetryMap(() => {
+        const rebuilt: Record<string, TelemetryPoint[]> = {};
+        for (const n of demoNodes) {
+          rebuilt[n.uuid] = buildInitialHistory(n, hours);
+        }
+        return rebuilt;
+      });
+      setPingProbesMap(() => {
+        const rebuilt: Record<string, PingProbeSeries[]> = {};
+        for (const n of demoNodes) {
+          rebuilt[n.uuid] = buildInitialPingProbes(n, hours);
+        }
+        return rebuilt;
+      });
+    }
   };
 
   const handleExportConfigJson = () => {
@@ -1182,8 +1326,6 @@ export default function App() {
     try {
       const next = parseImportedConfig(rawJson, config);
       setConfig(next);
-      setCameraSignal((prev) => ({ preset: next.cameraPreset, nonce: prev.nonce + 1 }));
-      setCameraCustomized(false);
       markLayoutDirty();
       showNotice('已应用导入的机房编排与涂装');
       return { ok: true };
@@ -1194,58 +1336,65 @@ export default function App() {
 
   const siteDisplayName = isLiveMode
     ? themeSettings.customHallTitle || publicInfo?.sitename || 'KOMARI // LIVE'
-    : 'KOMARI // HALL A';
+    : 'KOMARI // STUDIO';
   const adminUrl = buildAdminUrl(config.api.baseUrl);
   const showAdminLink = (sameOriginKomari || isLiveMode) && themeSettings.showAdminLink !== false;
 
   return (
     <div className={`dc-app atmo-${config.atmosphere}`}>
-      <DataCenterScene3D
-        siteName={siteDisplayName}
-        atmosphere={config.atmosphere}
-        scale={config.scale}
-        racks={activeRackList}
-        activeRackId={activeRack.id}
-        nodes={nodes}
-        nodesMap={nodesMap}
-        nodeStyles={config.nodeStyles}
-        selectedNodeId={selectedNode?.uuid ?? null}
-        uidBlinkingIds={uidBlinkingIds}
-        showStrip={config.showStrip}
-        drawerOpen={drawerOpen}
-        canEdit={canEdit}
-        cameraControlMode={cameraControlMode}
-        totalWatts={fleetStats.totalWatts}
-        totalU={fleetStats.totalU}
-        isLive={isLiveMode}
-        apiStatus={apiStatus}
-        cameraSignal={cameraSignal}
-        onUserOrbit={handleUserOrbit}
-        onZoomPercentChange={setZoomPercent}
-        onSelectRack={(rackId) => {
-          setConfig((prev) => ({ ...prev, activeRackId: rackId }));
-          const rack = activeRackList.find((r) => r.id === rackId);
-          const firstNodeItem = rack?.items.find((it) => it.type === 'node');
-          if (firstNodeItem && firstNodeItem.type === 'node') {
-            setSelectedNodeId(firstNodeItem.nodeId);
-          }
-        }}
-        onSelectNode={(nodeId, rackId) => {
-          setSelectedNodeId(nodeId);
-          setConfig((prev) => ({ ...prev, activeRackId: rackId }));
-          setShowServerHud(true);
-          setServerHudCollapsed(false);
-          if (canEdit) {
-            setDrawerOpen(true);
-            if (drawerTab === 'builder' || drawerTab === 'api') {
-              setDrawerTab('style');
+      {stageView === 'rack' ? (
+        <StudioRackStage
+          racks={activeRackList}
+          activeRackId={activeRack.id}
+          rackNavHint={rackNavHint}
+          nodesMap={nodesMap}
+          nodeStyles={config.nodeStyles}
+          selectedNodeId={selectedNode?.uuid ?? null}
+          uidBlinkingIds={uidBlinkingIds}
+          showStrip={config.showStrip}
+          scale={config.scale}
+          viewAngle={config.viewAngle}
+          hudVisible={showServerHud && !serverHudCollapsed}
+          drawerOpen={drawerOpen}
+          editMode={canEdit}
+          dragOverUid={dragOverUid}
+          dragOverRackId={dragOverRackId}
+          onSelectRack={handleSelectRack}
+          onRenameRack={handleRenameRack}
+          onSelectNode={(nodeId, rackId) => {
+            setSelectedNodeId(nodeId);
+            setConfig((prev) => ({ ...prev, activeRackId: rackId }));
+            setShowServerHud(true);
+            setServerHudCollapsed(false);
+            if (canEdit) {
+              setDrawerOpen(true);
+              if (drawerTab === 'builder' || drawerTab === 'api') {
+                setDrawerTab('style');
+              }
+            } else if (drawerOpen) {
+              setDrawerTab('telemetry');
             }
-          } else if (drawerOpen) {
-            setDrawerTab('telemetry');
-          }
-        }}
-        onAddRack={handleAddRack}
-      />
+          }}
+          onMoveItem={handleMoveItem}
+          onToggleUid={handleToggleUid}
+          onRemoveItem={handleRemoveItem}
+          onDragStartItem={handleDragStartItem}
+          onDragOverItem={handleDragOverItem}
+          onDragLeaveItem={handleDragLeaveItem}
+          onDropOnItem={handleDropOnItem}
+          onDragOverRack={handleDragOverRack}
+          onDragLeaveRack={handleDragLeaveRack}
+          onDropOnRack={handleDropOnRack}
+        />
+      ) : (
+        <GlobalNodeMap
+          nodes={nodes}
+          selectedNodeId={selectedNode?.uuid ?? null}
+          focusedRegionCode={focusedMapRegion}
+          onJumpToNode={handleJumpToNodeFromMap}
+          onClose={() => setStageView('rack')}
+        />
+      )}
 
       <FloatingHud
         siteName={siteDisplayName}
@@ -1253,16 +1402,17 @@ export default function App() {
         apiStatus={apiStatus}
         onlineNodes={fleetStats.onlineNodes}
         totalNodes={fleetStats.totalNodes}
+        regionCount={fleetStats.regionCount}
         totalNetDown={fleetStats.totalNetDown}
-        cameraPreset={config.cameraPreset}
-        cameraControlMode={cameraControlMode}
-        zoomPercent={zoomPercent}
-        cameraCustomized={cameraCustomized}
+        stageView={stageView}
+        viewAngle={config.viewAngle}
         atmosphere={config.atmosphere}
         scale={config.scale}
         showStrip={config.showStrip}
         showServerHud={showServerHud}
         drawerOpen={drawerOpen}
+        racks={activeRackList}
+        activeRackId={activeRack.id}
         showAdminLink={showAdminLink}
         adminUrl={adminUrl}
         isSameOrigin={isSameOriginLink}
@@ -1272,10 +1422,17 @@ export default function App() {
         editMode={canEdit}
         hasUnpublishedChanges={hasUnpublishedChanges}
         isPublishingLayout={isPublishingLayout}
-        onSelectPreset={handleSelectPreset}
-        onToggleCameraControlMode={handleToggleCameraControlMode}
-        onResetCamera={handleResetCamera}
-        onZoomStep={handleZoomStep}
+        onToggleStageView={() => {
+          setStageView((prev) => {
+            if (prev === 'rack') {
+              setFocusedMapRegion(null);
+              return 'map';
+            }
+            return 'rack';
+          });
+        }}
+        onSelectRack={handleSelectRack}
+        onChangeViewAngle={handleChangeViewAngle}
         onChangeAtmosphere={handleChangeAtmosphere}
         onToggleScale={() =>
           setConfig((prev) => ({ ...prev, scale: prev.scale === 'standard' ? 'compact' : 'standard' }))
@@ -1291,35 +1448,41 @@ export default function App() {
         }}
       />
 
-      <ServerStatusHud
-        node={selectedNode}
-        nodeIndex={selectedNodeEntryIndex}
-        totalNodes={orderedNodes.length}
-        rackName={selectedNodeRackName}
-        visible={showServerHud}
-        collapsed={serverHudCollapsed}
-        uidBlinking={selectedNode ? uidBlinkingIds.has(selectedNode.uuid) : false}
-        canEdit={canEdit}
-        onPrevNode={() => handleStepNode(-1)}
-        onNextNode={() => handleStepNode(1)}
-        onToggleCollapse={() => setServerHudCollapsed((v) => !v)}
-        onHide={() => setShowServerHud(false)}
-        onShow={() => {
-          setShowServerHud(true);
-          setServerHudCollapsed(false);
-        }}
-        onToggleUid={() => {
-          if (selectedNode) handleToggleUid(selectedNode.uuid);
-        }}
-        onOpenTelemetry={() => {
-          setDrawerTab('telemetry');
-          setDrawerOpen(true);
-        }}
-        onOpenStyle={() => {
-          setDrawerTab('style');
-          setDrawerOpen(true);
-        }}
-      />
+      {stageView === 'rack' && (
+        <ServerStatusHud
+          node={selectedNode}
+          nodeIndex={selectedNodeEntryIndex}
+          totalNodes={orderedNodes.length}
+          activeRackId={activeRack.id}
+          rackName={selectedNodeRackName}
+          viewAngle={config.viewAngle}
+          drawerOpen={drawerOpen}
+          visible={showServerHud}
+          collapsed={serverHudCollapsed}
+          uidBlinking={selectedNode ? uidBlinkingIds.has(selectedNode.uuid) : false}
+          canEdit={canEdit}
+          onPrevNode={() => handleStepNode(-1)}
+          onNextNode={() => handleStepNode(1)}
+          onToggleCollapse={() => setServerHudCollapsed((v) => !v)}
+          onHide={() => setShowServerHud(false)}
+          onShow={() => {
+            setShowServerHud(true);
+            setServerHudCollapsed(false);
+          }}
+          onToggleUid={() => {
+            if (selectedNode) handleToggleUid(selectedNode.uuid);
+          }}
+          onOpenTelemetry={() => {
+            setDrawerTab('telemetry');
+            setDrawerOpen(true);
+          }}
+          onOpenStyle={() => {
+            setDrawerTab('style');
+            setDrawerOpen(true);
+          }}
+          onLocateOnMap={handleLocateOnMap}
+        />
+      )}
 
       <InspectorDrawer
         open={drawerOpen}
@@ -1333,7 +1496,17 @@ export default function App() {
         mountedNodeIds={mountedNodeIds}
         selectedNode={selectedNode}
         selectedNodeUidBlinking={selectedNode ? uidBlinkingIds.has(selectedNode.uuid) : false}
-        telemetryHistory={selectedNode ? telemetryMap[selectedNode.uuid] ?? buildInitialHistory(selectedNode) : []}
+        telemetryHistory={
+          selectedNode
+            ? telemetryMap[selectedNode.uuid] ?? buildInitialHistory(selectedNode, config.api.recordHours)
+            : []
+        }
+        pingProbes={
+          selectedNode
+            ? pingProbesMap[selectedNode.uuid] ??
+              (isLiveMode ? [] : buildInitialPingProbes(selectedNode, config.api.recordHours))
+            : []
+        }
         apiStatus={apiStatus}
         apiError={apiError}
         publicInfo={publicInfo}
@@ -1355,7 +1528,7 @@ export default function App() {
         onPublishLayout={handlePublishLayoutToServer}
         onCopyServerLayoutJson={handleCopyServerLayoutJson}
         onReloadServerLayout={handleReloadServerLayout}
-        onSelectRack={(rackId) => setConfig((prev) => ({ ...prev, activeRackId: rackId }))}
+        onSelectRack={(rackId) => handleSelectRack(rackId)}
         onAddRack={handleAddRack}
         onRenameRack={handleRenameRack}
         onDeleteActiveRack={handleDeleteActiveRack}

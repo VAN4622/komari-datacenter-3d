@@ -305,10 +305,24 @@ function B3Svg({
   const healthColor = isOff ? '#475569' : isHot ? '#F97316' : '#22C55E';
   const barW = isOff ? 0 : Math.max(5, Math.round((node.cpu / 100) * 114));
 
-  const renderTurbine = (cx: number, cy: number) => (
+  const fanDur = isOff ? 0 : Math.max(0.38, Number((1.18 - (node.cpu / 100) * 0.76).toFixed(2)));
+
+  const renderTurbine = (cx: number, cy: number, phaseOffsetSec: number) => (
     <g>
       <circle cx={cx} cy={cy} r={27} fill="#080B0F" stroke="#475161" strokeWidth={0.8} />
-      <g className={isOff ? undefined : 'fan-rotor'} style={{ transformOrigin: `${cx}px ${cy}px` }}>
+      <g
+        className={isOff ? undefined : 'fan-rotor'}
+        style={
+          isOff
+            ? undefined
+            : {
+                animationDuration: `${fanDur}s`,
+                animationDelay: `${phaseOffsetSec}s`,
+              }
+        }
+      >
+        {/* Symmetric invisible bounds circle guarantees exact (cx, cy) fill-box pivot across all browsers */}
+        <circle cx={cx} cy={cy} r={23} fill="none" />
         <path d={`M${cx} ${cy} C${cx} ${cy - 17}, ${cx + 13} ${cy - 21}, ${cx + 17} ${cy - 11} C${cx + 10} ${cy - 5}, ${cx + 5} ${cy - 3}, ${cx} ${cy} Z`} fill="#64748B" />
         <path d={`M${cx} ${cy} C${cx + 17} ${cy}, ${cx + 21} ${cy + 13}, ${cx + 11} ${cy + 17} C${cx + 5} ${cy + 10}, ${cx + 3} ${cy + 5}, ${cx} ${cy} Z`} fill="#64748B" />
         <path d={`M${cx} ${cy} C${cx} ${cy + 17}, ${cx - 13} ${cy + 21}, ${cx - 17} ${cy + 11} C${cx - 10} ${cy + 5}, ${cx - 5} ${cy + 3}, ${cx} ${cy} Z`} fill="#64748B" />
@@ -377,8 +391,8 @@ function B3Svg({
         <circle cx={105} cy={66} r={2.8} fill={uidBlinking ? '#38BDF8' : '#64748B'} className={uidBlinking ? 'uid-active' : undefined} />
         <circle cx={123} cy={66} r={5.8} fill="#14181F" stroke={healthColor} strokeWidth={1.5} />
 
-        {renderTurbine(40, 116)}
-        {renderTurbine(102, 116)}
+        {renderTurbine(40, 116, 0)}
+        {renderTurbine(102, 116, -0.34)}
 
         <rect x={9} y={158} width={124} height={22} rx={2.5} fill="#090C10" stroke="#2B3340" strokeWidth={0.6} />
         <text x={71} y={171.8} textAnchor="middle" fill="#7D8899" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize={6.5} fontWeight={600}>

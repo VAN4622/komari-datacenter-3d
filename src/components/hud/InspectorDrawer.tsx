@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { ServerUnitSvg } from '@/components/hardware/ServerChassisSvg';
 import { TelemetryScope } from '@/components/hud/TelemetryScope';
+import { RegionFlag } from '@/components/ui/RegionFlag';
 import { ACCENTS, CABINET_THEMES, FINISHES, OLEDS, autoDetectModel, formatBytesGiB, getEffectiveStyle } from '@/data/fleet';
 import { formatNetSpeed, formatTrafficBytes } from '@/lib/formatters';
+import { resolveNodeGeo } from '@/lib/geoRegions';
 import type {
   AdminAuthStatus,
   ApiConnectionStatus,
@@ -16,6 +18,7 @@ import type {
   ModelSelection,
   NodeInfo,
   NodeStyleOverride,
+  PingProbeSeries,
   RackCabinetData,
   RecordHours,
   TelemetryPoint,
@@ -34,6 +37,7 @@ interface InspectorDrawerProps {
   selectedNode: NodeInfo | null;
   selectedNodeUidBlinking: boolean;
   telemetryHistory: TelemetryPoint[];
+  pingProbes: PingProbeSeries[];
   apiStatus: ApiConnectionStatus;
   apiError: string | null;
   publicInfo: KomariPublicInfo | null;
@@ -87,6 +91,8 @@ const TABS: { id: DrawerTab; label: string }[] = [
   { id: 'api', label: '接口' },
 ];
 
+const HOUR_OPTIONS: RecordHours[] = [1, 6, 24];
+
 const MODEL_OPTIONS: { value: ModelSelection; label: string; desc: string }[] = [
   { value: 'auto', label: '自动', desc: '按规格' },
   { value: 'B1', label: 'B1 · 1U', desc: '光纤边缘' },
@@ -108,6 +114,7 @@ export function InspectorDrawer({
   selectedNode,
   selectedNodeUidBlinking,
   telemetryHistory,
+  pingProbes,
   apiStatus,
   apiError,
   publicInfo,
@@ -445,10 +452,11 @@ export function InspectorDrawer({
                 <div className="d-slot-list">
                   {activeRack.items.map((item, idx) => {
                     const node = item.type === 'node' ? nodes.find((n) => n.uuid === item.nodeId) : null;
+                    const geoCode = node ? resolveNodeGeo(node).code : null;
                     const title =
                       item.type === 'node'
                         ? node
-                          ? `${node.region} ${node.name}`
+                          ? node.name
                           : '未知节点'
                         : item.type === 'pdu'
                           ? item.label || '1U 计量 PDU'
@@ -468,7 +476,10 @@ export function InspectorDrawer({
                           title={node ? (canEdit ? '点击检视与涂装该节点' : '点击查看该节点遥测') : title}
                         >
                           <span className="d-slot-idx">#{idx + 1}</span>
-                          <span className="d-slot-name">{title}</span>
+                          <span className="d-slot-name">
+                            {geoCode && <RegionFlag code={geoCode} size="xs" />}
+                            <span>{title}</span>
+                          </span>
                         </button>
                         {canEdit && (
                           <div className="d-slot-actions">
@@ -527,7 +538,8 @@ export function InspectorDrawer({
                         <div key={node.uuid} className="d-mount-row">
                           <div className="d-mount-info">
                             <strong>
-                              {node.region} {node.name}
+                              <RegionFlag code={resolveNodeGeo(node).code} size="xs" />
+                              <span>{node.name}</span>
                             </strong>
                             <span>
                               {autoDetectModel(node)} · {node.cpu_cores}C / {formatBytesGiB(node.mem_total)}
@@ -682,7 +694,7 @@ export function InspectorDrawer({
                 ) : (
                   nodes.map((n) => (
                     <option key={n.uuid} value={n.uuid}>
-                      {n.region} {n.name} ({autoDetectModel(n)})
+                      [{resolveNodeGeo(n).code}] {n.name} ({autoDetectModel(n)})
                     </option>
                   ))
                 )}
@@ -822,7 +834,7 @@ export function InspectorDrawer({
 
         {tab === 'telemetry' && (
           <div className="drawer-sections">
-            <section className="d-sec">
+            <section className="d-sec d-tel-head-sec">
               <div className="d-sec-head">
                 <h3 className="d-title">监控节点</h3>
                 <button type="button" className="d-link-btn" onClick={onRefreshTelemetry}>
@@ -840,89 +852,304 @@ export function InspectorDrawer({
                 ) : (
                   nodes.map((n) => (
                     <option key={n.uuid} value={n.uuid}>
-                      {n.region} {n.name} · {n.online ? '在线' : '离线'}
+                      [{resolveNodeGeo(n).code}] {n.name} · {n.online ? '在线' : '离线'}
                     </option>
                   ))
                 )}
               </select>
+
+              {selectedNode && (() => {
+                const geo = resolveNodeGeo(selectedNode);
+                return (
+                  <div className="d-tel-toolbar">
+                    <div className="d-tel-identity">
+                      <span className={`d-tel-status-dot${selectedNode.online ? ' is-on' : ''}`} />
+                      <RegionFlag code={geo.code} size="xs" />
+                      <span className="d-tel-geo">{geo.name}</span>
+                      {selectedNode.group && <span className="d-tel-tag">{selectedNode.group}</span>}
+                    </div>
+                    <div className="scope-range-row" role="group" aria-label="全局采样时间窗口">
+                      {HOUR_OPTIONS.map((hr) => (
+                        <button
+                          key={hr}
+                          type="button"
+                          className={`scope-btn${config.api.recordHours === hr ? ' is-active' : ''}`}
+                          onClick={() => onChangeRecordHours(hr)}
+                        >
+                          {hr}H
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </section>
 
-            {selectedNode && (
-              <>
-                <TelemetryScope
-                  points={telemetryHistory}
-                  nodeName={`${selectedNode.region} ${selectedNode.name}`}
-                  online={selectedNode.online}
-                  recordHours={config.api.recordHours}
-                  onChangeRecordHours={onChangeRecordHours}
-                  isLiveMode={isLiveMode}
-                />
+            {selectedNode && (() => {
+              const ramUsedBytes =
+                selectedNode.ramUsed !== undefined
+                  ? selectedNode.ramUsed
+                  : Math.round((selectedNode.ram / 100) * selectedNode.mem_total);
+              const diskUsedBytes =
+                selectedNode.diskUsed !== undefined
+                  ? selectedNode.diskUsed
+                  : Math.round((selectedNode.disk / 100) * selectedNode.disk_total);
+              const hasSwap = (selectedNode.swap_total ?? 0) > 0;
+              const swapPct = hasSwap ? (selectedNode.swap ?? 0) : 0;
+              const swapUsedBytes = hasSwap
+                ? (selectedNode.swapUsed ?? Math.round((swapPct / 100) * (selectedNode.swap_total ?? 0)))
+                : 0;
 
-                <section className="d-sec">
-                  <div className="d-spec-grid">
-                    <div className="d-spec">
-                      <span>实时吞吐</span>
-                      <strong>
-                        {selectedNode.online
-                          ? `↓ ${formatNetSpeed(selectedNode.netDown)} / ↑ ${formatNetSpeed(selectedNode.netUp)}`
-                          : '0 B/s'}
-                      </strong>
-                    </div>
-                    <div className="d-spec">
-                      <span>往返延迟</span>
-                      <strong>{selectedNode.online && selectedNode.ping > 0 ? `${selectedNode.ping} ms` : '--'}</strong>
-                    </div>
-                    {(selectedNode.totalDown !== undefined || selectedNode.totalUp !== undefined) && (
-                      <div className="d-spec">
-                        <span>累计流量</span>
-                        <strong>
-                          ↓ {formatTrafficBytes(selectedNode.totalDown)} / ↑ {formatTrafficBytes(selectedNode.totalUp)}
-                        </strong>
-                      </div>
-                    )}
-                    <div className="d-spec">
-                      <span>处理器</span>
-                      <strong>{selectedNode.cpu_name}</strong>
-                    </div>
-                    <div className="d-spec">
-                      <span>规格与系统</span>
-                      <strong>
-                        {selectedNode.cpu_cores}C · {formatBytesGiB(selectedNode.mem_total)} · {selectedNode.os}
-                      </strong>
-                    </div>
-                    {isLiveMode && (
-                      <>
-                        <div className="d-spec">
-                          <span>1m 负载</span>
-                          <strong>{selectedNode.load1 !== undefined ? selectedNode.load1.toFixed(2) : '--'}</strong>
+              const totalDown = selectedNode.totalDown ?? 0;
+              const totalUp = selectedNode.totalUp ?? 0;
+              const combinedTraffic = totalDown + totalUp;
+              const rxShare = combinedTraffic > 0 ? Math.round((totalDown / combinedTraffic) * 100) : 50;
+
+              const loadPerCore =
+                selectedNode.load1 !== undefined && selectedNode.cpu_cores > 0
+                  ? selectedNode.load1 / selectedNode.cpu_cores
+                  : null;
+              const loadLabel =
+                selectedNode.load1 !== undefined
+                  ? `${selectedNode.load1.toFixed(2)} / ${selectedNode.load5 !== undefined ? selectedNode.load5.toFixed(2) : '--'} / ${selectedNode.load15 !== undefined ? selectedNode.load15.toFixed(2) : '--'}`
+                  : '--';
+
+              const tagList = (selectedNode.tags ?? '')
+                .split(/[;,]/)
+                .map((t) => t.trim())
+                .filter(Boolean);
+
+              return (
+                <>
+                  {/* 4-Tile Resource Utilization Overview */}
+                  <section className="d-sec d-tel-meters-sec">
+                    <div className="d-meter-grid">
+                      <div className="d-meter-tile">
+                        <div className="d-meter-head">
+                          <span>CPU</span>
+                          <strong>{selectedNode.online ? `${Math.round(selectedNode.cpu)}%` : '--'}</strong>
                         </div>
-                        <div className="d-spec">
-                          <span>TCP / UDP</span>
+                        <div className="d-meter-track">
+                          <div
+                            className={`d-meter-fill${selectedNode.cpu >= 85 ? ' is-hot' : ''}`}
+                            style={{ width: `${selectedNode.online ? Math.min(100, selectedNode.cpu) : 0}%` }}
+                          />
+                        </div>
+                        <div className="d-meter-sub">{selectedNode.cpu_cores} 核心</div>
+                      </div>
+
+                      <div className="d-meter-tile">
+                        <div className="d-meter-head">
+                          <span>内存</span>
+                          <strong>{selectedNode.online ? `${Math.round(selectedNode.ram)}%` : '--'}</strong>
+                        </div>
+                        <div className="d-meter-track">
+                          <div
+                            className={`d-meter-fill${selectedNode.ram >= 88 ? ' is-hot' : ''}`}
+                            style={{ width: `${selectedNode.online ? Math.min(100, selectedNode.ram) : 0}%` }}
+                          />
+                        </div>
+                        <div className="d-meter-sub">
+                          {selectedNode.online ? formatTrafficBytes(ramUsedBytes) : '0 B'} /{' '}
+                          {formatBytesGiB(selectedNode.mem_total)}
+                        </div>
+                      </div>
+
+                      <div className="d-meter-tile">
+                        <div className="d-meter-head">
+                          <span>Swap</span>
                           <strong>
-                            {selectedNode.tcp !== undefined ? `${selectedNode.tcp} / ${selectedNode.udp ?? 0}` : '--'}
+                            {!hasSwap ? '未启用' : selectedNode.online ? `${Math.round(swapPct)}%` : '--'}
                           </strong>
                         </div>
-                      </>
-                    )}
-                  </div>
+                        <div className="d-meter-track">
+                          <div
+                            className={`d-meter-fill${swapPct >= 80 ? ' is-hot' : ''}`}
+                            style={{ width: `${hasSwap && selectedNode.online ? Math.min(100, swapPct) : 0}%` }}
+                          />
+                        </div>
+                        <div className="d-meter-sub">
+                          {hasSwap
+                            ? `${selectedNode.online ? formatTrafficBytes(swapUsedBytes) : '0 B'} / ${formatTrafficBytes(selectedNode.swap_total)}`
+                            : '0 B'}
+                        </div>
+                      </div>
 
-                  <div className="d-row-between">
-                    <span className="d-meta">运行时间 {selectedNode.uptime}</span>
-                    {!isLiveMode ? (
-                      <button
-                        type="button"
-                        className="d-ghost-btn"
-                        onClick={() => onToggleNodeOnline(selectedNode.uuid)}
-                      >
-                        {selectedNode.online ? '模拟离线' : '恢复上线'}
-                      </button>
-                    ) : (
-                      <span className="d-meta">WS 实时流</span>
-                    )}
-                  </div>
-                </section>
-              </>
-            )}
+                      <div className="d-meter-tile">
+                        <div className="d-meter-head">
+                          <span>磁盘</span>
+                          <strong>{`${Math.round(selectedNode.disk)}%`}</strong>
+                        </div>
+                        <div className="d-meter-track">
+                          <div
+                            className={`d-meter-fill${selectedNode.disk >= 88 ? ' is-hot' : ''}`}
+                            style={{ width: `${Math.min(100, selectedNode.disk)}%` }}
+                          />
+                        </div>
+                        <div className="d-meter-sub">
+                          {formatTrafficBytes(diskUsedBytes)} / {formatBytesGiB(selectedNode.disk_total)}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Multi-Chart Telemetry Suite: Latency/Ping + CPU/RAM + Network Throughput */}
+                  <TelemetryScope
+                    points={telemetryHistory}
+                    pingProbes={pingProbes}
+                    nodeName={selectedNode.name}
+                    online={selectedNode.online}
+                    recordHours={config.api.recordHours}
+                    isLiveMode={isLiveMode}
+                    liveNetDown={selectedNode.netDown}
+                    liveNetUp={selectedNode.netUp}
+                  />
+
+                  {/* Load Average, Connections & Traffic Summary */}
+                  <section className="d-sec">
+                    <div className="d-sec-head">
+                      <h3 className="d-title">负载与连接态势</h3>
+                      {loadPerCore !== null && selectedNode.online && (
+                        <span className={`d-meta${loadPerCore >= 0.85 ? ' is-warn-text' : ''}`}>
+                          单核负载 {loadPerCore.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="d-spec-grid">
+                      <div className="d-spec is-wide">
+                        <span>系统负载 (1m / 5m / 15m)</span>
+                        <strong>{selectedNode.online ? loadLabel : '--'}</strong>
+                      </div>
+                      <div className="d-spec">
+                        <span>TCP / UDP 连接</span>
+                        <strong>
+                          {selectedNode.online && selectedNode.tcp !== undefined
+                            ? `${selectedNode.tcp} / ${selectedNode.udp ?? 0}`
+                            : '--'}
+                        </strong>
+                      </div>
+                      <div className="d-spec">
+                        <span>活跃进程数</span>
+                        <strong>
+                          {selectedNode.online && selectedNode.process !== undefined ? `${selectedNode.process}` : '--'}
+                        </strong>
+                      </div>
+                      <div className="d-spec is-wide">
+                        <span>实时带宽</span>
+                        <strong>
+                          {selectedNode.online
+                            ? `↓ ${formatNetSpeed(selectedNode.netDown)}   ↑ ${formatNetSpeed(selectedNode.netUp)}`
+                            : '0 B/s'}
+                        </strong>
+                      </div>
+                      {(selectedNode.totalDown !== undefined || selectedNode.totalUp !== undefined) && (
+                        <div className="d-spec is-wide">
+                          <div className="d-traffic-head">
+                            <span>累计流量 (入站 / 出站)</span>
+                            <span className="d-meta">总计 {formatTrafficBytes(combinedTraffic)}</span>
+                          </div>
+                          <strong>
+                            ↓ {formatTrafficBytes(selectedNode.totalDown)} / ↑ {formatTrafficBytes(selectedNode.totalUp)}
+                          </strong>
+                          {combinedTraffic > 0 && (
+                            <div className="d-traffic-ratio" aria-label={`入站占比 ${rxShare}%`}>
+                              <span className="d-ratio-rx" style={{ width: `${rxShare}%` }} />
+                              <span className="d-ratio-tx" style={{ width: `${100 - rxShare}%` }} />
+                            </div>
+                          )}
+                          {selectedNode.trafficLimit !== undefined && selectedNode.trafficLimit > 0 && (
+                            <span className="d-traffic-limit">
+                              限额 {formatTrafficBytes(selectedNode.trafficLimit)}
+                              {selectedNode.trafficLimitType ? ` (${selectedNode.trafficLimitType})` : ''}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  {/* Hardware & Runtime Specs */}
+                  <section className="d-sec">
+                    <div className="d-sec-head">
+                      <h3 className="d-title">硬件与运行环境</h3>
+                      <span className="d-meta">运行 {selectedNode.uptime}</span>
+                    </div>
+
+                    <div className="d-spec-grid">
+                      <div className="d-spec is-wide">
+                        <span>处理器</span>
+                        <strong>
+                          {selectedNode.cpu_name} ({selectedNode.cpu_cores}C)
+                        </strong>
+                      </div>
+                      {selectedNode.gpu_name && (
+                        <div className="d-spec is-wide">
+                          <span>GPU 加速卡</span>
+                          <strong>{selectedNode.gpu_name}</strong>
+                        </div>
+                      )}
+                      <div className="d-spec is-wide">
+                        <span>操作系统与内核</span>
+                        <strong>
+                          {selectedNode.os}
+                          {selectedNode.kernel_version ? ` · ${selectedNode.kernel_version}` : ''}
+                        </strong>
+                      </div>
+                      <div className="d-spec">
+                        <span>指令架构</span>
+                        <strong>{selectedNode.arch || '--'}</strong>
+                      </div>
+                      <div className="d-spec">
+                        <span>虚拟化平台</span>
+                        <strong>{selectedNode.virtualization || '--'}</strong>
+                      </div>
+                      {selectedNode.expiredAt && (
+                        <div className="d-spec is-wide">
+                          <span>到期时间</span>
+                          <strong>{selectedNode.expiredAt.slice(0, 10)}</strong>
+                        </div>
+                      )}
+                      {tagList.length > 0 && (
+                        <div className="d-spec is-wide">
+                          <span>节点标签</span>
+                          <div className="d-tag-list">
+                            {tagList.map((tg) => (
+                              <span key={tg} className="d-tag-pill">
+                                {tg}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {selectedNode.message && (
+                        <div className="d-spec is-wide">
+                          <span>节点状态消息</span>
+                          <strong>{selectedNode.message}</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="d-row-between">
+                      <span className="d-meta">
+                        {isLiveMode
+                          ? `WS 实时流${selectedNode.updatedAt ? ` · ${selectedNode.updatedAt.slice(11, 19)}` : ''}`
+                          : '本地演示心跳 (3.2s)'}
+                      </span>
+                      {!isLiveMode && (
+                        <button
+                          type="button"
+                          className="d-ghost-btn"
+                          onClick={() => onToggleNodeOnline(selectedNode.uuid)}
+                        >
+                          {selectedNode.online ? '模拟离线' : '恢复上线'}
+                        </button>
+                      )}
+                    </div>
+                  </section>
+                </>
+              );
+            })()}
           </div>
         )}
 

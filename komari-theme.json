@@ -1,8 +1,8 @@
 {
-  "name": "Komari Data Center 3D",
+  "name": "Komari Data Center Studio",
   "short": "komari-datacenter-3d",
-  "description": "2.5D 轻写实拟物数据中心机房监控主题：默认服务器特写近景与固定摄像机机位锁定、悬浮式服务器实时状态 HUD、极简收起菜单与完整移动端适配、管理员鉴权编排与云端布局持久化。",
-  "version": "1.2.0",
+  "description": "极简影棚纯 CSS 3D 固定微侧透视拟物机柜监控主题（零 Three.js 零 WebGL）：Retina 高清矢量服务器面板与滑轨抽拉动效、水平冷通道视差机柜平滑切换、Apple Liquid Glass 液态玻璃光学悬浮 HUD、多探针延迟与全维节点遥测抽屉、极简点阵全球节点态势地图与管理员编排。",
+  "version": "2.0.0",
   "author": "VAN4622",
   "url": "https://github.com/VAN4622/komari-datacenter-3d",
   "preview": "preview.png",
@@ -10,32 +10,32 @@
     "type": "managed",
     "data": [
       {
-        "name": "机房空间与视角",
+        "name": "影棚展台与默认视角",
         "type": "title"
       },
       {
         "key": "defaultAtmosphere",
-        "name": "默认 3D 机房场景",
+        "name": "默认影棚布光主题",
         "type": "select",
-        "options": "cold-aisle,cleanroom,obsidian-noc,showroom",
-        "default": "cold-aisle",
-        "help": "访客首次打开时默认进入的机房建筑风格：cold-aisle（冷通道）、cleanroom（洁净室）、obsidian-noc（暗夜战情）、showroom（极简展厅）。"
+        "options": "studio-dark,studio-light",
+        "default": "studio-dark",
+        "help": "访客首次打开时默认进入的影棚布光：studio-dark（深石墨影棚，默认）、studio-light（浅银画廊）。"
       },
       {
-        "key": "defaultCameraPreset",
-        "name": "默认固定机位",
+        "key": "defaultViewAngle",
+        "name": "默认机柜透视角度",
         "type": "select",
-        "options": "closeup,front,iso34,corridor,overhead",
-        "default": "closeup",
-        "help": "默认进入的固定摄像机机位：closeup（服务器近景特写）、front（机柜正立面）、iso34（2.5D 建筑轴测）、corridor（冷通道走道）、overhead（高位俯视）。"
+        "options": "side,front",
+        "default": "side",
+        "help": "side（固定约 15° 微侧透视，兼顾清晰前面板与金属侧板立体感）、front（纯正立面视图）。"
       },
       {
-        "key": "defaultCameraLock",
-        "name": "默认摄像机锁定模式",
+        "key": "defaultStageView",
+        "name": "默认首页视图",
         "type": "select",
-        "options": "fixed,locked25d,micro_tilt",
-        "default": "fixed",
-        "help": "fixed（严格锁定固定机位，禁止拖拽偏移，仅通过机位栏切换）、locked25d（固定 2.5D 角度，允许平移与缩放）、micro_tilt（允许小幅受限微倾）。"
+        "options": "rack,map",
+        "default": "rack",
+        "help": "rack（单座主视觉拟物机柜展台）、map（全球节点态势世界地图）。"
       },
       {
         "key": "defaultCabinetTheme",
@@ -50,7 +50,7 @@
         "name": "默认启用紧凑机柜宽度",
         "type": "switch",
         "default": false,
-        "help": "节点或机柜较多时开启，可在单屏同时容纳更多机柜。"
+        "help": "节点较多时可开启紧凑机柜比例，为悬浮液态玻璃 HUD 留出更大呼吸空间。"
       },
       {
         "name": "遥测与状态条",
@@ -58,17 +58,17 @@
       },
       {
         "key": "showStatusStrip",
-        "name": "默认显示服务器状态指示条",
+        "name": "默认显示机箱下沿状态条",
         "type": "switch",
         "default": true,
-        "help": "在每台 3D 服务器正下方挂载独立双排遥测状态条（显示 CPU/RAM/DISK 进度条、网络吞吐、运行时长与 Ping 延迟）。"
+        "help": "在每台拟物服务器面板下沿显示 CPU / 内存 / 网络与延迟精简状态条。"
       },
       {
         "key": "enablePingPolling",
         "name": "后台拉取所有节点延迟（Ping）",
         "type": "switch",
         "default": true,
-        "help": "自动拉取各节点最近一次 /api/records/ping 延迟值显示在状态条上；若站点未配置延迟任务可关闭以减少请求。"
+        "help": "自动拉取各节点最近一次 /api/records/ping 延迟值显示在状态条与悬浮 HUD 上；若站点未配置延迟任务可关闭以减少请求。"
       },
       {
         "key": "recordHours",
@@ -84,17 +84,17 @@
       },
       {
         "key": "customHallTitle",
-        "name": "自定义大屏与机房标题",
+        "name": "自定义展台与站点标题",
         "type": "string",
         "default": "",
         "help": "留空时自动同步 Komari 后台的站点名称（sitename）。"
       },
       {
         "key": "showAdminLink",
-        "name": "顶部栏显示管理后台入口",
+        "name": "菜单内显示管理后台入口",
         "type": "switch",
         "default": true,
-        "help": "在左上角概览栏中提供快捷前往 /admin 管理后台的入口按钮。"
+        "help": "在右上角折叠菜单中提供快捷前往 /admin 管理后台的入口。"
       },
       {
         "name": "机柜编排与云端持久化",
@@ -105,7 +105,7 @@
         "name": "已发布的机柜编排 JSON",
         "type": "string",
         "default": "",
-        "help": "保存机柜结构、节点 U 位与单机涂装的 JSON。管理员登录 Komari 后可在页面右上角进入「编辑模式」并点击「发布到站点」自动写入，也可在此手动粘贴从前端复制的 JSON 以同步给所有访客。"
+        "help": "保存机柜结构、节点 U 位与单机涂装的 JSON。管理员登录 Komari 后可在右上角菜单进入编排模式并点击「发布布局」自动写入，也可在此手动粘贴同步给所有访客。"
       }
     ]
   }

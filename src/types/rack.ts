@@ -11,14 +11,15 @@ export type RecordHours = 1 | 6 | 24;
 export type ApiConnectionStatus = 'demo' | 'connecting' | 'live' | 'degraded' | 'auth_required' | 'error';
 export type AdminAuthStatus = 'checking' | 'authenticated' | 'guest' | 'remote_readonly';
 export type LayoutSyncSource = 'server' | 'local_draft' | 'auto';
-export type CameraControlMode = 'fixed' | 'locked25d' | 'micro_tilt';
+export type RackViewAngle = 'side' | 'front';
+export type StageViewMode = 'rack' | 'map';
 
 export type CabinetThemePreference = 'auto' | CabinetTheme;
 
 export interface KomariThemeSettings {
   defaultAtmosphere?: RoomAtmosphere;
-  defaultCameraPreset?: CameraPreset;
-  defaultCameraLock?: CameraControlMode;
+  defaultViewAngle?: RackViewAngle;
+  defaultStageView?: StageViewMode;
   defaultCabinetTheme?: CabinetThemePreference;
   showStatusStrip?: boolean;
   compactRackWidth?: boolean;
@@ -44,8 +45,7 @@ export interface PersistedRackLayoutPayload {
   updatedBy?: string;
 }
 
-export type CameraPreset = 'closeup' | 'front' | 'iso34' | 'corridor' | 'overhead';
-export type RoomAtmosphere = 'cold-aisle' | 'cleanroom' | 'obsidian-noc' | 'showroom';
+export type RoomAtmosphere = 'studio-dark' | 'studio-light';
 
 export interface NodeInfo {
   uuid: string;
@@ -55,23 +55,37 @@ export interface NodeInfo {
   tags?: string;
   cpu_cores: number;
   mem_total: number;
+  swap_total?: number;
   disk_total: number;
   os: string;
+  kernel_version?: string;
   cpu_name: string;
+  gpu_name?: string;
   arch?: string;
   virtualization?: string;
   tag: string;
   online: boolean;
   cpu: number;
   ram: number;
+  ramUsed?: number;
+  swap?: number;
+  swapUsed?: number;
   disk: number;
+  diskUsed?: number;
   netUp: number;
   netDown: number;
   totalUp?: number;
   totalDown?: number;
+  trafficLimit?: number;
+  trafficLimitType?: string;
+  expiredAt?: string;
   load1?: number;
+  load5?: number;
+  load15?: number;
   tcp?: number;
   udp?: number;
+  process?: number;
+  message?: string;
   ping: number;
   uptime: string;
   updatedAt?: string;
@@ -127,7 +141,7 @@ export interface KomariPublicInfo {
 }
 
 export interface AppConfig {
-  cameraPreset: CameraPreset;
+  viewAngle: RackViewAngle;
   atmosphere: RoomAtmosphere;
   scale: ScaleMode;
   activeRackId: string;
@@ -143,4 +157,32 @@ export interface TelemetryPoint {
   cpu: number;
   ram: number;
   ping: number;
+  netDown?: number;
+  netUp?: number;
+  load1?: number;
+}
+
+export interface PingProbeSample {
+  time: string;
+  value: number | null;
+}
+
+export interface PingProbeSeries {
+  id: string;
+  name: string;
+  latest: number | null;
+  min: number | null;
+  avg: number | null;
+  p95: number | null;
+  max: number | null;
+  jitter: number | null;
+  loss: number;
+  totalSamples: number;
+  points: PingProbeSample[];
+}
+
+export interface NodeTelemetryBundle {
+  points: TelemetryPoint[];
+  pingProbes: PingProbeSeries[];
+  latestPing: number | null;
 }

@@ -12,14 +12,6 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    assetsDir: "assets",
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          "three-core": ["three"],
-          "r3f-vendor": ["@react-three/fiber", "@react-three/drei"]
-        }
-      }
-    }
+    assetsDir: "assets"
   }
 });
