@@ -85,6 +85,18 @@ export function StudioRackStage({
 
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
+  const prevRackIdRef = useRef<string>(activeRackId);
+
+  useEffect(() => {
+    if (prevRackIdRef.current === activeRackId) return;
+    prevRackIdRef.current = activeRackId;
+    setIsSwitching(true);
+    const timer = window.setTimeout(() => {
+      setIsSwitching(false);
+    }, 880);
+    return () => window.clearTimeout(timer);
+  }, [activeRackId]);
 
   const activeIdx = Math.max(
     0,
@@ -203,12 +215,6 @@ export function StudioRackStage({
   const prevRack = racks.length > 1 ? racks[(activeIdx - 1 + racks.length) % racks.length] : null;
   const nextRack = racks.length > 1 ? racks[(activeIdx + 1) % racks.length] : null;
 
-  const softboxStyle: CSSProperties = {
-    transform: `translate3d(${(-activeIdx * 36 + dragOffset * 0.06).toFixed(1)}px, 0, 0)`,
-  };
-  const horizonStyle: CSSProperties = {
-    transform: `translate3d(${(-activeIdx * 22 + dragOffset * 0.04).toFixed(1)}px, 0, 0)`,
-  };
   const trackStyle: CSSProperties = {
     transform:
       dragOffset !== 0
@@ -219,17 +225,17 @@ export function StudioRackStage({
   return (
     <main
       ref={stageRef}
-      className={`studio-stage scale-${scale} angle-${viewAngle}${hudVisible ? ' has-hud' : ''}${drawerOpen ? ' has-drawer' : ''}${isDragging ? ' is-dragging' : ''}`}
+      className={`studio-stage scale-${scale} angle-${viewAngle}${hudVisible ? ' has-hud' : ''}${drawerOpen ? ' has-drawer' : ''}${isDragging ? ' is-dragging' : ''}${isSwitching ? ' is-switching' : ''}`}
       aria-label="极简影棚拟物机柜舞台"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
     >
-      {/* Pure Minimalist Studio Lighting Backdrop with subtle camera-pan parallax */}
+      {/* Pure Minimalist Studio Lighting Backdrop (static GPU layer so Liquid Glass chrome avoids full-screen re-blur) */}
       <div className="studio-backdrop" aria-hidden="true">
-        <div className="studio-softbox" style={softboxStyle} />
-        <div className="studio-floor-horizon" style={horizonStyle} />
+        <div className="studio-softbox" />
+        <div className="studio-floor-horizon" />
         <div className="studio-vignette" />
       </div>
 
@@ -297,7 +303,7 @@ export function StudioRackStage({
                             rackIndex={idx}
                             nodesMap={nodesMap}
                             nodeStyles={nodeStyles}
-                            selectedNodeId={isActive ? selectedNodeId : null}
+                            selectedNodeId={isActive && !isSwitching ? selectedNodeId : null}
                             uidBlinkingIds={uidBlinkingIds}
                             showStrip={showStrip}
                             editMode={isActive ? editMode : false}

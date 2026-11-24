@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react';
+import { memo, useState, type DragEvent } from 'react';
 import { StudioRackUnit } from '@/components/studio/StudioRackUnit';
 import { estimateRackWatts, getEffectiveStyle, getUnitHeightU } from '@/data/fleet';
 import type { AppConfig, NodeInfo, RackCabinetData } from '@/types/rack';
@@ -28,7 +28,7 @@ interface StudioRackCabinetProps {
   onDropOnRack: (e: DragEvent<HTMLDivElement>, targetRackId: string) => void;
 }
 
-export function StudioRackCabinet({
+export const StudioRackCabinet = memo(function StudioRackCabinet({
   rack,
   rackIndex,
   nodesMap,
@@ -220,21 +220,14 @@ export function StudioRackCabinet({
                       showStrip={showStrip}
                       editMode={editMode}
                       isDragOver={dragOverUid === item.uid}
-                      onSelect={() => {
-                        if (item.type === 'node') {
-                          onSelectNode(item.nodeId, rack.id);
-                        }
-                      }}
-                      onMoveUp={() => onMoveItem(rack.id, idx, -1)}
-                      onMoveDown={() => onMoveItem(rack.id, idx, 1)}
-                      onToggleUid={() => {
-                        if (item.type === 'node') onToggleUid(item.nodeId);
-                      }}
-                      onRemove={() => onRemoveItem(rack.id, item.uid)}
-                      onDragStart={(e) => onDragStartItem(e, rack.id, item.uid)}
-                      onDragOver={(e) => onDragOverItem(e, item.uid)}
-                      onDragLeave={onDragLeaveItem}
-                      onDrop={(e) => onDropOnItem(e, rack.id, item.uid)}
+                      onSelectNode={onSelectNode}
+                      onMoveItem={onMoveItem}
+                      onToggleUid={onToggleUid}
+                      onRemoveItem={onRemoveItem}
+                      onDragStartItem={onDragStartItem}
+                      onDragOverItem={onDragOverItem}
+                      onDragLeaveItem={onDragLeaveItem}
+                      onDropOnItem={onDropOnItem}
                     />
                   );
                 })}
@@ -267,4 +260,4 @@ export function StudioRackCabinet({
       </div>
     </section>
   );
-}
+});

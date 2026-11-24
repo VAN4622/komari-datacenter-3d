@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { StudioRackStage } from '@/components/studio/StudioRackStage';
+import { StudioStatusSignage } from '@/components/studio/StudioStatusSignage';
 import { GlobalNodeMap } from '@/components/map/GlobalNodeMap';
 import { FloatingHud } from '@/components/hud/FloatingHud';
 import { InspectorDrawer } from '@/components/hud/InspectorDrawer';
@@ -119,8 +120,8 @@ export default function App() {
   const [dragOverUid, setDragOverUid] = useState<string | null>(null);
   const [dragOverRackId, setDragOverRackId] = useState<string | null>(null);
 
-  // Floating Sci-Fi Server Status HUD visibility & mobile-friendly collapse state
-  const [showServerHud, setShowServerHud] = useState(true);
+  // Floating Liquid Glass Server Status HUD visibility (hidden by default until a server is clicked)
+  const [showServerHud, setShowServerHud] = useState(false);
   const [serverHudCollapsed, setServerHudCollapsed] = useState<boolean>(() =>
     typeof window !== 'undefined' ? window.innerWidth <= 900 : false,
   );
@@ -137,7 +138,7 @@ export default function App() {
   // Slide-over inspector drawer (starts closed; opens to telemetry by default in read-only mode)
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('telemetry');
-  const [selectedNodeId, setSelectedNodeId] = useState<string>(DEMO_NODES[1].uuid);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [uidBlinkingIds, setUidBlinkingIds] = useState<Set<string>>(() => new Set());
   const [telemetryMap, setTelemetryMap] = useState<Record<string, TelemetryPoint[]>>(() => {
     const initial: Record<string, TelemetryPoint[]> = {};
@@ -316,11 +317,12 @@ export default function App() {
     }
   }, [isLiveMode, publicInfo?.sitename, publicInfo?.description, themeSettings.customHallTitle]);
 
-  // Keep selectedNodeId valid when node list changes
+  // Keep selectedNodeId valid if the selected node disappears (never force-select when null)
   useEffect(() => {
-    if (nodes.length === 0) return;
-    if (!nodes.some((n) => n.uuid === selectedNodeId)) {
-      setSelectedNodeId(nodes[0].uuid);
+    if (selectedNodeId === null) return;
+    if (nodes.length === 0 || !nodes.some((n) => n.uuid === selectedNodeId)) {
+      setSelectedNodeId(null);
+      setShowServerHud(false);
     }
   }, [nodes, selectedNodeId]);
 
@@ -685,30 +687,6 @@ export default function App() {
     };
   }, [isLiveMode, liveNodeUuidsKey, config.api.baseUrl, publicInfo?.record_enabled, themeSettings.enablePingPolling]);
 
-  // Fetch historical telemetry & multi-probe ping records for selected node in live mode
-  useEffect(() => {
-    if (!isLiveMode || !selectedNodeId) return;
-    const selected = liveNodes.find((n) => n.uuid === selectedNodeId);
-    if (!selected) return;
-
-    const controller = new AbortController();
-    fetchNodeTelemetryRecords(config.api.baseUrl, selected, config.api.recordHours, controller.signal)
-      .then(({ points, pingProbes, latestPing }) => {
-        if (points.length > 0) {
-          setTelemetryMap((prev) => ({ ...prev, [selectedNodeId]: points }));
-        }
-        setPingProbesMap((prev) => ({ ...prev, [selectedNodeId]: pingProbes }));
-        if (latestPing !== null) {
-          setLiveNodes((prev) => prev.map((n) => (n.uuid === selectedNodeId ? { ...n, ping: latestPing } : n)));
-        }
-      })
-      .catch(() => {
-        // ignore abort or disabled records
-      });
-
-    return () => controller.abort();
-  }, [isLiveMode, selectedNodeId, config.api.baseUrl, config.api.recordHours, liveNodes.length]);
-
   const nodesMap = useMemo(() => new Map(nodes.map((n) => [n.uuid, n])), [nodes]);
 
   const activeRack = useMemo(
@@ -727,9 +705,44 @@ export default function App() {
   }, [activeRackList]);
 
   const selectedNode = useMemo(
-    () => nodesMap.get(selectedNodeId) ?? nodes[0] ?? null,
-    [nodesMap, selectedNodeId, nodes],
+    () => (selectedNodeId ? nodesMap.get(selectedNodeId) ?? null : null),
+    [nodesMap, selectedNodeId],
   );
+
+  const inspectorNode = useMemo(() => {
+    if (selectedNode) return selectedNode;
+    const firstInRack = activeRack?.items.find((it) => it.type === 'node');
+    if (firstInRack && firstInRack.type === 'node') {
+      return nodesMap.get(firstInRack.nodeId) ?? nodes[0] ?? null;
+    }
+    return nodes[0] ?? null;
+  }, [selectedNode, activeRack, nodesMap, nodes]);
+
+  const telemetryTargetId = selectedNodeId ?? (drawerOpen ? inspectorNode?.uuid ?? null : null);
+
+  // Fetch historical telemetry & multi-probe ping records for active node in live mode
+  useEffect(() => {
+    if (!isLiveMode || !telemetryTargetId) return;
+    const selected = liveNodes.find((n) => n.uuid === telemetryTargetId);
+    if (!selected) return;
+
+    const controller = new AbortController();
+    fetchNodeTelemetryRecords(config.api.baseUrl, selected, config.api.recordHours, controller.signal)
+      .then(({ points, pingProbes, latestPing }) => {
+        if (points.length > 0) {
+          setTelemetryMap((prev) => ({ ...prev, [telemetryTargetId]: points }));
+        }
+        setPingProbesMap((prev) => ({ ...prev, [telemetryTargetId]: pingProbes }));
+        if (latestPing !== null) {
+          setLiveNodes((prev) => prev.map((n) => (n.uuid === telemetryTargetId ? { ...n, ping: latestPing } : n)));
+        }
+      })
+      .catch(() => {
+        // ignore abort or disabled records
+      });
+
+    return () => controller.abort();
+  }, [isLiveMode, telemetryTargetId, config.api.baseUrl, config.api.recordHours, liveNodes.length]);
 
   // Ordered list of nodes following rack order for floating HUD prev/next navigation
   const orderedNodes = useMemo(() => {
@@ -920,6 +933,8 @@ export default function App() {
         setRackNavHint((prev) => ({ seq: (prev?.seq ?? 0) + 1, dir }));
       }
       setConfig((prev) => ({ ...prev, activeRackId: rackId }));
+      // When no server is currently selected / HUD is hidden, keep the new rack clean & centered
+      if (!showServerHud && selectedNodeId === null) return;
       const rack = activeRackList.find((r) => r.id === rackId);
       if (!rack) return;
       const alreadyInRack = rack.items.some((it) => it.type === 'node' && it.nodeId === selectedNodeId);
@@ -930,7 +945,23 @@ export default function App() {
         }
       }
     },
-    [activeRackList, selectedNodeId],
+    [activeRackList, selectedNodeId, showServerHud],
+  );
+
+  const handleSelectNode = useCallback(
+    (nodeId: string, rackId: string) => {
+      setSelectedNodeId(nodeId);
+      setConfig((prev) => (prev.activeRackId === rackId ? prev : { ...prev, activeRackId: rackId }));
+      setShowServerHud(true);
+      setServerHudCollapsed(false);
+      if (canEdit) {
+        setDrawerOpen(true);
+        setDrawerTab((cur) => (cur === 'builder' || cur === 'api' ? 'style' : cur));
+      } else if (drawerOpen) {
+        setDrawerTab('telemetry');
+      }
+    },
+    [canEdit, drawerOpen],
   );
 
   const handleLocateOnMap = useCallback((regionCode: string) => {
@@ -954,93 +985,108 @@ export default function App() {
     [activeRackList],
   );
 
-  // Edit-mode drag-and-drop handlers for StudioRackStage
-  const handleDragStartItem = (e: DragEvent<HTMLDivElement>, rackId: string, uid: string) => {
-    if (!canEdit) return;
-    dragSourceRef.current = { rackId, uid };
-    e.dataTransfer.effectAllowed = 'move';
-    try {
-      e.dataTransfer.setData('text/plain', `${rackId}:${uid}`);
-    } catch {
-      // ignore
-    }
-  };
+  // Edit-mode drag-and-drop handlers for StudioRackStage (memoized to keep StudioRackCabinet memo effective)
+  const handleDragStartItem = useCallback(
+    (e: DragEvent<HTMLDivElement>, rackId: string, uid: string) => {
+      if (!canEdit) return;
+      dragSourceRef.current = { rackId, uid };
+      e.dataTransfer.effectAllowed = 'move';
+      try {
+        e.dataTransfer.setData('text/plain', `${rackId}:${uid}`);
+      } catch {
+        // ignore
+      }
+    },
+    [canEdit],
+  );
 
-  const handleDragOverItem = (e: DragEvent<HTMLDivElement>, uid: string) => {
-    if (!canEdit || !dragSourceRef.current) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragOverUid !== uid) setDragOverUid(uid);
-  };
+  const handleDragOverItem = useCallback(
+    (e: DragEvent<HTMLDivElement>, uid: string) => {
+      if (!canEdit || !dragSourceRef.current) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setDragOverUid((cur) => (cur === uid ? cur : uid));
+    },
+    [canEdit],
+  );
 
-  const handleDragLeaveItem = () => {
+  const handleDragLeaveItem = useCallback(() => {
     setDragOverUid(null);
-  };
+  }, []);
 
-  const handleDropOnItem = (e: DragEvent<HTMLDivElement>, targetRackId: string, targetUid: string) => {
-    e.preventDefault();
-    const src = dragSourceRef.current;
-    dragSourceRef.current = null;
-    setDragOverUid(null);
-    setDragOverRackId(null);
-    if (!canEdit || !src) return;
-    if (src.rackId === targetRackId && src.uid === targetUid) return;
+  const handleDropOnItem = useCallback(
+    (e: DragEvent<HTMLDivElement>, targetRackId: string, targetUid: string) => {
+      e.preventDefault();
+      const src = dragSourceRef.current;
+      dragSourceRef.current = null;
+      setDragOverUid(null);
+      setDragOverRackId(null);
+      if (!canEdit || !src) return;
+      if (src.rackId === targetRackId && src.uid === targetUid) return;
 
-    updateCurrentRacks((racks) => {
-      let movedItem: RackItem | null = null;
-      const stripped = racks.map((r) => {
-        if (r.id !== src.rackId) return r;
-        const found = r.items.find((it) => it.uid === src.uid);
-        if (found) movedItem = found;
-        return { ...r, items: r.items.filter((it) => it.uid !== src.uid) };
+      updateCurrentRacks((racks) => {
+        let movedItem: RackItem | null = null;
+        const stripped = racks.map((r) => {
+          if (r.id !== src.rackId) return r;
+          const found = r.items.find((it) => it.uid === src.uid);
+          if (found) movedItem = found;
+          return { ...r, items: r.items.filter((it) => it.uid !== src.uid) };
+        });
+        if (!movedItem) return racks;
+        return stripped.map((r) => {
+          if (r.id !== targetRackId) return r;
+          const idx = r.items.findIndex((it) => it.uid === targetUid);
+          const nextItems = [...r.items];
+          if (idx >= 0) nextItems.splice(idx, 0, movedItem!);
+          else nextItems.push(movedItem!);
+          return { ...r, items: nextItems };
+        });
       });
-      if (!movedItem) return racks;
-      return stripped.map((r) => {
-        if (r.id !== targetRackId) return r;
-        const idx = r.items.findIndex((it) => it.uid === targetUid);
-        const nextItems = [...r.items];
-        if (idx >= 0) nextItems.splice(idx, 0, movedItem!);
-        else nextItems.push(movedItem!);
-        return { ...r, items: nextItems };
-      });
-    });
-    markLayoutDirty();
-  };
+      markLayoutDirty();
+    },
+    [canEdit, updateCurrentRacks, markLayoutDirty],
+  );
 
-  const handleDragOverRack = (e: DragEvent<HTMLDivElement>, rackId: string) => {
-    if (!canEdit || !dragSourceRef.current) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragOverRackId !== rackId) setDragOverRackId(rackId);
-  };
+  const handleDragOverRack = useCallback(
+    (e: DragEvent<HTMLDivElement>, rackId: string) => {
+      if (!canEdit || !dragSourceRef.current) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setDragOverRackId((cur) => (cur === rackId ? cur : rackId));
+    },
+    [canEdit],
+  );
 
-  const handleDragLeaveRack = () => {
+  const handleDragLeaveRack = useCallback(() => {
     setDragOverRackId(null);
-  };
+  }, []);
 
-  const handleDropOnRack = (e: DragEvent<HTMLDivElement>, targetRackId: string) => {
-    e.preventDefault();
-    const src = dragSourceRef.current;
-    dragSourceRef.current = null;
-    setDragOverUid(null);
-    setDragOverRackId(null);
-    if (!canEdit || !src) return;
+  const handleDropOnRack = useCallback(
+    (e: DragEvent<HTMLDivElement>, targetRackId: string) => {
+      e.preventDefault();
+      const src = dragSourceRef.current;
+      dragSourceRef.current = null;
+      setDragOverUid(null);
+      setDragOverRackId(null);
+      if (!canEdit || !src) return;
 
-    updateCurrentRacks((racks) => {
-      let movedItem: RackItem | null = null;
-      const stripped = racks.map((r) => {
-        if (r.id !== src.rackId) return r;
-        const found = r.items.find((it) => it.uid === src.uid);
-        if (found) movedItem = found;
-        return { ...r, items: r.items.filter((it) => it.uid !== src.uid) };
+      updateCurrentRacks((racks) => {
+        let movedItem: RackItem | null = null;
+        const stripped = racks.map((r) => {
+          if (r.id !== src.rackId) return r;
+          const found = r.items.find((it) => it.uid === src.uid);
+          if (found) movedItem = found;
+          return { ...r, items: r.items.filter((it) => it.uid !== src.uid) };
+        });
+        if (!movedItem) return racks;
+        return stripped.map((r) =>
+          r.id === targetRackId ? { ...r, items: [...r.items, movedItem!] } : r,
+        );
       });
-      if (!movedItem) return racks;
-      return stripped.map((r) =>
-        r.id === targetRackId ? { ...r, items: [...r.items, movedItem!] } : r,
-      );
-    });
-    markLayoutDirty();
-  };
+      markLayoutDirty();
+    },
+    [canEdit, updateCurrentRacks, markLayoutDirty],
+  );
 
   const handleChangeAtmosphere = (atmosphere: RoomAtmosphere) => {
     setConfig((prev) => ({ ...prev, atmosphere }));
@@ -1080,11 +1126,14 @@ export default function App() {
     showNotice(`已移除 ${removedName}`);
   };
 
-  const handleRenameRack = (rackId: string, name: string) => {
-    if (!ensureCanEdit()) return;
-    updateCurrentRacks((racks) => racks.map((r) => (r.id === rackId ? { ...r, name } : r)));
-    markLayoutDirty();
-  };
+  const handleRenameRack = useCallback(
+    (rackId: string, name: string) => {
+      if (!ensureCanEdit()) return;
+      updateCurrentRacks((racks) => racks.map((r) => (r.id === rackId ? { ...r, name } : r)));
+      markLayoutDirty();
+    },
+    [ensureCanEdit, updateCurrentRacks, markLayoutDirty],
+  );
 
   const handleChangeRackTheme = (rackId: string, theme: CabinetTheme) => {
     if (!ensureCanEdit()) return;
@@ -1119,38 +1168,41 @@ export default function App() {
     showNotice(kind === 'pdu' ? '已安装 1U 计量 PDU' : '已安装 1U 导风盲板');
   };
 
-  const handleRemoveItem = (rackId: string, uid: string) => {
-    if (!ensureCanEdit()) return;
-    const targetRack = activeRackList.find((r) => r.id === rackId);
-    const removedItem = targetRack?.items.find((i) => i.uid === uid);
-    const removedIdx = targetRack?.items.findIndex((i) => i.uid === uid) ?? -1;
-    if (!removedItem) return;
+  const handleRemoveItem = useCallback(
+    (rackId: string, uid: string) => {
+      if (!ensureCanEdit()) return;
+      const targetRack = activeRackList.find((r) => r.id === rackId);
+      const removedItem = targetRack?.items.find((i) => i.uid === uid);
+      const removedIdx = targetRack?.items.findIndex((i) => i.uid === uid) ?? -1;
+      if (!removedItem) return;
 
-    const label =
-      removedItem.type === 'node'
-        ? nodesMap.get(removedItem.nodeId)?.name ?? '节点'
-        : removedItem.type === 'pdu'
-          ? '1U PDU'
-          : '1U 导风盲板';
+      const label =
+        removedItem.type === 'node'
+          ? nodesMap.get(removedItem.nodeId)?.name ?? '节点'
+          : removedItem.type === 'pdu'
+            ? '1U PDU'
+            : '1U 导风盲板';
 
-    updateCurrentRacks((racks) =>
-      racks.map((r) => (r.id === rackId ? { ...r, items: r.items.filter((i) => i.uid !== uid) } : r)),
-    );
-    markLayoutDirty();
-
-    showNotice(`已卸载 ${label}`, '撤销', () => {
       updateCurrentRacks((racks) =>
-        racks.map((r) => {
-          if (r.id !== rackId) return r;
-          const copy = [...r.items];
-          copy.splice(Math.max(0, Math.min(removedIdx, copy.length)), 0, removedItem);
-          return { ...r, items: copy };
-        }),
+        racks.map((r) => (r.id === rackId ? { ...r, items: r.items.filter((i) => i.uid !== uid) } : r)),
       );
       markLayoutDirty();
-      setNotice(null);
-    });
-  };
+
+      showNotice(`已卸载 ${label}`, '撤销', () => {
+        updateCurrentRacks((racks) =>
+          racks.map((r) => {
+            if (r.id !== rackId) return r;
+            const copy = [...r.items];
+            copy.splice(Math.max(0, Math.min(removedIdx, copy.length)), 0, removedItem);
+            return { ...r, items: copy };
+          }),
+        );
+        markLayoutDirty();
+        setNotice(null);
+      });
+    },
+    [ensureCanEdit, activeRackList, nodesMap, updateCurrentRacks, markLayoutDirty, showNotice],
+  );
 
   const handleClearActiveRack = () => {
     if (!ensureCanEdit()) return;
@@ -1188,21 +1240,24 @@ export default function App() {
     showNotice('已恢复默认三柜影棚编排');
   };
 
-  const handleMoveItem = (rackId: string, index: number, delta: -1 | 1) => {
-    if (!ensureCanEdit()) return;
-    updateCurrentRacks((racks) =>
-      racks.map((r) => {
-        if (r.id !== rackId) return r;
-        const target = index + delta;
-        if (target < 0 || target >= r.items.length) return r;
-        const next = [...r.items];
-        const [moved] = next.splice(index, 1);
-        next.splice(target, 0, moved);
-        return { ...r, items: next };
-      }),
-    );
-    markLayoutDirty();
-  };
+  const handleMoveItem = useCallback(
+    (rackId: string, index: number, delta: -1 | 1) => {
+      if (!ensureCanEdit()) return;
+      updateCurrentRacks((racks) =>
+        racks.map((r) => {
+          if (r.id !== rackId) return r;
+          const target = index + delta;
+          if (target < 0 || target >= r.items.length) return r;
+          const next = [...r.items];
+          const [moved] = next.splice(index, 1);
+          next.splice(target, 0, moved);
+          return { ...r, items: next };
+        }),
+      );
+      markLayoutDirty();
+    },
+    [ensureCanEdit, updateCurrentRacks, markLayoutDirty],
+  );
 
   const handleUpdateNodeStyle = (nodeId: string, patch: Partial<NodeStyleOverride>) => {
     if (!ensureCanEdit()) return;
@@ -1227,14 +1282,14 @@ export default function App() {
     showNotice('已重置该节点涂装与机型');
   };
 
-  const handleToggleUid = (nodeId: string) => {
+  const handleToggleUid = useCallback((nodeId: string) => {
     setUidBlinkingIds((prev) => {
       const next = new Set(prev);
       if (next.has(nodeId)) next.delete(nodeId);
       else next.add(nodeId);
       return next;
     });
-  };
+  }, []);
 
   const handleToggleNodeOnline = (nodeId: string) => {
     if (isLiveMode) return;
@@ -1354,27 +1409,14 @@ export default function App() {
           showStrip={config.showStrip}
           scale={config.scale}
           viewAngle={config.viewAngle}
-          hudVisible={showServerHud && !serverHudCollapsed}
+          hudVisible={showServerHud && selectedNode !== null && !serverHudCollapsed}
           drawerOpen={drawerOpen}
           editMode={canEdit}
           dragOverUid={dragOverUid}
           dragOverRackId={dragOverRackId}
           onSelectRack={handleSelectRack}
           onRenameRack={handleRenameRack}
-          onSelectNode={(nodeId, rackId) => {
-            setSelectedNodeId(nodeId);
-            setConfig((prev) => ({ ...prev, activeRackId: rackId }));
-            setShowServerHud(true);
-            setServerHudCollapsed(false);
-            if (canEdit) {
-              setDrawerOpen(true);
-              if (drawerTab === 'builder' || drawerTab === 'api') {
-                setDrawerTab('style');
-              }
-            } else if (drawerOpen) {
-              setDrawerTab('telemetry');
-            }
-          }}
+          onSelectNode={handleSelectNode}
           onMoveItem={handleMoveItem}
           onToggleUid={handleToggleUid}
           onRemoveItem={handleRemoveItem}
@@ -1396,6 +1438,16 @@ export default function App() {
         />
       )}
 
+      {/* Architectural 3D Micro-Tilted Vertical Status Typography (Rack & Global Node Map) */}
+      <StudioStatusSignage
+        nodes={nodes}
+        viewAngle={stageView === 'rack' ? config.viewAngle : 'side'}
+        scale={config.scale}
+        variant={stageView}
+        hudVisible={stageView === 'rack' && showServerHud && selectedNode !== null && !serverHudCollapsed}
+        drawerOpen={stageView === 'rack' && drawerOpen}
+      />
+
       <FloatingHud
         siteName={siteDisplayName}
         dataMode={config.api.mode}
@@ -1409,7 +1461,7 @@ export default function App() {
         atmosphere={config.atmosphere}
         scale={config.scale}
         showStrip={config.showStrip}
-        showServerHud={showServerHud}
+        showServerHud={showServerHud && selectedNode !== null}
         drawerOpen={drawerOpen}
         racks={activeRackList}
         activeRackId={activeRack.id}
@@ -1438,7 +1490,19 @@ export default function App() {
           setConfig((prev) => ({ ...prev, scale: prev.scale === 'standard' ? 'compact' : 'standard' }))
         }
         onToggleStrip={() => setConfig((prev) => ({ ...prev, showStrip: !prev.showStrip }))}
-        onToggleServerHud={() => setShowServerHud((v) => !v)}
+        onToggleServerHud={() => {
+          if (showServerHud && selectedNode) {
+            setShowServerHud(false);
+            setSelectedNodeId(null);
+          } else {
+            const targetId = selectedNode?.uuid ?? inspectorNode?.uuid ?? null;
+            if (targetId) {
+              setSelectedNodeId(targetId);
+              setShowServerHud(true);
+              setServerHudCollapsed(false);
+            }
+          }
+        }}
         onToggleDrawer={() => setDrawerOpen((v) => !v)}
         onToggleEditMode={handleToggleEditMode}
         onPublishLayout={handlePublishLayoutToServer}
@@ -1457,14 +1521,17 @@ export default function App() {
           rackName={selectedNodeRackName}
           viewAngle={config.viewAngle}
           drawerOpen={drawerOpen}
-          visible={showServerHud}
+          visible={showServerHud && selectedNode !== null}
           collapsed={serverHudCollapsed}
           uidBlinking={selectedNode ? uidBlinkingIds.has(selectedNode.uuid) : false}
           canEdit={canEdit}
           onPrevNode={() => handleStepNode(-1)}
           onNextNode={() => handleStepNode(1)}
           onToggleCollapse={() => setServerHudCollapsed((v) => !v)}
-          onHide={() => setShowServerHud(false)}
+          onHide={() => {
+            setShowServerHud(false);
+            setSelectedNodeId(null);
+          }}
           onShow={() => {
             setShowServerHud(true);
             setServerHudCollapsed(false);
@@ -1494,17 +1561,17 @@ export default function App() {
         activeRack={activeRack}
         nodes={nodes}
         mountedNodeIds={mountedNodeIds}
-        selectedNode={selectedNode}
-        selectedNodeUidBlinking={selectedNode ? uidBlinkingIds.has(selectedNode.uuid) : false}
+        selectedNode={inspectorNode}
+        selectedNodeUidBlinking={inspectorNode ? uidBlinkingIds.has(inspectorNode.uuid) : false}
         telemetryHistory={
-          selectedNode
-            ? telemetryMap[selectedNode.uuid] ?? buildInitialHistory(selectedNode, config.api.recordHours)
+          inspectorNode
+            ? telemetryMap[inspectorNode.uuid] ?? buildInitialHistory(inspectorNode, config.api.recordHours)
             : []
         }
         pingProbes={
-          selectedNode
-            ? pingProbesMap[selectedNode.uuid] ??
-              (isLiveMode ? [] : buildInitialPingProbes(selectedNode, config.api.recordHours))
+          inspectorNode
+            ? pingProbesMap[inspectorNode.uuid] ??
+              (isLiveMode ? [] : buildInitialPingProbes(inspectorNode, config.api.recordHours))
             : []
         }
         apiStatus={apiStatus}

@@ -1,4 +1,4 @@
-import type { DragEvent } from 'react';
+import { memo, type DragEvent } from 'react';
 import { BlankSvg, PduSvg, ServerUnitSvg } from '@/components/hardware/ServerChassisSvg';
 import { RegionFlag } from '@/components/ui/RegionFlag';
 import { formatNetSpeed } from '@/lib/formatters';
@@ -20,18 +20,17 @@ interface StudioRackUnitProps {
   showStrip: boolean;
   editMode: boolean;
   isDragOver: boolean;
-  onSelect: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  onToggleUid: () => void;
-  onRemove: () => void;
-  onDragStart: (e: DragEvent<HTMLDivElement>) => void;
-  onDragOver: (e: DragEvent<HTMLDivElement>) => void;
-  onDragLeave: () => void;
-  onDrop: (e: DragEvent<HTMLDivElement>) => void;
+  onSelectNode: (nodeId: string, rackId: string) => void;
+  onMoveItem: (rackId: string, index: number, delta: -1 | 1) => void;
+  onToggleUid: (nodeId: string) => void;
+  onRemoveItem: (rackId: string, uid: string) => void;
+  onDragStartItem: (e: DragEvent<HTMLDivElement>, rackId: string, uid: string) => void;
+  onDragOverItem: (e: DragEvent<HTMLDivElement>, uid: string) => void;
+  onDragLeaveItem: () => void;
+  onDropOnItem: (e: DragEvent<HTMLDivElement>, targetRackId: string, targetUid: string) => void;
 }
 
-export function StudioRackUnit({
+export const StudioRackUnit = memo(function StudioRackUnit({
   rackId,
   item,
   index,
@@ -46,19 +45,24 @@ export function StudioRackUnit({
   showStrip,
   editMode,
   isDragOver,
-  onSelect,
-  onMoveUp,
-  onMoveDown,
+  onSelectNode,
+  onMoveItem,
   onToggleUid,
-  onRemove,
-  onDragStart,
-  onDragOver,
-  onDragLeave,
-  onDrop,
+  onRemoveItem,
+  onDragStartItem,
+  onDragOverItem,
+  onDragLeaveItem,
+  onDropOnItem,
 }: StudioRackUnitProps) {
   const isNode = item.type === 'node' && Boolean(node) && Boolean(nodeStyle);
   const isOff = isNode && !node!.online;
   const isHot = isNode && node!.online && node!.cpu >= 80;
+
+  const handleSelect = () => {
+    if (item.type === 'node') {
+      onSelectNode(item.nodeId, rackId);
+    }
+  };
 
   return (
     <div
@@ -67,13 +71,13 @@ export function StudioRackUnit({
       data-rack-id={rackId}
       data-selected-unit={isSelected ? 'true' : undefined}
       draggable={editMode}
-      onDragStart={editMode ? onDragStart : undefined}
-      onDragOver={editMode ? onDragOver : undefined}
-      onDragLeave={editMode ? onDragLeave : undefined}
-      onDrop={editMode ? onDrop : undefined}
+      onDragStart={editMode ? (e) => onDragStartItem(e, rackId, item.uid) : undefined}
+      onDragOver={editMode ? (e) => onDragOverItem(e, item.uid) : undefined}
+      onDragLeave={editMode ? onDragLeaveItem : undefined}
+      onDrop={editMode ? (e) => onDropOnItem(e, rackId, item.uid) : undefined}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect();
+        handleSelect();
       }}
       role={isNode ? 'button' : undefined}
       tabIndex={isNode ? 0 : undefined}
@@ -81,7 +85,7 @@ export function StudioRackUnit({
       onKeyDown={(e) => {
         if (isNode && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
-          onSelect();
+          handleSelect();
         }
       }}
     >
@@ -128,7 +132,7 @@ export function StudioRackUnit({
               className="srack-act-btn"
               title="上移槽位"
               disabled={index === 0}
-              onClick={onMoveUp}
+              onClick={() => onMoveItem(rackId, index, -1)}
             >
               ↑
             </button>
@@ -137,16 +141,16 @@ export function StudioRackUnit({
               className="srack-act-btn"
               title="下移槽位"
               disabled={index === totalItems - 1}
-              onClick={onMoveDown}
+              onClick={() => onMoveItem(rackId, index, 1)}
             >
               ↓
             </button>
-            {isNode && (
+            {isNode && item.type === 'node' && (
               <button
                 type="button"
                 className={`srack-act-btn${uidBlinking ? ' is-active' : ''}`}
                 title="切换物理定位灯 UID"
-                onClick={onToggleUid}
+                onClick={() => onToggleUid(item.nodeId)}
               >
                 UID
               </button>
@@ -155,7 +159,7 @@ export function StudioRackUnit({
               type="button"
               className="srack-act-btn is-danger"
               title="从机柜卸载"
-              onClick={onRemove}
+              onClick={() => onRemoveItem(rackId, item.uid)}
             >
               ×
             </button>
@@ -189,4 +193,4 @@ export function StudioRackUnit({
       </div>
     </div>
   );
-}
+});

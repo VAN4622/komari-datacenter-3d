@@ -294,8 +294,8 @@ export function ServerStatusHud({
       autoX = leftSafeLimit;
     }
 
-    // Track the pulled-out server's vertical axis effortlessly
-    const targetY = geom.anchorY - cardH * 0.44;
+    // Align the card's vertical center naturally with the pulled-out server's optical port
+    const targetY = geom.anchorY - cardH * 0.5;
     autoY = Math.max(topBound, Math.min(bottomBound - cardH, targetY));
   }
 
@@ -306,7 +306,7 @@ export function ServerStatusHud({
     ? Math.max(60, Math.min(geom.vh - cardH - 12, manualPos.y))
     : autoY;
 
-  // Build silky horizontal-tangent optical Bézier filament connecting server port -> Liquid Glass card edge
+  // Build silky horizontal-tangent optical Bézier filament anchored dead-center vertically on the HUD card edge
   const tether: TetherGeometry = (() => {
     if (isMobile || !geom.valid) {
       return {
@@ -322,12 +322,13 @@ export function ServerStatusHud({
     const ax = geom.anchorX;
     const ay = geom.anchorY;
     const hudCenterX = hudX + cardW / 2;
+    const hudCenterY = hudY + cardH * 0.5;
 
     if (hudCenterX >= ax + 18) {
-      // Card sits to the right of the server unit
+      // Card sits to the right of the server unit — always dock at card's left vertical midpoint
       const px = hudX;
-      const py = Math.max(hudY + 28, Math.min(hudY + cardH - 28, ay));
-      const dx = Math.max(40, px - ax);
+      const py = hudCenterY;
+      const dx = Math.max(44, px - ax);
       const cp1x = ax + dx * 0.52;
       const cp2x = px - dx * 0.48;
       return {
@@ -341,10 +342,10 @@ export function ServerStatusHud({
     }
 
     if (hudCenterX <= ax - 18) {
-      // Card sits to the left of the server unit
+      // Card sits to the left of the server unit — always dock at card's right vertical midpoint
       const px = hudX + cardW;
-      const py = Math.max(hudY + 28, Math.min(hudY + cardH - 28, ay));
-      const dx = Math.max(40, ax - px);
+      const py = hudCenterY;
+      const dx = Math.max(44, ax - px);
       const cp1x = ax - dx * 0.52;
       const cp2x = px + dx * 0.48;
       return {
@@ -357,8 +358,8 @@ export function ServerStatusHud({
       };
     }
 
-    // Fallback vertical optical curve
-    const px = hudX + cardW / 2;
+    // Fallback when card overlaps server column horizontally: connect cleanly to top/bottom center
+    const px = hudCenterX;
     const py = hudY >= ay ? hudY : hudY + cardH;
     const dy = (py - ay) * 0.5;
     return {
@@ -683,7 +684,7 @@ export function ServerStatusHud({
                 className="lg-act-btn is-primary"
                 onClick={onOpenTelemetry}
               >
-                历史曲线
+                遥测
               </button>
 
               {canEdit && (

@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { memo, useId } from 'react';
 import { ACCENTS, FINISHES, OLEDS, type FinishPalette, type AccentSpec } from '@/data/fleet';
 import { formatNetSpeed } from '@/lib/formatters';
 import type { EffectiveNodeStyle, NodeInfo } from '@/types/rack';
@@ -509,7 +509,7 @@ function B4Svg({
 /* ============================================================================
    Accessory 1: 1U Metered Rack PDU (540 x 58 — Unified 1U Pitch)
    ============================================================================ */
-export function PduSvg({
+export const PduSvg = memo(function PduSvg({
   label,
   watts,
   activeSockets,
@@ -563,12 +563,12 @@ export function PduSvg({
       </text>
     </svg>
   );
-}
+});
 
 /* ============================================================================
    Accessory 2: 1U Vented Airflow Blanking Plate (540 x 58 — Unified 1U Pitch)
    ============================================================================ */
-export function BlankSvg({ label }: { label?: string }) {
+export const BlankSvg = memo(function BlankSvg({ label }: { label?: string }) {
   const rawId = useId().replace(/[^a-zA-Z0-9]/g, '');
   const gId = `blank-${rawId}`;
   const fin = FINISHES.gunmetal;
@@ -592,9 +592,9 @@ export function BlankSvg({ label }: { label?: string }) {
       </text>
     </svg>
   );
-}
+});
 
-export function ServerUnitSvg({
+export const ServerUnitSvg = memo(function ServerUnitSvg({
   node,
   style,
   uidBlinking,
@@ -616,4 +616,4 @@ export function ServerUnitSvg({
     return <B4Svg node={node} style={style} gId={gId} uidBlinking={uidBlinking} />;
   }
   return <B1Svg node={node} style={style} gId={gId} uidBlinking={uidBlinking} />;
-}
+});

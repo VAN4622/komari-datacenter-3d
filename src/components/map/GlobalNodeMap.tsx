@@ -147,11 +147,12 @@ export function GlobalNodeMap({
       }
     }
 
-    // For compact city-states (HK, SG, MO, LU, TW) with few/no 110m dots, illuminate nearby land dots
+    // For regions/city-states without dedicated 110m dot polygons (e.g. HK, SG, MO, MA), illuminate nearby land dots
     for (const c of clusters) {
       const existing = WORLD_COUNTRY_DOTS[c.hub.code];
       if (!existing || existing.length < 4) {
-        const radiusSq = 18 * 18;
+        const radius = Math.min(26, Math.max(17, (c.hub.radius ?? 20) * 0.88));
+        const radiusSq = radius * radius;
         const targetArr = c.hub.code === focusCode ? focusCoords : litCoords;
         for (let i = 0; i < ALL_LAND_COORDS.length; i++) {
           const pt = ALL_LAND_COORDS[i];

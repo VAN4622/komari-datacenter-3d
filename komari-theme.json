@@ -1,8 +1,8 @@
 {
   "name": "Komari Data Center Studio",
   "short": "komari-datacenter-3d",
-  "description": "极简影棚纯 CSS 3D 固定微侧透视拟物机柜监控主题（零 Three.js 零 WebGL）：Retina 高清矢量服务器面板与滑轨抽拉动效、水平冷通道视差机柜平滑切换、Apple Liquid Glass 液态玻璃光学悬浮 HUD、多探针延迟与全维节点遥测抽屉、极简点阵全球节点态势地图与管理员编排。",
-  "version": "2.0.0",
+  "description": "极简影棚纯 CSS 3D 固定微侧透视拟物机柜监控主题（零 Three.js 零 WebGL）：Retina 高清矢量服务器面板与滑轨抽拉动效、高帧率冷通道机柜切换、建筑感 3D 竖排状态悬浮主视觉、Apple Liquid Glass 液态玻璃光学悬浮 HUD、多探针延迟遥测抽屉、极简点阵全球节点地图（含摩洛哥等全区矢量国旗）与管理员编排。",
+  "version": "2.1.0",
   "author": "VAN4622",
   "url": "https://github.com/VAN4622/komari-datacenter-3d",
   "preview": "preview.png",

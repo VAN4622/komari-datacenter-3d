@@ -611,6 +611,408 @@ function renderFlagArtwork(iso: string) {
         </>
       );
 
+    case 'MA':
+      return (
+        <>
+          <rect width="24" height="16" fill="#C1272D" />
+          <polygon
+            points="12,3.7 14.55,11.55 7.9,6.7 16.1,6.7 9.45,11.55"
+            fill="none"
+            stroke="#006233"
+            strokeWidth="1.25"
+            strokeLinejoin="miter"
+          />
+        </>
+      );
+
+    case 'DZ':
+      return (
+        <>
+          <rect width="12" height="16" fill="#147344" />
+          <rect x="12" width="12" height="16" fill="#F8FAFC" />
+          <circle cx="12.2" cy="8" r="3.4" fill="#D21F3C" />
+          <circle cx="13.2" cy="8" r="2.7" fill="#F8FAFC" />
+          <path d="M9.6,5.3 A3.4,3.4 0 0,0 9.6,10.7 L12,10.7 L12,5.3 Z" fill="#147344" fillOpacity="0" />
+          <circle cx="13.7" cy="8" r="1.05" fill="#D21F3C" />
+        </>
+      );
+
+    case 'TN':
+      return (
+        <>
+          <rect width="24" height="16" fill="#DC1E35" />
+          <circle cx="12" cy="8" r="4.3" fill="#F8FAFC" />
+          <circle cx="12.3" cy="8" r="2.9" fill="#DC1E35" />
+          <circle cx="13.2" cy="8" r="2.3" fill="#F8FAFC" />
+          <circle cx="13.5" cy="8" r="0.95" fill="#DC1E35" />
+        </>
+      );
+
+    case 'NG':
+      return (
+        <>
+          <rect width="8" height="16" fill="#157A46" />
+          <rect x="8" width="8" height="16" fill="#F8FAFC" />
+          <rect x="16" width="8" height="16" fill="#157A46" />
+        </>
+      );
+
+    case 'KE':
+      return (
+        <>
+          <rect width="24" height="4.8" fill="#1D2026" />
+          <rect y="4.8" width="24" height="0.8" fill="#F8FAFC" />
+          <rect y="5.6" width="24" height="4.8" fill="#B91C1C" />
+          <rect y="10.4" width="24" height="0.8" fill="#F8FAFC" />
+          <rect y="11.2" width="24" height="4.8" fill="#157347" />
+          <ellipse cx="12" cy="8" rx="1.9" ry="3.6" fill="#B91C1C" stroke="#F8FAFC" strokeWidth="0.6" />
+        </>
+      );
+
+    case 'QA':
+      return (
+        <>
+          <rect width="24" height="16" fill="#8A1538" />
+          <polygon points="0,0 7.2,0 9.4,2 7.2,4 9.4,6 7.2,8 9.4,10 7.2,12 9.4,14 7.2,16 0,16" fill="#F8FAFC" />
+        </>
+      );
+
+    case 'KW':
+      return (
+        <>
+          <rect width="24" height="5.35" fill="#157A46" />
+          <rect y="5.35" width="24" height="5.3" fill="#F8FAFC" />
+          <rect y="10.65" width="24" height="5.35" fill="#CE2029" />
+          <polygon points="0,0 6.5,5.35 6.5,10.65 0,16" fill="#1D2026" />
+        </>
+      );
+
+    case 'BH':
+      return (
+        <>
+          <rect width="24" height="16" fill="#CE1126" />
+          <polygon points="0,0 7.2,0 10,2.6 7.2,5.3 10,8 7.2,10.7 10,13.4 7.2,16 0,16" fill="#F8FAFC" />
+        </>
+      );
+
+    case 'OM':
+      return (
+        <>
+          <rect width="24" height="5.35" fill="#F8FAFC" />
+          <rect y="5.35" width="24" height="5.3" fill="#CE2029" />
+          <rect y="10.65" width="24" height="5.35" fill="#157A46" />
+          <rect width="7" height="16" fill="#CE2029" />
+        </>
+      );
+
+    case 'JO':
+      return (
+        <>
+          <rect width="24" height="5.35" fill="#1D2026" />
+          <rect y="5.35" width="24" height="5.3" fill="#F8FAFC" />
+          <rect y="10.65" width="24" height="5.35" fill="#157A46" />
+          <polygon points="0,0 11,8 0,16" fill="#CE2029" />
+          <circle cx="3.6" cy="8" r="1.1" fill="#F8FAFC" />
+        </>
+      );
+
+    case 'HU':
+      return (
+        <>
+          <rect width="24" height="5.35" fill="#CE2939" />
+          <rect y="5.35" width="24" height="5.3" fill="#F8FAFC" />
+          <rect y="10.65" width="24" height="5.35" fill="#2E7D4A" />
+        </>
+      );
+
+    case 'GR':
+      return (
+        <>
+          <rect width="24" height="16" fill="#1A5AA8" />
+          <rect y="2" width="24" height="1.8" fill="#F8FAFC" />
+          <rect y="5.6" width="24" height="1.8" fill="#F8FAFC" />
+          <rect y="9.2" width="24" height="1.8" fill="#F8FAFC" />
+          <rect y="12.8" width="24" height="1.8" fill="#F8FAFC" />
+          <rect width="9.5" height="9.2" fill="#1A5AA8" />
+          <rect x="3.9" width="1.7" height="9.2" fill="#F8FAFC" />
+          <rect y="3.8" width="9.5" height="1.7" fill="#F8FAFC" />
+        </>
+      );
+
+    case 'IS':
+      return (
+        <>
+          <rect width="24" height="16" fill="#1C4EA3" />
+          <rect x="6.5" width="3.8" height="16" fill="#F8FAFC" />
+          <rect y="6.1" width="24" height="3.8" fill="#F8FAFC" />
+          <rect x="7.5" width="1.8" height="16" fill="#D92638" />
+          <rect y="7.1" width="24" height="1.8" fill="#D92638" />
+        </>
+      );
+
+    case 'LT':
+      return (
+        <>
+          <rect width="24" height="5.35" fill="#F4B728" />
+          <rect y="5.35" width="24" height="5.3" fill="#156B42" />
+          <rect y="10.65" width="24" height="5.35" fill="#C42731" />
+        </>
+      );
+
+    case 'LV':
+      return (
+        <>
+          <rect width="24" height="16" fill="#9E2534" />
+          <rect y="6.4" width="24" height="3.2" fill="#F8FAFC" />
+        </>
+      );
+
+    case 'EE':
+      return (
+        <>
+          <rect width="24" height="5.35" fill="#1C72C3" />
+          <rect y="5.35" width="24" height="5.3" fill="#1D2026" />
+          <rect y="10.65" width="24" height="5.35" fill="#F8FAFC" />
+        </>
+      );
+
+    case 'SK':
+    case 'SI':
+      return (
+        <>
+          <rect width="24" height="5.35" fill="#F8FAFC" />
+          <rect y="5.35" width="24" height="5.3" fill="#1E4FB2" />
+          <rect y="10.65" width="24" height="5.35" fill="#D62828" />
+          <rect x="5.5" y="5" width="3.2" height="4.4" rx="1" fill="#D62828" stroke="#F8FAFC" strokeWidth="0.6" />
+        </>
+      );
+
+    case 'HR':
+      return (
+        <>
+          <rect width="24" height="5.35" fill="#D62828" />
+          <rect y="5.35" width="24" height="5.3" fill="#F8FAFC" />
+          <rect y="10.65" width="24" height="5.35" fill="#1C3D8C" />
+          <rect x="10.4" y="5.2" width="3.2" height="4.6" rx="0.7" fill="#D62828" />
+        </>
+      );
+
+    case 'RS':
+      return (
+        <>
+          <rect width="24" height="5.35" fill="#C6363C" />
+          <rect y="5.35" width="24" height="5.3" fill="#1E4A98" />
+          <rect y="10.65" width="24" height="5.35" fill="#F8FAFC" />
+          <rect x="6.5" y="5" width="2.8" height="4.4" rx="0.8" fill="#E6B84C" />
+        </>
+      );
+
+    case 'MD':
+      return (
+        <>
+          <rect width="8" height="16" fill="#1E4DA8" />
+          <rect x="8" width="8" height="16" fill="#F5C73B" />
+          <rect x="16" width="8" height="16" fill="#C92431" />
+          <circle cx="12" cy="8" r="1.5" fill="#7D4E24" />
+        </>
+      );
+
+    case 'CY':
+      return (
+        <>
+          <rect width="24" height="16" fill="#F8FAFC" />
+          <ellipse cx="12" cy="7.5" rx="4.2" ry="2.4" fill="#D57800" />
+          <path d="M8.5,11.6 Q12,13.5 15.5,11.6" fill="none" stroke="#3F6A3B" strokeWidth="1.1" />
+        </>
+      );
+
+    case 'MT':
+      return (
+        <>
+          <rect width="12" height="16" fill="#F8FAFC" />
+          <rect x="12" width="12" height="16" fill="#CF142B" />
+          <rect x="3" y="3" width="2.6" height="2.6" rx="0.4" fill="#94A3B8" />
+        </>
+      );
+
+    case 'AL':
+      return (
+        <>
+          <rect width="24" height="16" fill="#D42127" />
+          <ellipse cx="12" cy="8" rx="3.2" ry="4.1" fill="#1D2026" />
+        </>
+      );
+
+    case 'BY':
+      return (
+        <>
+          <rect width="24" height="10.6" fill="#C8313E" />
+          <rect y="10.6" width="24" height="5.4" fill="#2A7B4F" />
+          <rect width="3.2" height="16" fill="#F8FAFC" />
+        </>
+      );
+
+    case 'KZ':
+      return (
+        <>
+          <rect width="24" height="16" fill="#1D9AD6" />
+          <circle cx="12.6" cy="7.5" r="2.6" fill="#F5C73B" />
+          <path d="M9.4,11.2 Q12.6,12.6 15.8,11.2" fill="none" stroke="#F5C73B" strokeWidth="1.1" />
+        </>
+      );
+
+    case 'GE':
+      return (
+        <>
+          <rect width="24" height="16" fill="#F8FAFC" />
+          <rect x="10.2" width="3.6" height="16" fill="#DC2626" />
+          <rect y="6.2" width="24" height="3.6" fill="#DC2626" />
+          <circle cx="5.2" cy="3.2" r="1.1" fill="#DC2626" />
+          <circle cx="18.8" cy="3.2" r="1.1" fill="#DC2626" />
+          <circle cx="5.2" cy="12.8" r="1.1" fill="#DC2626" />
+          <circle cx="18.8" cy="12.8" r="1.1" fill="#DC2626" />
+        </>
+      );
+
+    case 'AM':
+      return (
+        <>
+          <rect width="24" height="5.35" fill="#D92027" />
+          <rect y="5.35" width="24" height="5.3" fill="#1B3C8C" />
+          <rect y="10.65" width="24" height="5.35" fill="#F2A800" />
+        </>
+      );
+
+    case 'AZ':
+      return (
+        <>
+          <rect width="24" height="5.35" fill="#1E90C8" />
+          <rect y="5.35" width="24" height="5.3" fill="#DC2636" />
+          <rect y="10.65" width="24" height="5.35" fill="#2A8C4A" />
+          <circle cx="12" cy="8" r="1.5" fill="#F8FAFC" />
+        </>
+      );
+
+    case 'PK':
+      return (
+        <>
+          <rect width="6.2" height="16" fill="#F8FAFC" />
+          <rect x="6.2" width="17.8" height="16" fill="#136539" />
+          <circle cx="15.2" cy="8" r="3.4" fill="#F8FAFC" />
+          <circle cx="16.2" cy="7.5" r="2.7" fill="#136539" />
+        </>
+      );
+
+    case 'BD':
+      return (
+        <>
+          <rect width="24" height="16" fill="#126B4D" />
+          <circle cx="11" cy="8" r="4.2" fill="#DC2636" />
+        </>
+      );
+
+    case 'KH':
+      return (
+        <>
+          <rect width="24" height="4" fill="#1C3F94" />
+          <rect y="4" width="24" height="8" fill="#D42127" />
+          <rect y="12" width="24" height="4" fill="#1C3F94" />
+          <polygon points="8.5,10.5 10.5,6.5 12,5.4 13.5,6.5 15.5,10.5" fill="#F8FAFC" />
+        </>
+      );
+
+    case 'MM':
+      return (
+        <>
+          <rect width="24" height="5.35" fill="#F5C73B" />
+          <rect y="5.35" width="24" height="5.3" fill="#2E8B47" />
+          <rect y="10.65" width="24" height="5.35" fill="#D92638" />
+          <polygon points="12,4.4 13.3,8 17,8 14,10.2 15.1,13.6 12,11.5 8.9,13.6 10,10.2 7,8 10.7,8" fill="#F8FAFC" />
+        </>
+      );
+
+    case 'LK':
+      return (
+        <>
+          <rect width="24" height="16" fill="#F5B82E" />
+          <rect x="1.5" y="1.6" width="3.5" height="12.8" fill="#146E43" />
+          <rect x="5" y="1.6" width="3.5" height="12.8" fill="#EA7B1F" />
+          <rect x="9.6" y="1.6" width="12.8" height="12.8" fill="#8C1E2B" />
+        </>
+      );
+
+    case 'MN':
+      return (
+        <>
+          <rect width="8" height="16" fill="#C92431" />
+          <rect x="8" width="8" height="16" fill="#1C5CA8" />
+          <rect x="16" width="8" height="16" fill="#C92431" />
+          <circle cx="4" cy="8" r="1.4" fill="#F5C73B" />
+        </>
+      );
+
+    case 'NP':
+      return (
+        <>
+          <rect width="24" height="16" fill="#DC143C" />
+          <polygon points="2,2 14,7.5 6.5,7.5 15.5,14 2,14" fill="#DC143C" stroke="#1E3A8A" strokeWidth="1.2" />
+        </>
+      );
+
+    case 'PA':
+      return (
+        <>
+          <rect width="12" height="8" fill="#F8FAFC" />
+          <rect x="12" width="12" height="8" fill="#D21034" />
+          <rect y="8" width="12" height="8" fill="#1A5296" />
+          <rect x="12" y="8" width="12" height="8" fill="#F8FAFC" />
+          <circle cx="6" cy="4" r="1.4" fill="#1A5296" />
+          <circle cx="18" cy="12" r="1.4" fill="#D21034" />
+        </>
+      );
+
+    case 'CR':
+      return (
+        <>
+          <rect width="24" height="2.7" fill="#1C3F94" />
+          <rect y="2.7" width="24" height="2.7" fill="#F8FAFC" />
+          <rect y="5.4" width="24" height="5.2" fill="#CE2029" />
+          <rect y="10.6" width="24" height="2.7" fill="#F8FAFC" />
+          <rect y="13.3" width="24" height="2.7" fill="#1C3F94" />
+        </>
+      );
+
+    case 'PE':
+      return (
+        <>
+          <rect width="8" height="16" fill="#D91E2A" />
+          <rect x="8" width="8" height="16" fill="#F8FAFC" />
+          <rect x="16" width="8" height="16" fill="#D91E2A" />
+        </>
+      );
+
+    case 'EC':
+      return (
+        <>
+          <rect width="24" height="8" fill="#F5C73B" />
+          <rect y="8" width="24" height="4" fill="#1B469B" />
+          <rect y="12" width="24" height="4" fill="#D4242F" />
+        </>
+      );
+
+    case 'UY':
+      return (
+        <>
+          <rect width="24" height="16" fill="#F8FAFC" />
+          <rect y="2.2" width="24" height="1.8" fill="#1E52A8" />
+          <rect y="5.8" width="24" height="1.8" fill="#1E52A8" />
+          <rect y="9.4" width="24" height="1.8" fill="#1E52A8" />
+          <rect y="13" width="24" height="1.8" fill="#1E52A8" />
+          <rect width="9" height="8.2" fill="#F8FAFC" />
+          <circle cx="4.5" cy="4.1" r="2.1" fill="#F5B82E" />
+        </>
+      );
+
     /* ── Minimalist Global Fallback ────────────────────────────────── */
     default:
       return (
