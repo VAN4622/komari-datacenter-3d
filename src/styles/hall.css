@@ -149,27 +149,30 @@ textarea {
   --wmap-pill-stroke-active: rgba(255, 255, 255, 0.52);
   --wmap-pill-ink: rgba(255, 255, 255, 0.92);
 
-  /* 3D Architectural Vertical Status Signage Tokens (Dark) */
-  --ssig-ink: rgba(242, 247, 255, 0.94);
-  --ssig-meta-ink: rgba(214, 226, 245, 0.56);
-  --ssig-rule: rgba(214, 226, 245, 0.24);
-  --ssig-depth-core: rgba(54, 68, 92, 0.78);
-  --ssig-extrude-hi: rgba(255, 255, 255, 0.42);
-  --ssig-extrude-1: rgba(176, 194, 222, 0.42);
-  --ssig-extrude-2: rgba(126, 146, 178, 0.36);
-  --ssig-extrude-3: rgba(82, 100, 132, 0.34);
-  --ssig-extrude-4: rgba(48, 62, 86, 0.38);
-  --ssig-extrude-5: rgba(26, 36, 54, 0.46);
-  --ssig-drop: rgba(0, 0, 0, 0.62);
-  --ssig-wall-shadow: rgba(0, 0, 0, 0.62);
-  --ssig-tone-ok: #34d399;
-  --ssig-tone-ok-glow: rgba(52, 211, 153, 0.54);
-  --ssig-tone-warn: #fbbf24;
-  --ssig-tone-warn-glow: rgba(251, 191, 36, 0.5);
-  --ssig-tone-crit: #f87171;
-  --ssig-tone-crit-glow: rgba(248, 113, 113, 0.52);
-  --ssig-tone-idle: #94a3b8;
-  --ssig-tone-idle-glow: rgba(148, 163, 184, 0.36);
+  /* Precision SVG 3D Vertical Status Signage Tokens (Dark — Anodized Satin Aluminum, Zero Inner Glow) */
+  --ssig-face-top: #f4f7fb;
+  --ssig-face-mid: #cfd8e5;
+  --ssig-face-bot: #95a5bc;
+  --ssig-rim-hi: rgba(255, 255, 255, 0.72);
+  --ssig-rim-mid: rgba(214, 226, 245, 0.22);
+  --ssig-rim-lo: rgba(15, 23, 42, 0.35);
+  --ssig-bevel-top: #4b596e;
+  --ssig-bevel-bot: #232c3b;
+  --ssig-shadow: #02050a;
+  --ssig-meta-ink: rgba(203, 215, 234, 0.62);
+  --ssig-rule: rgba(203, 215, 234, 0.24);
+  --ssig-tone-ok-hi: #4ade80;
+  --ssig-tone-ok-mid: #22c55e;
+  --ssig-tone-ok-lo: #15803d;
+  --ssig-tone-warn-hi: #fcd34d;
+  --ssig-tone-warn-mid: #f59e0b;
+  --ssig-tone-warn-lo: #b45309;
+  --ssig-tone-crit-hi: #fca5a5;
+  --ssig-tone-crit-mid: #ef4444;
+  --ssig-tone-crit-lo: #b91c1c;
+  --ssig-tone-idle-hi: #cbd5e1;
+  --ssig-tone-idle-mid: #94a3b8;
+  --ssig-tone-idle-lo: #475569;
 }
 
 /* 2. Silver Gallery Studio (Optional Light Mode) — Apple Liquid Glass Light */
@@ -274,27 +277,30 @@ textarea {
   --wmap-pill-stroke-active: rgba(15, 23, 42, 0.42);
   --wmap-pill-ink: #111827;
 
-  /* 3D Architectural Vertical Status Signage Tokens (Light) */
-  --ssig-ink: rgba(17, 24, 39, 0.9);
-  --ssig-meta-ink: rgba(51, 65, 85, 0.64);
+  /* Precision SVG 3D Vertical Status Signage Tokens (Light — Milled Graphite Metal, Zero Inner Glow) */
+  --ssig-face-top: #2f3a4d;
+  --ssig-face-mid: #1c2432;
+  --ssig-face-bot: #111621;
+  --ssig-rim-hi: rgba(255, 255, 255, 0.68);
+  --ssig-rim-mid: rgba(148, 163, 184, 0.26);
+  --ssig-rim-lo: rgba(15, 23, 42, 0.18);
+  --ssig-bevel-top: #9aa7ba;
+  --ssig-bevel-bot: #64748b;
+  --ssig-shadow: #64748b;
+  --ssig-meta-ink: rgba(51, 65, 85, 0.68);
   --ssig-rule: rgba(15, 23, 42, 0.22);
-  --ssig-depth-core: rgba(122, 138, 162, 0.52);
-  --ssig-extrude-hi: rgba(255, 255, 255, 0.72);
-  --ssig-extrude-1: rgba(148, 163, 184, 0.56);
-  --ssig-extrude-2: rgba(100, 116, 139, 0.44);
-  --ssig-extrude-3: rgba(71, 85, 105, 0.32);
-  --ssig-extrude-4: rgba(51, 65, 85, 0.24);
-  --ssig-extrude-5: rgba(30, 41, 59, 0.18);
-  --ssig-drop: rgba(15, 23, 42, 0.22);
-  --ssig-wall-shadow: rgba(15, 23, 42, 0.24);
-  --ssig-tone-ok: #0d9f6e;
-  --ssig-tone-ok-glow: rgba(13, 159, 110, 0.38);
-  --ssig-tone-warn: #d97706;
-  --ssig-tone-warn-glow: rgba(217, 119, 6, 0.34);
-  --ssig-tone-crit: #dc2626;
-  --ssig-tone-crit-glow: rgba(220, 38, 38, 0.36);
-  --ssig-tone-idle: #64748b;
-  --ssig-tone-idle-glow: rgba(100, 116, 139, 0.28);
+  --ssig-tone-ok-hi: #10b981;
+  --ssig-tone-ok-mid: #059669;
+  --ssig-tone-ok-lo: #047857;
+  --ssig-tone-warn-hi: #f59e0b;
+  --ssig-tone-warn-mid: #d97706;
+  --ssig-tone-warn-lo: #b45309;
+  --ssig-tone-crit-hi: #ef4444;
+  --ssig-tone-crit-mid: #dc2626;
+  --ssig-tone-crit-lo: #991b1b;
+  --ssig-tone-idle-hi: #64748b;
+  --ssig-tone-idle-mid: #475569;
+  --ssig-tone-idle-lo: #334155;
 }
 
 /* ============================================================================
@@ -1703,6 +1709,34 @@ textarea {
   flex-shrink: 0;
 }
 
+.hud-style-swatch {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.hud-style-swatch.is-tactile {
+  border-radius: 3px;
+  background: linear-gradient(180deg, #9aa4b4 0%, #5e6878 100%);
+  border: 1px solid rgba(0, 0, 0, 0.38);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.hud-style-swatch.is-glass {
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72) 0%, rgba(168, 206, 255, 0.28) 55%, rgba(255, 255, 255, 0.14) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.65);
+}
+
+.dc-app.atmo-studio-light .hud-style-swatch.is-glass {
+  border-color: rgba(15, 23, 42, 0.28);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(148, 184, 230, 0.35) 60%, rgba(15, 23, 42, 0.08) 100%);
+}
+
 .hud-pop-row {
   width: 100%;
   min-height: 32px;
@@ -2344,23 +2378,178 @@ textarea {
   opacity: 0.72;
 }
 
+/* Top-Center Floating Global Fleet Telemetry Ribbon */
+.wmap-top-ribbon {
+  position: fixed;
+  top: calc(62px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 24;
+  max-width: calc(100vw - 32px);
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--lg-surface);
+  backdrop-filter: var(--lg-blur);
+  -webkit-backdrop-filter: var(--lg-blur);
+  box-shadow: var(--lg-inner-glow), var(--lg-shadow);
+  color: var(--hud-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.wmap-top-ribbon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--lg-meniscus);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wmap-top-ribbon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--lg-rim-grad);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.wmap-top-ribbon > * {
+  position: relative;
+  z-index: 1;
+}
+
+.wmap-ribbon-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 11.5px;
+}
+
+.wmap-ribbon-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #30d158;
+}
+
+.wmap-ribbon-dot.is-warn {
+  background: #f59e0b;
+}
+
+.wmap-ribbon-dot.is-crit {
+  background: #ff453a;
+}
+
+.wmap-ribbon-label {
+  font-size: 10.5px;
+  color: var(--hud-ink-muted);
+  letter-spacing: 0.02em;
+}
+
+.wmap-ribbon-val {
+  font-weight: 620;
+  color: var(--hud-ink);
+}
+
+.wmap-ribbon-sub {
+  font-size: 10.5px;
+  color: var(--hud-ink-muted);
+}
+
+.wmap-ribbon-sep {
+  width: 1px;
+  height: 13px;
+  background: var(--lg-well-border);
+  flex-shrink: 0;
+}
+
 .wmap-canvas-wrap {
   position: relative;
   z-index: 2;
   width: 100%;
   height: 100%;
-  padding: 76px 32px 42px;
+  padding: 108px 36px 248px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: padding 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.wmap-canvas-wrap.is-expanded {
+  padding: 108px 36px 134px;
 }
 
 .wmap-svg {
   width: 100%;
   height: 100%;
-  max-width: 1260px;
-  max-height: 80vh;
+  max-width: 1220px;
+  max-height: 76vh;
   overflow: visible;
+}
+
+/* Precision Cartographic Graticule & Architectural Corner Brackets */
+.wmap-grat-line {
+  fill: none;
+  stroke: var(--hud-ink);
+  stroke-width: 0.65;
+  stroke-dasharray: 2 6;
+  opacity: 0.085;
+  vector-effect: non-scaling-stroke;
+}
+
+.wmap-grat-line.is-major {
+  stroke-dasharray: 4 5;
+  opacity: 0.14;
+}
+
+.wmap-grat-label {
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 8.5px;
+  font-weight: 560;
+  letter-spacing: 0.06em;
+  fill: var(--hud-ink-subtle);
+  opacity: 0.52;
+  user-select: none;
+}
+
+.wmap-frame-bracket {
+  fill: none;
+  stroke: var(--hud-ink);
+  stroke-width: 1.05;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.16;
+  vector-effect: non-scaling-stroke;
+}
+
+.wmap-pin-reticle-ring {
+  fill: none;
+  stroke: var(--wmap-pin);
+  stroke-width: 0.85;
+  stroke-dasharray: 3 3;
+  opacity: 0.48;
+  transform-origin: 0px 0px;
+  animation: ssigRotorSpin 16s linear infinite;
+}
+
+.wmap-pin-reticle-tick {
+  stroke: var(--wmap-pin);
+  stroke-width: 0.9;
+  stroke-linecap: round;
+  opacity: 0.5;
 }
 
 /* Precision Natural Earth Dot-Matrix Continents */
@@ -2492,26 +2681,32 @@ textarea {
   letter-spacing: 0.01em;
 }
 
-/* Integrated Apple Liquid Glass Floating Region Sheet */
+/* Centered Bottom Floating Region & Node Console HUD */
 .wmap-sheet {
   position: fixed;
-  left: max(18px, env(safe-area-inset-left, 0px));
+  left: 50%;
+  transform: translateX(-50%);
   bottom: max(18px, env(safe-area-inset-bottom, 0px));
   z-index: 25;
-  width: 344px;
-  max-width: calc(100vw - 36px);
-  border-radius: 24px;
+  width: min(760px, calc(100vw - 32px));
+  border-radius: 22px;
   background: var(--lg-surface);
   backdrop-filter: var(--lg-blur);
   -webkit-backdrop-filter: var(--lg-blur);
   border: none;
   box-shadow: var(--lg-inner-glow), var(--lg-shadow);
   color: var(--hud-ink);
-  padding: 12px 14px 14px;
+  padding: 13px 16px 14px;
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: 10px;
   overflow: hidden;
+  transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.wmap-sheet.is-collapsed {
+  gap: 8px;
+  padding-bottom: 12px;
 }
 
 .wmap-sheet::before {
@@ -2542,43 +2737,17 @@ textarea {
   z-index: 1;
 }
 
-.wmap-sheet-summary {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding-bottom: 9px;
-  border-bottom: 1px solid var(--lg-well-border);
-  font-size: 11px;
-  color: var(--hud-ink-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.wmap-sheet-summary b {
-  font-weight: 620;
-  color: var(--hud-ink);
-}
-
-.wmap-sum-dot {
-  width: 2.5px;
-  height: 2.5px;
-  border-radius: 50%;
-  background: var(--hud-ink-subtle);
-  flex-shrink: 0;
-}
-
 .wmap-sheet-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 
 .wmap-region-id {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   min-width: 0;
 }
 
@@ -2588,14 +2757,26 @@ textarea {
   flex-shrink: 0;
 }
 
-.wmap-region-id strong {
+.wmap-region-meta {
+  min-width: 0;
+}
+
+.wmap-region-title-row {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.wmap-region-id strong {
+  display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 640;
   letter-spacing: -0.01em;
   color: var(--hud-ink);
+  white-space: nowrap;
 }
 
 .wmap-region-id em {
@@ -2605,12 +2786,77 @@ textarea {
   color: var(--hud-ink-muted);
 }
 
-.wmap-region-id span {
+.wmap-region-coord {
+  display: inline-flex;
+  align-items: center;
+  padding: 1.5px 7px;
+  border-radius: 999px;
+  background: var(--lg-well-bg);
+  border: 1px solid var(--lg-well-border);
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 560;
+  color: var(--hud-ink-muted);
+  white-space: nowrap;
+}
+
+.wmap-region-sub {
   display: block;
   margin-top: 2px;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: var(--hud-ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wmap-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.wmap-region-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 29px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--lg-well-bg);
+  border: 1px solid var(--lg-well-border);
+}
+
+.wmap-step-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--hud-ink-muted);
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.wmap-step-btn:hover {
+  background: var(--hud-chip-hover);
+  color: var(--hud-ink);
+}
+
+.wmap-step-idx {
+  padding: 0 5px;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--hud-ink-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .wmap-back-btn {
@@ -2624,7 +2870,7 @@ textarea {
   font-weight: 560;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background-color 0.16s ease, border-color 0.16s ease;
+  transition: background-color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
 }
 
 .wmap-back-btn:hover {
@@ -2632,10 +2878,21 @@ textarea {
   border-color: var(--lg-border-strong);
 }
 
+.wmap-back-btn.is-primary {
+  background: var(--hud-active-bg);
+  color: var(--hud-active-ink);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.wmap-back-btn.is-primary:hover {
+  opacity: 0.9;
+}
+
 .wmap-flag-strip {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   overflow-x: auto;
   padding-bottom: 1px;
   scrollbar-width: none;
@@ -2646,7 +2903,7 @@ textarea {
 }
 
 .wmap-flag-tab {
-  height: 27px;
+  height: 28px;
   padding: 0 10px;
   border-radius: 999px;
   border: 1px solid var(--lg-well-border);
@@ -2678,26 +2935,38 @@ textarea {
   opacity: 0.62;
 }
 
+.wmap-flag-count {
+  font-style: normal;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 9.8px;
+  font-weight: 600;
+  opacity: 0.72;
+  font-variant-numeric: tabular-nums;
+}
+
 .wmap-node-list {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  max-height: 168px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  max-height: 146px;
   overflow-y: auto;
   scrollbar-width: thin;
 }
 
+.wmap-node-list.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .wmap-node-row {
   width: 100%;
-  padding: 8px 10px;
-  border-radius: 12px;
+  padding: 9px 11px;
+  border-radius: 13px;
   border: 1px solid var(--lg-well-border);
   background: var(--lg-well-bg);
   color: var(--hud-ink);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  gap: 7px;
   cursor: pointer;
   text-align: left;
   transition: border-color 0.16s ease, background-color 0.16s ease;
@@ -2713,29 +2982,46 @@ textarea {
   background: var(--hud-chip-hover);
 }
 
+.wmap-node-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
 .wmap-node-main {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
 }
 
 .wmap-node-name {
   font-size: 12px;
-  font-weight: 560;
+  font-weight: 590;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.wmap-node-metrics {
+.wmap-node-top-right {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: var(--hud-ink-muted);
+  gap: 6px;
   flex-shrink: 0;
+}
+
+.wmap-node-ping {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--hud-chip-bg);
+  border: 1px solid var(--lg-well-border);
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--hud-ink-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .wmap-node-chevron {
@@ -2748,9 +3034,108 @@ textarea {
   color: var(--hud-ink);
 }
 
-.wmap-node-metrics .is-off-txt {
-  color: #ff453a;
+.wmap-node-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-ink-muted);
+}
+
+.wmap-node-bars {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.wmap-mini-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.wmap-mini-metric em {
+  font-style: normal;
+  font-size: 9.5px;
+  color: var(--hud-ink-subtle);
+  letter-spacing: 0.02em;
+}
+
+.wmap-mini-metric b {
   font-weight: 600;
+  color: var(--hud-ink);
+}
+
+.wmap-mini-track {
+  display: inline-flex;
+  width: 32px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--hud-chip-bg);
+  overflow: hidden;
+}
+
+.wmap-mini-track > b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--hud-accent);
+  transition: width 0.3s ease;
+}
+
+.wmap-node-net {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.wmap-node-bottom .is-off-txt {
+  color: #ff453a;
+  font-weight: 580;
+}
+
+@media (max-width: 960px) {
+  .wmap-hide-md {
+    display: none !important;
+  }
+
+  .wmap-canvas-wrap {
+    padding: 104px 18px 256px;
+  }
+}
+
+@media (max-width: 720px) {
+  .wmap-hide-sm {
+    display: none !important;
+  }
+
+  .wmap-node-list {
+    grid-template-columns: minmax(0, 1fr);
+    max-height: 152px;
+  }
+
+  .wmap-sheet {
+    padding: 11px 12px 12px;
+  }
+
+  .wmap-region-stepper {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .wmap-hide-xs {
+    display: none !important;
+  }
 }
 
 /* ============================================================================
@@ -4221,15 +4606,14 @@ textarea {
 }
 
 /* ============================================================================
-   Architectural 3D Micro-Tilted Vertical Status Signage (Signature UI Monolith)
+   Precision SVG 3D Micro-Tilted Vertical Status Signage (Zero Inner Glow)
    ============================================================================ */
 .studio-signage {
-  --ssig-tone: var(--ssig-tone-ok);
-  --ssig-tone-glow: var(--ssig-tone-ok-glow);
+  --ssig-tone-hi: var(--ssig-tone-ok-hi);
+  --ssig-tone-mid: var(--ssig-tone-ok-mid);
+  --ssig-tone-lo: var(--ssig-tone-ok-lo);
   --ssig-rack-gap: 312px;
   --ssig-camera-shift: 0px;
-  --ssig-period-size: clamp(28px, 2.75vw, 40px);
-  --ssig-period-stroke: clamp(4px, 0.38vw, 5.4px);
 
   position: fixed;
   top: 50%;
@@ -4245,7 +4629,7 @@ textarea {
     right 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Hug the rack cabinet tightly across compact/standard scales & front/side angles */
+/* Hug the rack cabinet cleanly across compact/standard scales & front/side angles */
 .studio-signage.is-rack.scale-compact {
   --ssig-rack-gap: 270px;
 }
@@ -4266,37 +4650,32 @@ textarea {
 
   .studio-signage.is-rack.has-drawer {
     --ssig-camera-shift: 175px;
-    opacity: 0.48;
+    opacity: 0.46;
   }
 }
 
-.studio-signage.is-map {
-  --ssig-period-size: clamp(24px, 2.35vw, 34px);
-  --ssig-period-stroke: clamp(3.6px, 0.34vw, 4.8px);
-
-  right: auto;
-  left: clamp(28px, 3.6vw, 64px);
-  top: 48%;
-}
-
 .studio-signage.tone-ok {
-  --ssig-tone: var(--ssig-tone-ok);
-  --ssig-tone-glow: var(--ssig-tone-ok-glow);
+  --ssig-tone-hi: var(--ssig-tone-ok-hi);
+  --ssig-tone-mid: var(--ssig-tone-ok-mid);
+  --ssig-tone-lo: var(--ssig-tone-ok-lo);
 }
 
 .studio-signage.tone-warn {
-  --ssig-tone: var(--ssig-tone-warn);
-  --ssig-tone-glow: var(--ssig-tone-warn-glow);
+  --ssig-tone-hi: var(--ssig-tone-warn-hi);
+  --ssig-tone-mid: var(--ssig-tone-warn-mid);
+  --ssig-tone-lo: var(--ssig-tone-warn-lo);
 }
 
 .studio-signage.tone-crit {
-  --ssig-tone: var(--ssig-tone-crit);
-  --ssig-tone-glow: var(--ssig-tone-crit-glow);
+  --ssig-tone-hi: var(--ssig-tone-crit-hi);
+  --ssig-tone-mid: var(--ssig-tone-crit-mid);
+  --ssig-tone-lo: var(--ssig-tone-crit-lo);
 }
 
 .studio-signage.tone-idle {
-  --ssig-tone: var(--ssig-tone-idle);
-  --ssig-tone-glow: var(--ssig-tone-idle-glow);
+  --ssig-tone-hi: var(--ssig-tone-idle-hi);
+  --ssig-tone-mid: var(--ssig-tone-idle-mid);
+  --ssig-tone-lo: var(--ssig-tone-idle-lo);
 }
 
 .ssig-plane {
@@ -4310,221 +4689,211 @@ textarea {
   transform: rotateY(0deg) rotateX(0deg);
 }
 
-.ssig-front-layer {
-  position: relative;
-  z-index: 3;
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  transform: translateZ(22px);
+.ssig-svg {
+  display: block;
+  width: clamp(134px, min(11.6vw, 17.5vh), 186px);
+  height: auto;
+  overflow: visible;
 }
 
-/* Physical 3D milled extrusion core sitting in Z-depth behind the front face */
-.ssig-depth-layer {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 2;
-  color: var(--ssig-depth-core);
-  transform: translate3d(4px, 3px, 9px);
-  pointer-events: none;
-  transition: transform 0.68s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.45s ease;
+/* SVG Gradient Stops driven directly by active dark/light atmosphere tokens */
+.ssig-stop-face-top {
+  stop-color: var(--ssig-face-top);
 }
 
-.studio-signage.angle-front .ssig-depth-layer {
-  transform: translate3d(0px, 2px, 8px);
-  opacity: 0.45;
+.ssig-stop-face-mid {
+  stop-color: var(--ssig-face-mid);
 }
 
-.ssig-depth-layer .ssig-chars {
-  color: var(--ssig-depth-core);
-  text-shadow: none;
+.ssig-stop-face-bot {
+  stop-color: var(--ssig-face-bot);
 }
 
-/* Deep studio cyclorama wall shadow cast behind the floating monolith */
-.ssig-shadow-layer {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 1;
-  color: var(--ssig-wall-shadow);
-  filter: blur(11px);
-  opacity: 0.78;
-  transform: translate3d(20px, 24px, -30px);
-  pointer-events: none;
+.ssig-stop-rim-hi {
+  stop-color: var(--ssig-rim-hi);
 }
 
-.ssig-shadow-layer .ssig-chars {
-  color: var(--ssig-wall-shadow);
-  text-shadow: none;
+.ssig-stop-rim-mid {
+  stop-color: var(--ssig-rim-mid);
 }
 
-/* Precision Swiss/gallery calendar-clock hairline rail paired with the bold vertical monolith */
-.ssig-clock-rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding-top: 10px;
+.ssig-stop-rim-lo {
+  stop-color: var(--ssig-rim-lo);
+}
+
+.ssig-stop-bevel-top {
+  stop-color: var(--ssig-bevel-top);
+}
+
+.ssig-stop-bevel-bot {
+  stop-color: var(--ssig-bevel-bot);
+}
+
+.ssig-stop-tone-hi {
+  stop-color: var(--ssig-tone-hi);
+}
+
+.ssig-stop-tone-mid {
+  stop-color: var(--ssig-tone-mid);
+}
+
+.ssig-stop-tone-lo {
+  stop-color: var(--ssig-tone-lo);
+}
+
+/* Monumental vertical SVG typography */
+.ssig-svg-glyph {
+  font-family: 'SF Pro Display', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 92px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.ssig-svg-shadow {
+  opacity: 0.42;
+}
+
+.dc-app.atmo-studio-light .ssig-svg-shadow {
+  opacity: 0.24;
+}
+
+.ssig-svg-shadow .ssig-svg-glyph {
+  fill: var(--ssig-shadow);
+}
+
+.ssig-svg-shadow-ring {
+  stroke: var(--ssig-shadow);
+  fill: none;
+}
+
+.ssig-svg-bevel-deep {
+  opacity: 0.88;
+}
+
+.ssig-svg-bevel-mid {
+  opacity: 0.96;
+}
+
+.studio-signage.angle-front .ssig-svg-bevel-deep {
+  opacity: 0.42;
+}
+
+.studio-signage.angle-front .ssig-svg-bevel-mid {
+  opacity: 0.56;
+}
+
+/* Swiss precision calibration rail */
+.ssig-rail-text {
   font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
+  fill: var(--ssig-meta-ink);
   font-variant-numeric: tabular-nums;
-  color: var(--ssig-meta-ink);
-  text-shadow: 0 3px 10px var(--ssig-drop);
 }
 
-.ssig-clock-date,
-.ssig-clock-time,
-.ssig-clock-ratio {
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.ssig-clock-time {
-  font-size: 12.5px;
+.ssig-rail-time {
+  font-size: 12px;
   font-weight: 700;
-  color: var(--ssig-ink);
-  opacity: 0.8;
+  fill: var(--ssig-face-mid);
+  opacity: 0.86;
 }
 
-.ssig-clock-rule {
-  width: 1.5px;
-  height: 46px;
-  background: linear-gradient(180deg, transparent 0%, var(--ssig-rule) 22%, var(--ssig-rule) 78%, transparent 100%);
-}
-
-.ssig-clock-ratio {
+.ssig-rail-ratio {
   font-size: 10.5px;
   opacity: 0.82;
 }
 
-/* Monumental bold vertical typography column + oversized hollow circular status period */
-.ssig-vertical-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.ssig-rail-line,
+.ssig-rail-mark,
+.ssig-rail-tick {
+  stroke: var(--ssig-rule);
 }
 
-.ssig-chars {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.14em;
-  font-family: 'SF Pro Display', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: clamp(56px, min(5.4vw, 8.2vh), 86px);
-  font-weight: 800;
-  line-height: 1;
-  color: var(--ssig-ink);
-  /* Sculpted architectural 3D relief extrusion matching the rack's right-side depth */
-  text-shadow:
-    -0.8px -0.8px 0 var(--ssig-extrude-hi),
-    1px 0.8px 0 var(--ssig-extrude-1),
-    2px 1.6px 0 var(--ssig-extrude-2),
-    3.2px 2.5px 0 var(--ssig-extrude-3),
-    4.5px 3.5px 0 var(--ssig-extrude-4),
-    5.8px 4.6px 0 var(--ssig-extrude-5),
-    11px 16px 26px var(--ssig-drop);
-  transition: text-shadow 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+.ssig-rail-dot {
+  fill: var(--ssig-tone-mid);
+  opacity: 0.85;
 }
 
-.ssig-char {
-  display: block;
-  line-height: 1;
-  text-align: center;
+/* Precision Horological Hollow Rotary Status Ring (。): zero pulse ripple, zero inner glow */
+.ssig-svg-tick-major {
+  stroke: var(--ssig-meta-ink);
+  opacity: 0.72;
 }
 
-.studio-signage.is-map .ssig-chars {
-  font-size: clamp(46px, min(4.4vw, 7vh), 72px);
+.ssig-svg-tick-minor {
+  stroke: var(--ssig-rule);
+  opacity: 0.65;
 }
 
-.studio-signage.angle-front .ssig-chars {
-  text-shadow:
-    0 -0.8px 0 var(--ssig-extrude-hi),
-    0 1.5px 0 var(--ssig-extrude-1),
-    0 3px 0 var(--ssig-extrude-2),
-    0 12px 24px var(--ssig-drop);
+.ssig-svg-ring-track {
+  stroke: rgba(148, 163, 184, 0.16);
 }
 
-.ssig-period {
-  position: relative;
-  width: var(--ssig-period-size);
-  height: var(--ssig-period-size);
-  margin-top: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.dc-app.atmo-studio-light .ssig-svg-ring-track {
+  stroke: rgba(15, 23, 42, 0.12);
 }
 
-.ssig-period-ring {
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: var(--ssig-period-stroke) solid var(--ssig-tone);
-  background: transparent;
-  box-shadow:
-    0 0 20px var(--ssig-tone-glow),
-    inset 0 0 9px var(--ssig-tone-glow),
-    4px 7px 16px var(--ssig-drop);
-  animation: ssigRingBreathe 3.2s ease-in-out infinite;
+.ssig-svg-ring-rim-outer {
+  opacity: 0.66;
 }
 
-.ssig-period-pulse {
-  position: absolute;
-  inset: -2px;
-  z-index: 1;
-  border-radius: 50%;
-  border: 2.2px solid var(--ssig-tone);
-  background: transparent;
-  opacity: 0;
-  animation: ssigPeriodPulse 3.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+.ssig-svg-ring-rim-inner {
+  opacity: 0.44;
 }
 
-.ssig-period-depth {
-  width: var(--ssig-period-size);
-  height: var(--ssig-period-size);
-  margin-top: 16px;
-  border-radius: 50%;
-  border: var(--ssig-period-stroke) solid currentColor;
-  background: transparent;
+.ssig-svg-vernier {
+  opacity: 0.56;
+  transform-origin: 0px 0px;
+  animation: ssigVernierSpin 18s linear infinite reverse;
 }
 
-.ssig-period-shadow {
-  width: var(--ssig-period-size);
-  height: var(--ssig-period-size);
-  margin-top: 16px;
-  border-radius: 50%;
-  border: var(--ssig-period-stroke) solid currentColor;
-  background: transparent;
+.ssig-svg-rotor {
+  transform-origin: 0px 0px;
+  animation: ssigRotorSpin 4.8s linear infinite;
 }
 
-@keyframes ssigRingBreathe {
-  0%,
-  100% {
-    opacity: 0.88;
-    transform: scale(1);
+.ssig-svg-rotor-counter {
+  stroke: var(--ssig-tone-mid);
+  opacity: 0.44;
+}
+
+.ssig-svg-rotor-head {
+  fill: var(--ssig-tone-hi);
+}
+
+.ssig-svg-rotor-spec {
+  fill: #ffffff;
+  opacity: 0.88;
+}
+
+.dc-app.atmo-studio-light .ssig-svg-rotor-spec {
+  opacity: 0.95;
+}
+
+@keyframes ssigRotorSpin {
+  from {
+    transform: rotate(0deg);
   }
-  50% {
-    opacity: 1;
-    transform: scale(1.06);
+  to {
+    transform: rotate(360deg);
   }
 }
 
-@keyframes ssigPeriodPulse {
-  0% {
-    opacity: 0.64;
-    transform: scale(0.95);
+@keyframes ssigVernierSpin {
+  from {
+    transform: rotate(0deg);
   }
-  70% {
-    opacity: 0;
-    transform: scale(2.05);
+  to {
+    transform: rotate(360deg);
   }
-  100% {
-    opacity: 0;
-    transform: scale(2.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ssig-svg-rotor,
+  .ssig-svg-vernier,
+  .wmap-pin-reticle-ring {
+    animation: none;
   }
 }
 
@@ -4547,10 +4916,715 @@ textarea {
   }
 }
 
-@media (max-width: 960px) {
-  .studio-signage.is-map {
-    display: none;
-  }
+/* ============================================================================
+   Refined Light-Skeuomorphic Hardware UI (.dc-app.ui-tactile)
+   Precision CNC Anodized Aluminum & Tactile Keycaps — Dark & Light Studio
+   (Apple Liquid Glass remains 100% intact when .ui-glass is active)
+   ============================================================================ */
+.dc-app.ui-tactile.atmo-studio-dark {
+  --tac-panel-bg: linear-gradient(180deg, #252b36 0%, #1b2029 52%, #151921 100%);
+  --tac-panel-solid: linear-gradient(180deg, #232833 0%, #191e27 46%, #141820 100%);
+  --tac-panel-border: rgba(0, 0, 0, 0.72);
+  --tac-panel-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.055),
+    0 14px 34px -10px rgba(0, 0, 0, 0.74),
+    0 3px 8px rgba(0, 0, 0, 0.45);
+
+  --tac-well-bg: linear-gradient(180deg, #101319 0%, #151a22 100%);
+  --tac-well-cell: #161b24;
+  --tac-well-border: rgba(0, 0, 0, 0.65);
+  --tac-well-shadow:
+    inset 0 1.5px 3px rgba(0, 0, 0, 0.62),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+
+  --tac-btn-bg: linear-gradient(180deg, #2d3441 0%, #222732 100%);
+  --tac-btn-hover-bg: linear-gradient(180deg, #353d4c 0%, #282e3b 100%);
+  --tac-btn-border: rgba(0, 0, 0, 0.72);
+  --tac-btn-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.42),
+    0 1.5px 3px rgba(0, 0, 0, 0.42);
+  --tac-btn-hover-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 2px 5px rgba(0, 0, 0, 0.48);
+  --tac-btn-press-shadow:
+    inset 0 1.5px 3px rgba(0, 0, 0, 0.64),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+
+  --tac-active-bg: linear-gradient(180deg, #f0f4f9 0%, #d5dde9 100%);
+  --tac-active-ink: #121721;
+  --tac-active-border: rgba(0, 0, 0, 0.68);
+  --tac-active-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.18),
+    0 2px 5px rgba(0, 0, 0, 0.48);
+
+  --tac-divider: rgba(255, 255, 255, 0.075);
+  --tac-divider-groove: rgba(0, 0, 0, 0.58);
+  --tac-input-bg: linear-gradient(180deg, #0d1016 0%, #12161e 100%);
+  --hud-border: rgba(255, 255, 255, 0.09);
+  --hud-border-strong: rgba(255, 255, 255, 0.18);
+  --hud-chip-bg: rgba(255, 255, 255, 0.055);
+  --hud-chip-hover: rgba(255, 255, 255, 0.11);
+}
+
+.dc-app.ui-tactile.atmo-studio-light {
+  --tac-panel-bg: linear-gradient(180deg, #f8fafc 0%, #eef2f7 54%, #e5ebf3 100%);
+  --tac-panel-solid: linear-gradient(180deg, #f9fbfd 0%, #eff3f8 50%, #e7ecf4 100%);
+  --tac-panel-border: rgba(15, 23, 42, 0.15);
+  --tac-panel-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.08),
+    0 0 0 0.5px rgba(255, 255, 255, 0.65),
+    0 12px 30px -10px rgba(15, 23, 42, 0.18),
+    0 2px 6px rgba(15, 23, 42, 0.08);
+
+  --tac-well-bg: linear-gradient(180deg, #d7dfe9 0%, #e3e9f1 100%);
+  --tac-well-cell: #edf1f6;
+  --tac-well-border: rgba(15, 23, 42, 0.13);
+  --tac-well-shadow:
+    inset 0 1.5px 2.5px rgba(15, 23, 42, 0.14),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.88);
+
+  --tac-btn-bg: linear-gradient(180deg, #ffffff 0%, #eef2f7 100%);
+  --tac-btn-hover-bg: linear-gradient(180deg, #ffffff 0%, #f5f8fb 100%);
+  --tac-btn-border: rgba(15, 23, 42, 0.16);
+  --tac-btn-shadow:
+    inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(15, 23, 42, 0.07),
+    0 1.5px 2.5px rgba(15, 23, 42, 0.1);
+  --tac-btn-hover-shadow:
+    inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(15, 23, 42, 0.09),
+    0 2px 5px rgba(15, 23, 42, 0.13);
+  --tac-btn-press-shadow:
+    inset 0 1.5px 3px rgba(15, 23, 42, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.72);
+
+  --tac-active-bg: linear-gradient(180deg, #2d3646 0%, #1c222e 100%);
+  --tac-active-ink: #f8fafc;
+  --tac-active-border: rgba(15, 23, 42, 0.65);
+  --tac-active-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 2px 5px rgba(15, 23, 42, 0.22);
+
+  --tac-divider: rgba(15, 23, 42, 0.09);
+  --tac-divider-groove: rgba(255, 255, 255, 0.85);
+  --tac-input-bg: linear-gradient(180deg, #e7ecf3 0%, #f3f6fa 100%);
+  --hud-border: rgba(15, 23, 42, 0.12);
+  --hud-border-strong: rgba(15, 23, 42, 0.22);
+  --hud-chip-bg: rgba(15, 23, 42, 0.045);
+  --hud-chip-hover: rgba(15, 23, 42, 0.085);
+}
+
+/* Strip Liquid Glass optical overlays in tactile mode so machined bevels stay crisp */
+.dc-app.ui-tactile .hud-pill::after,
+.dc-app.ui-tactile .lg-pill::after,
+.dc-app.ui-tactile .hud-popover::after,
+.dc-app.ui-tactile .lg-hud-card::before,
+.dc-app.ui-tactile .lg-hud-card::after,
+.dc-app.ui-tactile .wmap-top-ribbon::before,
+.dc-app.ui-tactile .wmap-top-ribbon::after,
+.dc-app.ui-tactile .wmap-sheet::before,
+.dc-app.ui-tactile .wmap-sheet::after,
+.dc-app.ui-tactile .inspector-drawer::after {
+  display: none;
+}
+
+/* Primary Hardware Capsules (Top Bar, Bottom Studio Dock, Notice Pill) */
+.dc-app.ui-tactile .hud-pill,
+.dc-app.ui-tactile .lg-pill {
+  border-radius: 12px;
+  background: var(--tac-panel-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--tac-panel-border);
+  box-shadow: var(--tac-panel-shadow);
+}
+
+/* Tactile clickable top-bar pills */
+.dc-app.ui-tactile .hud-brand-pill,
+.dc-app.ui-tactile .hud-map-toggle,
+.dc-app.ui-tactile .hud-menu-trigger {
+  background: var(--tac-btn-bg);
+  border: 1px solid var(--tac-btn-border);
+  box-shadow: var(--tac-btn-shadow);
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease,
+    color 0.15s ease;
+}
+
+.dc-app.ui-tactile .hud-brand-pill:hover,
+.dc-app.ui-tactile .hud-map-toggle:hover,
+.dc-app.ui-tactile .hud-menu-trigger:hover {
+  background: var(--tac-btn-hover-bg);
+  box-shadow: var(--tac-btn-hover-shadow);
+}
+
+.dc-app.ui-tactile .hud-brand-pill:active,
+.dc-app.ui-tactile .hud-map-toggle:active,
+.dc-app.ui-tactile .hud-menu-trigger:active {
+  transform: translateY(0.5px);
+  box-shadow: var(--tac-btn-press-shadow);
+}
+
+.dc-app.ui-tactile .hud-map-toggle.is-active,
+.dc-app.ui-tactile .hud-menu-trigger.is-active,
+.dc-app.ui-tactile .hud-publish-pill {
+  background: var(--tac-active-bg);
+  color: var(--tac-active-ink);
+  border: 1px solid var(--tac-active-border);
+  box-shadow: var(--tac-active-shadow);
+}
+
+.dc-app.ui-tactile .hud-badge,
+.dc-app.ui-tactile .hud-map-count {
+  border-radius: 6px;
+  background: var(--tac-well-bg);
+  border: 1px solid var(--tac-well-border);
+  box-shadow: var(--tac-well-shadow);
+}
+
+.dc-app.ui-tactile .hud-map-toggle.is-active .hud-map-count {
+  background: rgba(128, 128, 128, 0.22);
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--tac-active-ink);
+}
+
+/* Machined miniature LED jewel indicators (restrained physical bezel, no gaudy halo) */
+.dc-app.ui-tactile .hud-dot,
+.dc-app.ui-tactile .lg-status-dot,
+.dc-app.ui-tactile .d-tel-status-dot {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.52),
+    0 0 0 1px rgba(0, 0, 0, 0.36);
+}
+
+.dc-app.ui-tactile .hud-vsep {
+  width: 1px;
+  height: 16px;
+  background: var(--tac-divider-groove);
+  box-shadow: 1px 0 0 var(--tac-divider);
+}
+
+/* Bottom Studio Dock: Recessed CNC Track + Raised Tactile Keycaps */
+.dc-app.ui-tactile .hud-studio-dock {
+  height: 42px;
+  padding: 4px 6px;
+  border-radius: 13px;
+  background: var(--tac-panel-bg);
+  border: 1px solid var(--tac-panel-border);
+  box-shadow: var(--tac-panel-shadow);
+}
+
+.dc-app.ui-tactile .hud-rack-switcher,
+.dc-app.ui-tactile .hud-angle-group {
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--tac-well-bg);
+  border: 1px solid var(--tac-well-border);
+  box-shadow: var(--tac-well-shadow);
+}
+
+.dc-app.ui-tactile .hud-rack-arrow {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  transition: background 0.14s ease, box-shadow 0.14s ease, transform 0.12s ease, color 0.14s ease;
+}
+
+.dc-app.ui-tactile .hud-rack-arrow:hover {
+  background: var(--tac-btn-bg);
+  color: var(--hud-ink);
+  box-shadow: var(--tac-btn-shadow);
+}
+
+.dc-app.ui-tactile .hud-rack-arrow:active {
+  transform: translateY(0.5px);
+  box-shadow: var(--tac-btn-press-shadow);
+}
+
+.dc-app.ui-tactile .hud-seg-btn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.12s ease;
+}
+
+.dc-app.ui-tactile .hud-seg-btn:hover:not(.is-active) {
+  background: var(--hud-chip-bg);
+  color: var(--hud-ink);
+}
+
+.dc-app.ui-tactile .hud-seg-btn.is-active {
+  background: var(--tac-active-bg);
+  color: var(--tac-active-ink);
+  border-color: var(--tac-active-border);
+  box-shadow: var(--tac-active-shadow);
+  font-weight: 620;
+}
+
+/* Collapsible Studio Menu Popover */
+.dc-app.ui-tactile .hud-popover {
+  border-radius: 15px;
+  background: var(--tac-panel-solid);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--tac-panel-border);
+  box-shadow: var(--tac-panel-shadow);
+}
+
+.dc-app.ui-tactile .hud-pop-section + .hud-pop-section {
+  border-top: 1px solid var(--tac-divider-groove);
+  box-shadow: inset 0 1px 0 var(--tac-divider);
+}
+
+.dc-app.ui-tactile .hud-atmo-chip {
+  border-radius: 8px;
+  background: var(--tac-btn-bg);
+  border: 1px solid var(--tac-btn-border);
+  box-shadow: var(--tac-btn-shadow);
+  color: var(--hud-ink-muted);
+}
+
+.dc-app.ui-tactile .hud-atmo-chip:hover:not(.is-active) {
+  background: var(--tac-btn-hover-bg);
+  box-shadow: var(--tac-btn-hover-shadow);
+  color: var(--hud-ink);
+}
+
+.dc-app.ui-tactile .hud-atmo-chip:active {
+  transform: translateY(0.5px);
+  box-shadow: var(--tac-btn-press-shadow);
+}
+
+.dc-app.ui-tactile .hud-atmo-chip.is-active {
+  background: var(--tac-active-bg);
+  color: var(--tac-active-ink);
+  border-color: var(--tac-active-border);
+  box-shadow: var(--tac-active-shadow);
+  font-weight: 610;
+}
+
+.dc-app.ui-tactile .hud-pop-row {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.dc-app.ui-tactile .hud-pop-row:hover:not(:disabled) {
+  background: var(--tac-btn-bg);
+  border-color: var(--tac-btn-border);
+  box-shadow: var(--tac-btn-shadow);
+}
+
+.dc-app.ui-tactile .hud-pop-state {
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--tac-well-bg);
+  border: 1px solid var(--tac-well-border);
+  box-shadow: var(--tac-well-shadow);
+  font-size: 10px;
+}
+
+.dc-app.ui-tactile .hud-pop-state.is-on {
+  color: var(--hud-ink);
+}
+
+/* Floating Server Status HUD Card (Anodized Instrument Module) */
+.dc-app.ui-tactile .lg-hud-card {
+  border-radius: 16px;
+  background: var(--tac-panel-solid);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--tac-panel-border);
+  box-shadow: var(--tac-panel-shadow);
+}
+
+.dc-app.ui-tactile .lg-hud-card.is-offline {
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.dc-app.ui-tactile .lg-nav-group {
+  border-radius: 9px;
+  background: var(--tac-well-bg);
+  border: 1px solid var(--tac-well-border);
+  box-shadow: var(--tac-well-shadow);
+}
+
+.dc-app.ui-tactile .lg-icon-btn {
+  border-radius: 7px;
+  border: 1px solid transparent;
+  transition: background 0.14s ease, box-shadow 0.14s ease, transform 0.12s ease, color 0.14s ease;
+}
+
+.dc-app.ui-tactile .lg-icon-btn:hover {
+  background: var(--tac-btn-bg);
+  border-color: var(--tac-btn-border);
+  box-shadow: var(--tac-btn-shadow);
+  color: var(--hud-ink);
+}
+
+.dc-app.ui-tactile .lg-icon-btn:active {
+  transform: translateY(0.5px);
+  box-shadow: var(--tac-btn-press-shadow);
+}
+
+.dc-app.ui-tactile .lg-icon-btn.is-tinted {
+  background: var(--tac-btn-bg);
+  border-color: var(--tac-btn-border);
+  box-shadow: var(--tac-btn-shadow);
+}
+
+.dc-app.ui-tactile .lg-meter-track,
+.dc-app.ui-tactile .d-meter-track {
+  background: var(--tac-well-bg);
+  box-shadow: var(--tac-well-shadow);
+  border: 1px solid var(--tac-well-border);
+}
+
+.dc-app.ui-tactile .lg-metrics-well {
+  border-radius: 11px;
+  background: var(--tac-well-border);
+  border: 1px solid var(--tac-well-border);
+  box-shadow: var(--tac-well-shadow);
+}
+
+.dc-app.ui-tactile .lg-metric-cell {
+  background: var(--tac-well-cell);
+}
+
+.dc-app.ui-tactile .lg-act-btn {
+  border-radius: 9px;
+  background: var(--tac-btn-bg);
+  border: 1px solid var(--tac-btn-border);
+  box-shadow: var(--tac-btn-shadow);
+  color: var(--hud-ink);
+}
+
+.dc-app.ui-tactile .lg-act-btn:hover {
+  background: var(--tac-btn-hover-bg);
+  border-color: var(--tac-btn-border);
+  box-shadow: var(--tac-btn-hover-shadow);
+}
+
+.dc-app.ui-tactile .lg-act-btn:active {
+  transform: translateY(0.5px);
+  box-shadow: var(--tac-btn-press-shadow);
+}
+
+.dc-app.ui-tactile .lg-act-btn.is-active {
+  background: var(--tac-well-bg);
+  border-color: color-mix(in srgb, var(--hud-accent) 48%, var(--tac-well-border));
+  box-shadow: var(--tac-btn-press-shadow);
+}
+
+.dc-app.ui-tactile .lg-act-btn.is-primary {
+  background: var(--tac-active-bg);
+  border-color: var(--tac-active-border);
+  box-shadow: var(--tac-active-shadow);
+  color: var(--tac-active-ink);
+}
+
+.dc-app.ui-tactile .lg-act-btn.is-primary:hover {
+  opacity: 0.94;
+}
+
+/* Global Node Map Top Telemetry Ribbon & Centered Console */
+.dc-app.ui-tactile .wmap-top-ribbon {
+  border-radius: 12px;
+  background: var(--tac-panel-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--tac-panel-border);
+  box-shadow: var(--tac-panel-shadow);
+}
+
+.dc-app.ui-tactile .wmap-ribbon-dot {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.52),
+    0 0 0 1px rgba(0, 0, 0, 0.36);
+}
+
+.dc-app.ui-tactile .wmap-ribbon-sep {
+  background: var(--tac-divider-groove);
+  box-shadow: 1px 0 0 var(--tac-divider);
+}
+
+.dc-app.ui-tactile .wmap-sheet {
+  border-radius: 16px;
+  background: var(--tac-panel-solid);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--tac-panel-border);
+  box-shadow: var(--tac-panel-shadow);
+}
+
+.dc-app.ui-tactile .wmap-region-coord,
+.dc-app.ui-tactile .wmap-node-ping {
+  border-radius: 6px;
+  background: var(--tac-well-bg);
+  border: 1px solid var(--tac-well-border);
+  box-shadow: var(--tac-well-shadow);
+}
+
+.dc-app.ui-tactile .wmap-region-stepper {
+  border-radius: 9px;
+  background: var(--tac-well-bg);
+  border: 1px solid var(--tac-well-border);
+  box-shadow: var(--tac-well-shadow);
+}
+
+.dc-app.ui-tactile .wmap-step-btn {
+  border-radius: 7px;
+  transition: background 0.14s ease, box-shadow 0.14s ease, transform 0.12s ease, color 0.14s ease;
+}
+
+.dc-app.ui-tactile .wmap-step-btn:hover {
+  background: var(--tac-btn-bg);
+  box-shadow: var(--tac-btn-shadow);
+  color: var(--hud-ink);
+}
+
+.dc-app.ui-tactile .wmap-step-btn:active {
+  transform: translateY(0.5px);
+  box-shadow: var(--tac-btn-press-shadow);
+}
+
+.dc-app.ui-tactile .wmap-back-btn,
+.dc-app.ui-tactile .wmap-flag-tab {
+  border-radius: 8px;
+  background: var(--tac-btn-bg);
+  border: 1px solid var(--tac-btn-border);
+  box-shadow: var(--tac-btn-shadow);
+}
+
+.dc-app.ui-tactile .wmap-back-btn:hover:not(.is-primary),
+.dc-app.ui-tactile .wmap-flag-tab:hover:not(.is-active) {
+  background: var(--tac-btn-hover-bg);
+  box-shadow: var(--tac-btn-hover-shadow);
+}
+
+.dc-app.ui-tactile .wmap-back-btn:active,
+.dc-app.ui-tactile .wmap-flag-tab:active {
+  transform: translateY(0.5px);
+  box-shadow: var(--tac-btn-press-shadow);
+}
+
+.dc-app.ui-tactile .wmap-back-btn.is-primary,
+.dc-app.ui-tactile .wmap-flag-tab.is-active {
+  background: var(--tac-active-bg);
+  border-color: var(--tac-active-border);
+  box-shadow: var(--tac-active-shadow);
+  color: var(--tac-active-ink);
+}
+
+.dc-app.ui-tactile .wmap-node-row {
+  border-radius: 10px;
+  background: var(--tac-well-bg);
+  border: 1px solid var(--tac-well-border);
+  box-shadow: var(--tac-well-shadow);
+}
+
+.dc-app.ui-tactile .wmap-node-row:hover,
+.dc-app.ui-tactile .wmap-node-row.is-selected {
+  background: var(--tac-btn-bg);
+  border-color: var(--tac-btn-border);
+  box-shadow: var(--tac-btn-shadow);
+}
+
+.dc-app.ui-tactile .wmap-mini-track {
+  background: var(--tac-input-bg);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Notice Pill & Auth Dialog */
+.dc-app.ui-tactile .hud-notice,
+.dc-app.ui-tactile .hud-auth-card {
+  border-radius: 13px;
+  background: var(--tac-panel-solid);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--tac-panel-border);
+  box-shadow: var(--tac-panel-shadow);
+}
+
+.dc-app.ui-tactile .hud-auth-primary {
+  border-radius: 9px;
+  background: var(--tac-active-bg);
+  color: var(--tac-active-ink);
+  border: 1px solid var(--tac-active-border);
+  box-shadow: var(--tac-active-shadow);
+}
+
+.dc-app.ui-tactile .hud-auth-ghost {
+  border-radius: 9px;
+  background: var(--tac-btn-bg);
+  border: 1px solid var(--tac-btn-border);
+  box-shadow: var(--tac-btn-shadow);
+}
+
+/* Slide-Over Inspector Drawer (Machined Console Chassis) */
+.dc-app.ui-tactile .inspector-drawer {
+  border-radius: 16px;
+  background: var(--tac-panel-solid);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--tac-panel-border);
+  box-shadow: var(--tac-panel-shadow);
+}
+
+.dc-app.ui-tactile .drawer-head {
+  border-bottom: 1px solid var(--tac-divider-groove);
+  box-shadow: 0 1px 0 var(--tac-divider);
+}
+
+.dc-app.ui-tactile .drawer-tabs,
+.dc-app.ui-tactile .d-mode-switch {
+  border-radius: 10px;
+  background: var(--tac-well-bg);
+  border: 1px solid var(--tac-well-border);
+  box-shadow: var(--tac-well-shadow);
+}
+
+.dc-app.ui-tactile .drawer-tab,
+.dc-app.ui-tactile .d-mode-btn {
+  border-radius: 7px;
+  border: 1px solid transparent;
+  transition: background 0.14s ease, box-shadow 0.14s ease, color 0.14s ease;
+}
+
+.dc-app.ui-tactile .drawer-tab.is-active,
+.dc-app.ui-tactile .d-mode-btn.is-active {
+  background: var(--tac-active-bg);
+  color: var(--tac-active-ink);
+  border-color: var(--tac-active-border);
+  box-shadow: var(--tac-active-shadow);
+  font-weight: 620;
+}
+
+.dc-app.ui-tactile .drawer-close {
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.dc-app.ui-tactile .drawer-close:hover {
+  background: var(--tac-btn-bg);
+  border-color: var(--tac-btn-border);
+  box-shadow: var(--tac-btn-shadow);
+}
+
+.dc-app.ui-tactile .d-sec {
+  border-bottom: 1px solid var(--tac-divider-groove);
+  box-shadow: 0 1px 0 var(--tac-divider);
+}
+
+.dc-app.ui-tactile .d-sec:last-child {
+  border-bottom: none;
+  box-shadow: none;
+}
+
+/* Tactile Drawer Buttons, Chips, Cards & Controls */
+.dc-app.ui-tactile .d-ghost-btn,
+.dc-app.ui-tactile .d-chip,
+.dc-app.ui-tactile .d-model-card,
+.dc-app.ui-tactile .d-finish-card,
+.dc-app.ui-tactile .d-slot-btn,
+.dc-app.ui-tactile .scope-btn,
+.dc-app.ui-tactile .scope-probe-chip {
+  background: var(--tac-btn-bg);
+  border: 1px solid var(--tac-btn-border);
+  box-shadow: var(--tac-btn-shadow);
+  transition:
+    background 0.14s ease,
+    box-shadow 0.14s ease,
+    transform 0.12s ease,
+    border-color 0.14s ease,
+    color 0.14s ease;
+}
+
+.dc-app.ui-tactile .d-ghost-btn:hover:not(:disabled),
+.dc-app.ui-tactile .d-chip:hover:not(.is-active),
+.dc-app.ui-tactile .d-model-card:hover:not(.is-active),
+.dc-app.ui-tactile .d-finish-card:hover:not(.is-active),
+.dc-app.ui-tactile .d-slot-btn:hover:not(:disabled),
+.dc-app.ui-tactile .scope-btn:hover:not(.is-active),
+.dc-app.ui-tactile .scope-probe-chip:hover:not(.is-active) {
+  background: var(--tac-btn-hover-bg);
+  box-shadow: var(--tac-btn-hover-shadow);
+}
+
+.dc-app.ui-tactile .d-ghost-btn:active:not(:disabled),
+.dc-app.ui-tactile .d-chip:active,
+.dc-app.ui-tactile .d-model-card:active,
+.dc-app.ui-tactile .d-finish-card:active,
+.dc-app.ui-tactile .d-slot-btn:active:not(:disabled),
+.dc-app.ui-tactile .scope-btn:active,
+.dc-app.ui-tactile .scope-probe-chip:active {
+  transform: translateY(0.5px);
+  box-shadow: var(--tac-btn-press-shadow);
+}
+
+.dc-app.ui-tactile .d-primary-sm,
+.dc-app.ui-tactile .d-chip.is-active,
+.dc-app.ui-tactile .d-model-card.is-active,
+.dc-app.ui-tactile .d-finish-card.is-active,
+.dc-app.ui-tactile .scope-btn.is-active,
+.dc-app.ui-tactile .scope-probe-chip.is-active {
+  background: var(--tac-active-bg);
+  color: var(--tac-active-ink);
+  border: 1px solid var(--tac-active-border);
+  box-shadow: var(--tac-active-shadow);
+}
+
+.dc-app.ui-tactile .d-primary-sm:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+/* Recessed Instrument Wells inside Drawer (Telemetry Cards, Meters, Specs, Status, Inputs) */
+.dc-app.ui-tactile .scope-card,
+.dc-app.ui-tactile .d-meter-tile,
+.dc-app.ui-tactile .d-spec,
+.dc-app.ui-tactile .d-status-box,
+.dc-app.ui-tactile .d-chassis-preview,
+.dc-app.ui-tactile .d-rack-item,
+.dc-app.ui-tactile .d-mount-row,
+.dc-app.ui-tactile .d-slot-row,
+.dc-app.ui-tactile .d-sync-card,
+.dc-app.ui-tactile .d-auth-gate {
+  border-radius: 10px;
+  background: var(--tac-well-bg);
+  border: 1px solid var(--tac-well-border);
+  box-shadow: var(--tac-well-shadow);
+}
+
+.dc-app.ui-tactile .d-rack-item.is-active,
+.dc-app.ui-tactile .d-slot-row.is-selected {
+  background: var(--tac-btn-bg);
+  border-color: color-mix(in srgb, var(--hud-accent) 55%, var(--tac-btn-border));
+  box-shadow: var(--tac-btn-shadow);
+}
+
+.dc-app.ui-tactile .d-input,
+.dc-app.ui-tactile .d-textarea {
+  background: var(--tac-input-bg);
+  border: 1px solid var(--tac-well-border);
+  box-shadow: var(--tac-well-shadow);
+}
+
+.dc-app.ui-tactile .d-tag-pill {
+  border-radius: 6px;
+  background: var(--tac-btn-bg);
+  border: 1px solid var(--tac-btn-border);
+  box-shadow: var(--tac-btn-shadow);
 }
 
 /* ============================================================================

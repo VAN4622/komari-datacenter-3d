@@ -17,6 +17,7 @@ import type {
   RecordHours,
   RoomAtmosphere,
   TelemetryPoint,
+  UiStyle,
 } from '@/types/rack';
 
 const KB = 1024;
@@ -508,11 +509,27 @@ export const ATMOSPHERES: SceneMeta[] = [
   { id: 'studio-light', label: '浅银画廊', subtitle: '瑞士极简工业展台白昼光', swatch: '#e6ebf2', isLight: true },
 ];
 
+export interface UiStyleMeta {
+  id: UiStyle;
+  label: string;
+  subtitle: string;
+}
+
+export const UI_STYLES: UiStyleMeta[] = [
+  { id: 'tactile', label: '精致轻拟物', subtitle: '阳极铝与微实体键帽，贴合机柜质感' },
+  { id: 'glass', label: '液态玻璃', subtitle: 'Apple Liquid Glass 光学折射通透界面' },
+];
+
 export const STORAGE_KEY = 'komari_datacenter_hall_v2';
 
 export function normalizeAtmosphere(value: unknown): RoomAtmosphere {
   if (value === 'studio-light' || value === 'cleanroom') return 'studio-light';
   return 'studio-dark';
+}
+
+export function normalizeUiStyle(value: unknown): UiStyle {
+  if (value === 'glass') return 'glass';
+  return 'tactile';
 }
 
 export function normalizeViewAngle(value: unknown, legacyPreset?: unknown): RackViewAngle {
@@ -525,6 +542,7 @@ export function getDefaultConfig(): AppConfig {
   return {
     viewAngle: 'side',
     atmosphere: 'studio-dark',
+    uiStyle: 'tactile',
     scale: 'standard',
     activeRackId: 'rack-a1',
     showStrip: true,
@@ -596,6 +614,7 @@ export function loadConfig(): AppConfig {
           ...parsed,
           viewAngle: normalizeViewAngle(parsed.viewAngle, parsed.cameraPreset),
           atmosphere: normalizeAtmosphere(parsed.atmosphere),
+          uiStyle: normalizeUiStyle(parsed.uiStyle),
           nodeStyles: parsed.nodeStyles ?? fallback.nodeStyles,
           liveRacks: Array.isArray(parsed.liveRacks) && parsed.liveRacks.length > 0 ? parsed.liveRacks : undefined,
           api: {
@@ -763,6 +782,7 @@ export function parseImportedConfig(rawJson: string, current: AppConfig): AppCon
         : current.viewAngle,
     atmosphere:
       parsed.atmosphere !== undefined ? normalizeAtmosphere(parsed.atmosphere) : current.atmosphere,
+    uiStyle: parsed.uiStyle !== undefined ? normalizeUiStyle(parsed.uiStyle) : current.uiStyle,
     scale: parsed.scale === 'compact' || parsed.scale === 'standard' ? parsed.scale : current.scale,
     showStrip: typeof parsed.showStrip === 'boolean' ? parsed.showStrip : current.showStrip,
     racks: nextRacks,

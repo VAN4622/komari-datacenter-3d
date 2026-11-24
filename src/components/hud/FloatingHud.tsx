@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ATMOSPHERES, VIEW_ANGLES } from '@/data/fleet';
+import { ATMOSPHERES, UI_STYLES, VIEW_ANGLES } from '@/data/fleet';
 import { formatNetSpeed } from '@/lib/formatters';
 import type {
   AdminAuthStatus,
@@ -10,6 +10,7 @@ import type {
   RoomAtmosphere,
   ScaleMode,
   StageViewMode,
+  UiStyle,
 } from '@/types/rack';
 
 interface FloatingHudProps {
@@ -23,6 +24,7 @@ interface FloatingHudProps {
   stageView: StageViewMode;
   viewAngle: RackViewAngle;
   atmosphere: RoomAtmosphere;
+  uiStyle: UiStyle;
   scale: ScaleMode;
   showStrip: boolean;
   showServerHud: boolean;
@@ -42,6 +44,7 @@ interface FloatingHudProps {
   onSelectRack: (rackId: string, dir?: 'next' | 'prev') => void;
   onChangeViewAngle: (angle: RackViewAngle) => void;
   onChangeAtmosphere: (atmosphere: RoomAtmosphere) => void;
+  onChangeUiStyle: (uiStyle: UiStyle) => void;
   onToggleScale: () => void;
   onToggleStrip: () => void;
   onToggleServerHud: () => void;
@@ -64,6 +67,7 @@ export function FloatingHud({
   stageView,
   viewAngle,
   atmosphere,
+  uiStyle,
   scale,
   showStrip,
   showServerHud,
@@ -83,6 +87,7 @@ export function FloatingHud({
   onSelectRack,
   onChangeViewAngle,
   onChangeAtmosphere,
+  onChangeUiStyle,
   onToggleScale,
   onToggleStrip,
   onToggleServerHud,
@@ -255,6 +260,24 @@ export function FloatingHud({
                       >
                         <span className="hud-atmo-swatch" style={{ background: a.swatch }} />
                         <span>{a.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="hud-pop-section">
+                  <div className="hud-pop-title">界面材质</div>
+                  <div className="hud-atmo-grid">
+                    {UI_STYLES.map((styleMeta) => (
+                      <button
+                        key={styleMeta.id}
+                        type="button"
+                        className={`hud-atmo-chip hud-style-chip${uiStyle === styleMeta.id ? ' is-active' : ''}`}
+                        onClick={() => onChangeUiStyle(styleMeta.id)}
+                        title={styleMeta.subtitle}
+                      >
+                        <span className={`hud-style-swatch is-${styleMeta.id}`} aria-hidden="true" />
+                        <span>{styleMeta.label}</span>
                       </button>
                     ))}
                   </div>

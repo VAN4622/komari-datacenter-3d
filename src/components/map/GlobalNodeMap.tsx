@@ -11,6 +11,7 @@ import {
   buildRegionClusters,
   MAP_HEIGHT,
   MAP_WIDTH,
+  projectLatLon,
   type RegionCluster,
 } from '@/lib/geoRegions';
 import { formatNetSpeed } from '@/lib/formatters';
@@ -51,6 +52,44 @@ const ALL_DECODED_BY_ISO: { iso: string; coords: [number, number][] }[] = Object
 }));
 
 const ALL_LAND_COORDS: [number, number][] = ALL_DECODED_BY_ISO.flatMap((g) => g.coords);
+
+// Pre-computed architectural cartographic graticule lines matching projectLatLon exactly
+const GRATICULE_PARALLELS = [
+  { lat: 60, label: '60°N', isEq: false },
+  { lat: 30, label: '30°N', isEq: false },
+  { lat: 0, label: '0° EQ', isEq: true },
+  { lat: -30, label: '30°S', isEq: false },
+].map((spec) => {
+  const left = projectLatLon(spec.lat, -169);
+  const right = projectLatLon(spec.lat, 189);
+  return { ...spec, x1: left.x, x2: right.x, y: left.y };
+});
+
+const GRATICULE_MERIDIANS = [
+  { lon: -120, label: '120°W', isPrime: false },
+  { lon: -60, label: '60°W', isPrime: false },
+  { lon: 0, label: '0° UTC', isPrime: true },
+  { lon: 60, label: '60°E', isPrime: false },
+  { lon: 120, label: '120°E', isPrime: false },
+].map((spec) => {
+  const lats = [72, 54, 36, 18, 0, -18, -36, -50];
+  const pts = lats.map((lat) => projectLatLon(lat, spec.lon));
+  const d = pts.map((p, idx) => `${idx === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ');
+  const bottom = pts[pts.length - 1];
+  return { ...spec, d, labelX: bottom.x, labelY: bottom.y + 14 };
+});
+
+function formatLatLon(lat: number, lon: number): string {
+  const ns = lat >= 0 ? 'N' : 'S';
+  const ew = lon >= 0 ? 'E' : 'W';
+  return `${Math.abs(lat).toFixed(1)}°${ns} · ${Math.abs(lon).toFixed(1)}°${ew}`;
+}
+
+function formatUtcClock(now: Date): string {
+  const hh = String(now.getUTCHours()).padStart(2, '0');
+  const mm = String(now.getUTCMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
 
 /**
  * Light collision avoidance for hub flag pills so nearby regions (e.g. HK/TW, GB/NL/DE, JP/KR)
@@ -105,25 +144,42 @@ export function GlobalNodeMap({
     focusedRegionCode ?? clusters[0]?.hub.code ?? null,
   );
   const [hoveredCode, setHoveredCode] = useState<string | null>(null);
+  const [sheetCollapsed, setSheetCollapsed] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 15000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (focusedRegionCode && clusters.some((c) => c.hub.code === focusedRegionCode)) {
       setActiveCode(focusedRegionCode);
+      setSheetCollapsed(false);
     }
   }, [focusedRegionCode, clusters]);
 
-  const activeCluster: RegionCluster | null = useMemo(() => {
-    if (clusters.length === 0) return null;
+  const activeClusterIndex = useMemo(() => {
+    if (clusters.length === 0) return -1;
     if (activeCode) {
-      const found = clusters.find((c) => c.hub.code === activeCode);
-      if (found) return found;
+      const idx = clusters.findIndex((c) => c.hub.code === activeCode);
+      if (idx >= 0) return idx;
     }
     if (focusedRegionCode) {
-      const found = clusters.find((c) => c.hub.code === focusedRegionCode);
-      if (found) return found;
+      const idx = clusters.findIndex((c) => c.hub.code === focusedRegionCode);
+      if (idx >= 0) return idx;
     }
-    return clusters[0];
+    return 0;
   }, [clusters, activeCode, focusedRegionCode]);
+
+  const activeCluster: RegionCluster | null =
+    activeClusterIndex >= 0 ? clusters[activeClusterIndex] : null;
+
+  const stepRegion = (delta: -1 | 1) => {
+    if (clusters.length <= 1) return;
+    const nextIdx = (activeClusterIndex + delta + clusters.length) % clusters.length;
+    setActiveCode(clusters[nextIdx].hub.code);
+  };
 
   const focusCode = hoveredCode ?? activeCluster?.hub.code ?? null;
 
@@ -172,15 +228,36 @@ export function GlobalNodeMap({
     };
   }, [clusters, focusCode]);
 
-  const totalOnline = useMemo(() => nodes.filter((n) => n.online).length, [nodes]);
-  const totalNetDown = useMemo(
-    () => nodes.reduce((sum, n) => sum + (n.online ? n.netDown : 0), 0),
-    [nodes],
-  );
-  const totalNetUp = useMemo(
-    () => nodes.reduce((sum, n) => sum + (n.online ? n.netUp : 0), 0),
-    [nodes],
-  );
+  const fleetSummary = useMemo(() => {
+    const onlineNodes = nodes.filter((n) => n.online);
+    const totalOnline = onlineNodes.length;
+    const totalNetDown = onlineNodes.reduce((sum, n) => sum + n.netDown, 0);
+    const totalNetUp = onlineNodes.reduce((sum, n) => sum + n.netUp, 0);
+    const avgCpu =
+      totalOnline > 0
+        ? Math.round(onlineNodes.reduce((sum, n) => sum + n.cpu, 0) / totalOnline)
+        : 0;
+    const avgRam =
+      totalOnline > 0
+        ? Math.round(onlineNodes.reduce((sum, n) => sum + n.ram, 0) / totalOnline)
+        : 0;
+    const pingNodes = onlineNodes.filter((n) => n.ping > 0);
+    const avgPing =
+      pingNodes.length > 0
+        ? Math.round(pingNodes.reduce((sum, n) => sum + n.ping, 0) / pingNodes.length)
+        : 0;
+    const healthTone: 'ok' | 'warn' | 'crit' =
+      totalOnline === 0
+        ? 'crit'
+        : totalOnline < nodes.length
+          ? 'warn'
+          : avgCpu >= 85 || avgRam >= 90
+            ? 'warn'
+            : 'ok';
+    return { totalOnline, totalNetDown, totalNetUp, avgCpu, avgRam, avgPing, healthTone };
+  }, [nodes]);
+
+  const utcClock = useMemo(() => formatUtcClock(now), [now]);
 
   return (
     <section className="wmap-stage" aria-label="全球节点分布与互联视图">
@@ -189,8 +266,54 @@ export function GlobalNodeMap({
         <div className="wmap-soft-glow" />
       </div>
 
+      {/* Top-Center Floating Global Fleet Telemetry Ribbon */}
+      <div className="wmap-top-ribbon" role="status" aria-label="全球集群实时态势">
+        <div className="wmap-ribbon-item">
+          <span className={`wmap-ribbon-dot is-${fleetSummary.healthTone}`} aria-hidden="true" />
+          <span className="wmap-ribbon-label">全球节点</span>
+          <b className="wmap-ribbon-val">
+            {fleetSummary.totalOnline}/{nodes.length}
+          </b>
+          <span className="wmap-ribbon-sub">{clusters.length} 区</span>
+        </div>
+
+        <span className="wmap-ribbon-sep" aria-hidden="true" />
+
+        <div className="wmap-ribbon-item">
+          <span className="wmap-ribbon-label">实时吞吐</span>
+          <b className="wmap-ribbon-val">↓{formatNetSpeed(fleetSummary.totalNetDown, true)}</b>
+          <span className="wmap-ribbon-sub wmap-hide-xs">
+            ↑{formatNetSpeed(fleetSummary.totalNetUp, true)}
+          </span>
+        </div>
+
+        <span className="wmap-ribbon-sep wmap-hide-sm" aria-hidden="true" />
+
+        <div className="wmap-ribbon-item wmap-hide-sm">
+          <span className="wmap-ribbon-label">集群均载</span>
+          <b className="wmap-ribbon-val">CPU {fleetSummary.avgCpu}%</b>
+          <span className="wmap-ribbon-sub">MEM {fleetSummary.avgRam}%</span>
+        </div>
+
+        <span className="wmap-ribbon-sep wmap-hide-md" aria-hidden="true" />
+
+        <div className="wmap-ribbon-item wmap-hide-md">
+          <span className="wmap-ribbon-label">均延迟</span>
+          <b className="wmap-ribbon-val">
+            {fleetSummary.avgPing > 0 ? `${fleetSummary.avgPing} ms` : '—'}
+          </b>
+        </div>
+
+        <span className="wmap-ribbon-sep wmap-hide-md" aria-hidden="true" />
+
+        <div className="wmap-ribbon-item wmap-hide-md">
+          <span className="wmap-ribbon-label">UTC</span>
+          <b className="wmap-ribbon-val">{utcClock}</b>
+        </div>
+      </div>
+
       {/* Main Precision Dot-Matrix World Canvas */}
-      <div className="wmap-canvas-wrap">
+      <div className={`wmap-canvas-wrap${sheetCollapsed ? ' is-expanded' : ''}`}>
         <svg
           className="wmap-svg"
           viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
@@ -215,6 +338,40 @@ export function GlobalNodeMap({
               <feGaussianBlur stdDeviation="2.2" />
             </filter>
           </defs>
+
+          {/* 0. Precision Cartographic Graticule & Studio Corner Brackets */}
+          <g className="wmap-graticule" aria-hidden="true">
+            {GRATICULE_PARALLELS.map((p) => (
+              <g key={`lat-${p.lat}`}>
+                <line
+                  x1={p.x1}
+                  y1={p.y}
+                  x2={p.x2}
+                  y2={p.y}
+                  className={`wmap-grat-line${p.isEq ? ' is-major' : ''}`}
+                />
+                <text x={p.x1 - 8} y={p.y + 3} textAnchor="end" className="wmap-grat-label">
+                  {p.label}
+                </text>
+              </g>
+            ))}
+            {GRATICULE_MERIDIANS.map((m) => (
+              <g key={`lon-${m.lon}`}>
+                <path
+                  d={m.d}
+                  className={`wmap-grat-line${m.isPrime ? ' is-major' : ''}`}
+                />
+                <text x={m.labelX} y={m.labelY} textAnchor="middle" className="wmap-grat-label">
+                  {m.label}
+                </text>
+              </g>
+            ))}
+            {/* Four subtle architectural studio registration brackets */}
+            <path
+              d="M14 26V14H26 M986 26V14H974 M14 454V466H26 M986 454V466H974"
+              className="wmap-frame-bracket"
+            />
+          </g>
 
           {/* 1. Whisper-Soft Regional Illumination Halos under Deployed Countries */}
           <g className="wmap-auras">
@@ -331,7 +488,16 @@ export function GlobalNodeMap({
                     />
                   )}
 
-                  {/* Precision Pin Core */}
+                  {/* Precision Pin Core + Subtle Selected Reticle */}
+                  {isSelected && (
+                    <g className="wmap-pin-reticle" aria-hidden="true">
+                      <circle r="13.5" className="wmap-pin-reticle-ring" />
+                      <path
+                        d="M0 -17.5v3M0 14.5v3M-17.5 0h3M14.5 0h3"
+                        className="wmap-pin-reticle-tick"
+                      />
+                    </g>
+                  )}
                   <circle r={isSelected ? 4.2 : 3.2} className="wmap-pin-core" />
 
                   {/* Delicate hair-line stem when pill is nudged away */}
@@ -382,101 +548,167 @@ export function GlobalNodeMap({
         </svg>
       </div>
 
-      {/* Apple Liquid Glass Floating Region Sheet */}
+      {/* Centered Bottom Floating Region & Node Console HUD */}
       {activeCluster && (
-        <aside className="wmap-sheet" aria-label="全球区域与节点明细">
-          {/* Calm Integrated Global Summary Bar */}
-          <div className="wmap-sheet-summary">
-            <span>
-              <b>{clusters.length}</b> 区域
-            </span>
-            <span className="wmap-sum-dot" aria-hidden="true" />
-            <span>
-              <b>
-                {totalOnline}/{nodes.length}
-              </b>{' '}
-              在线
-            </span>
-            <span className="wmap-sum-dot" aria-hidden="true" />
-            <span>
-              ↓ <b>{formatNetSpeed(totalNetDown, true)}</b>
-            </span>
-            <span className="wmap-sum-dot wmap-hide-xs" aria-hidden="true" />
-            <span className="wmap-hide-xs">
-              ↑ <b>{formatNetSpeed(totalNetUp, true)}</b>
-            </span>
-          </div>
-
+        <aside
+          className={`wmap-sheet${sheetCollapsed ? ' is-collapsed' : ''}`}
+          aria-label="全球区域与节点控制台"
+        >
           <header className="wmap-sheet-head">
             <div className="wmap-region-id">
               <span className="wmap-region-flag">
                 <RegionFlag code={activeCluster.hub.code} size="lg" />
               </span>
-              <div>
-                <strong>
-                  {activeCluster.hub.name}
-                  <em>{activeCluster.hub.code}</em>
-                </strong>
-                <span>
-                  {activeCluster.onlineCount}/{activeCluster.nodes.length} 在线 · ↓
-                  {formatNetSpeed(activeCluster.totalNetDown, true)}
+              <div className="wmap-region-meta">
+                <div className="wmap-region-title-row">
+                  <strong>
+                    {activeCluster.hub.name}
+                    <em>{activeCluster.hub.code}</em>
+                  </strong>
+                  <span className="wmap-region-coord wmap-hide-xs">
+                    {formatLatLon(activeCluster.hub.lat, activeCluster.hub.lon)}
+                  </span>
+                </div>
+                <span className="wmap-region-sub">
+                  {activeCluster.onlineCount}/{activeCluster.nodes.length} 在线 · CPU{' '}
+                  {Math.round(activeCluster.avgCpu)}% · ↓
+                  {formatNetSpeed(activeCluster.totalNetDown, true)} · ↑
+                  {formatNetSpeed(activeCluster.totalNetUp, true)}
                   {activeCluster.avgPing > 0 ? ` · ${activeCluster.avgPing} ms` : ''}
                 </span>
               </div>
             </div>
 
-            <button type="button" className="wmap-back-btn" onClick={onClose}>
-              返回机柜
-            </button>
+            <div className="wmap-head-actions">
+              {clusters.length > 1 && (
+                <div className="wmap-region-stepper" role="group" aria-label="切换区域">
+                  <button
+                    type="button"
+                    className="wmap-step-btn"
+                    onClick={() => stepRegion(-1)}
+                    title="上一区域"
+                    aria-label="上一区域"
+                  >
+                    ‹
+                  </button>
+                  <span className="wmap-step-idx">
+                    {activeClusterIndex + 1}/{clusters.length}
+                  </span>
+                  <button
+                    type="button"
+                    className="wmap-step-btn"
+                    onClick={() => stepRegion(1)}
+                    title="下一区域"
+                    aria-label="下一区域"
+                  >
+                    ›
+                  </button>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="wmap-back-btn wmap-collapse-btn"
+                onClick={() => setSheetCollapsed((v) => !v)}
+                aria-expanded={!sheetCollapsed}
+                title={sheetCollapsed ? '展开节点明细' : '收起节点明细'}
+              >
+                {sheetCollapsed ? '展开' : '收起'}
+              </button>
+
+              <button type="button" className="wmap-back-btn is-primary" onClick={onClose}>
+                返回机柜
+              </button>
+            </div>
           </header>
 
-          {/* Minimal Region Flag Pills */}
+          {/* Horizontal Region Flag Pills with Live Node Counts */}
           <div className="wmap-flag-strip" role="tablist" aria-label="按地区切换">
-            {clusters.map((c) => (
-              <button
-                key={c.hub.code}
-                type="button"
-                role="tab"
-                aria-selected={c.hub.code === activeCluster.hub.code}
-                className={`wmap-flag-tab${c.hub.code === activeCluster.hub.code ? ' is-active' : ''}${c.onlineCount === 0 ? ' is-off' : ''}`}
-                onClick={() => setActiveCode(c.hub.code)}
-              >
-                <RegionFlag code={c.hub.code} size="xs" />
-                <span>{c.hub.name}</span>
-              </button>
-            ))}
+            {clusters.map((c) => {
+              const isAct = c.hub.code === activeCluster.hub.code;
+              return (
+                <button
+                  key={c.hub.code}
+                  type="button"
+                  role="tab"
+                  aria-selected={isAct}
+                  className={`wmap-flag-tab${isAct ? ' is-active' : ''}${c.onlineCount === 0 ? ' is-off' : ''}`}
+                  onClick={() => setActiveCode(c.hub.code)}
+                >
+                  <RegionFlag code={c.hub.code} size="xs" />
+                  <span>{c.hub.name}</span>
+                  <em className="wmap-flag-count">
+                    {c.onlineCount}/{c.nodes.length}
+                  </em>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Nodes inside Selected Region */}
-          <div className="wmap-node-list">
-            {activeCluster.nodes.map((node) => (
-              <button
-                key={node.uuid}
-                type="button"
-                className={`wmap-node-row${node.uuid === selectedNodeId ? ' is-selected' : ''}${node.online ? '' : ' is-offline'}`}
-                onClick={() => onJumpToNode(node.uuid)}
-                title="切回机柜并定位该服务器"
-              >
-                <div className="wmap-node-main">
-                  <span className={`lg-status-dot ${node.online ? 'is-on' : 'is-off'}`} />
-                  <span className="wmap-node-name">{node.name}</span>
-                </div>
-                <div className="wmap-node-metrics">
-                  {node.online ? (
-                    <>
-                      <span>CPU {Math.round(node.cpu)}%</span>
-                      <span>↓{formatNetSpeed(node.netDown, true)}</span>
-                      <span className="wmap-node-chevron" aria-hidden="true">
-                        ›
-                      </span>
-                    </>
-                  ) : (
-                    <span className="is-off-txt">离线</span>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
+          {/* Multi-Column Hardware Node Cards inside Selected Region */}
+          {!sheetCollapsed && (
+            <div
+              className={`wmap-node-list${activeCluster.nodes.length === 1 ? ' is-single' : ''}`}
+            >
+              {activeCluster.nodes.map((node) => {
+                const cpuPct = Math.max(0, Math.min(100, Math.round(node.cpu)));
+                const ramPct = Math.max(0, Math.min(100, Math.round(node.ram)));
+                return (
+                  <button
+                    key={node.uuid}
+                    type="button"
+                    className={`wmap-node-row${node.uuid === selectedNodeId ? ' is-selected' : ''}${node.online ? '' : ' is-offline'}`}
+                    onClick={() => onJumpToNode(node.uuid)}
+                    title="切回机柜并定位该服务器"
+                  >
+                    <div className="wmap-node-top">
+                      <div className="wmap-node-main">
+                        <span className={`lg-status-dot ${node.online ? 'is-on' : 'is-off'}`} />
+                        <span className="wmap-node-name">{node.name}</span>
+                      </div>
+                      <div className="wmap-node-top-right">
+                        {node.online && node.ping > 0 && (
+                          <span className="wmap-node-ping">{Math.round(node.ping)} ms</span>
+                        )}
+                        <span className="wmap-node-chevron" aria-hidden="true">
+                          ›
+                        </span>
+                      </div>
+                    </div>
+
+                    {node.online ? (
+                      <div className="wmap-node-bottom">
+                        <div className="wmap-node-bars">
+                          <span className="wmap-mini-metric">
+                            <em>CPU</em>
+                            <i className="wmap-mini-track">
+                              <b style={{ width: `${cpuPct}%` }} />
+                            </i>
+                            <b>{cpuPct}%</b>
+                          </span>
+                          <span className="wmap-mini-metric">
+                            <em>MEM</em>
+                            <i className="wmap-mini-track">
+                              <b style={{ width: `${ramPct}%` }} />
+                            </i>
+                            <b>{ramPct}%</b>
+                          </span>
+                        </div>
+                        <div className="wmap-node-net">
+                          <span>↓{formatNetSpeed(node.netDown, true)}</span>
+                          <span>↑{formatNetSpeed(node.netUp, true)}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="wmap-node-bottom">
+                        <span className="is-off-txt">节点当前离线 · 点击前往机柜排查</span>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </aside>
       )}
     </section>

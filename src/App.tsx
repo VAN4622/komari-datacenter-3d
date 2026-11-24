@@ -8,6 +8,7 @@ import { ServerStatusHud } from '@/components/hud/ServerStatusHud';
 import {
   ATMOSPHERES,
   DEMO_NODES,
+  UI_STYLES,
   VIEW_ANGLES,
   appendDemoPingSample,
   buildAutoRacksFromNodes,
@@ -61,6 +62,7 @@ import type {
   RoomAtmosphere,
   StageViewMode,
   TelemetryPoint,
+  UiStyle,
 } from '@/types/rack';
 
 interface ToastNotice {
@@ -279,6 +281,7 @@ export default function App() {
         setConfig((prev) => ({
           ...prev,
           atmosphere: ts.defaultAtmosphere ?? prev.atmosphere,
+          uiStyle: ts.defaultUiStyle ?? prev.uiStyle,
           viewAngle: ts.defaultViewAngle ?? prev.viewAngle,
           showStrip: ts.showStatusStrip ?? prev.showStrip,
           scale: ts.compactRackWidth !== undefined ? (ts.compactRackWidth ? 'compact' : 'standard') : prev.scale,
@@ -1096,6 +1099,14 @@ export default function App() {
     }
   };
 
+  const handleChangeUiStyle = (uiStyle: UiStyle) => {
+    setConfig((prev) => ({ ...prev, uiStyle }));
+    const meta = UI_STYLES.find((s) => s.id === uiStyle);
+    if (meta) {
+      showNotice(`界面材质已切换：${meta.label}`);
+    }
+  };
+
   // Rack & node operations (strictly gated by ensureCanEdit)
   const handleAddRack = () => {
     if (!ensureCanEdit()) return;
@@ -1396,7 +1407,7 @@ export default function App() {
   const showAdminLink = (sameOriginKomari || isLiveMode) && themeSettings.showAdminLink !== false;
 
   return (
-    <div className={`dc-app atmo-${config.atmosphere}`}>
+    <div className={`dc-app atmo-${config.atmosphere} ui-${config.uiStyle}`}>
       {stageView === 'rack' ? (
         <StudioRackStage
           racks={activeRackList}
@@ -1438,15 +1449,16 @@ export default function App() {
         />
       )}
 
-      {/* Architectural 3D Micro-Tilted Vertical Status Typography (Rack & Global Node Map) */}
-      <StudioStatusSignage
-        nodes={nodes}
-        viewAngle={stageView === 'rack' ? config.viewAngle : 'side'}
-        scale={config.scale}
-        variant={stageView}
-        hudVisible={stageView === 'rack' && showServerHud && selectedNode !== null && !serverHudCollapsed}
-        drawerOpen={stageView === 'rack' && drawerOpen}
-      />
+      {/* Architectural 3D Micro-Tilted Vertical Status Typography (Rack Stage only) */}
+      {stageView === 'rack' && (
+        <StudioStatusSignage
+          nodes={nodes}
+          viewAngle={config.viewAngle}
+          scale={config.scale}
+          hudVisible={showServerHud && selectedNode !== null && !serverHudCollapsed}
+          drawerOpen={drawerOpen}
+        />
+      )}
 
       <FloatingHud
         siteName={siteDisplayName}
@@ -1459,6 +1471,7 @@ export default function App() {
         stageView={stageView}
         viewAngle={config.viewAngle}
         atmosphere={config.atmosphere}
+        uiStyle={config.uiStyle}
         scale={config.scale}
         showStrip={config.showStrip}
         showServerHud={showServerHud && selectedNode !== null}
@@ -1486,6 +1499,7 @@ export default function App() {
         onSelectRack={handleSelectRack}
         onChangeViewAngle={handleChangeViewAngle}
         onChangeAtmosphere={handleChangeAtmosphere}
+        onChangeUiStyle={handleChangeUiStyle}
         onToggleScale={() =>
           setConfig((prev) => ({ ...prev, scale: prev.scale === 'standard' ? 'compact' : 'standard' }))
         }

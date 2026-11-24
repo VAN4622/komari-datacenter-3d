@@ -12,6 +12,7 @@ import type {
   RoomAtmosphere,
   StageViewMode,
   TelemetryPoint,
+  UiStyle,
 } from '@/types/rack';
 
 interface ApiEnvelope<T> {
@@ -364,6 +365,11 @@ export function parseKomariThemeSettings(raw?: Record<string, unknown>): KomariT
     out.defaultAtmosphere = 'studio-light';
   } else if (atmo === 'cold-aisle' || atmo === 'obsidian-noc' || atmo === 'showroom') {
     out.defaultAtmosphere = 'studio-dark';
+  }
+
+  const uiStyle = raw.defaultUiStyle;
+  if (uiStyle === 'tactile' || uiStyle === 'glass') {
+    out.defaultUiStyle = uiStyle as UiStyle;
   }
 
   const angle = raw.defaultViewAngle;

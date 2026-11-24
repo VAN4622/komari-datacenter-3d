@@ -13,11 +13,13 @@ export type AdminAuthStatus = 'checking' | 'authenticated' | 'guest' | 'remote_r
 export type LayoutSyncSource = 'server' | 'local_draft' | 'auto';
 export type RackViewAngle = 'side' | 'front';
 export type StageViewMode = 'rack' | 'map';
+export type UiStyle = 'tactile' | 'glass';
 
 export type CabinetThemePreference = 'auto' | CabinetTheme;
 
 export interface KomariThemeSettings {
   defaultAtmosphere?: RoomAtmosphere;
+  defaultUiStyle?: UiStyle;
   defaultViewAngle?: RackViewAngle;
   defaultStageView?: StageViewMode;
   defaultCabinetTheme?: CabinetThemePreference;
@@ -143,6 +145,7 @@ export interface KomariPublicInfo {
 export interface AppConfig {
   viewAngle: RackViewAngle;
   atmosphere: RoomAtmosphere;
+  uiStyle: UiStyle;
   scale: ScaleMode;
   activeRackId: string;
   showStrip: boolean;

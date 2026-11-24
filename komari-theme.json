@@ -1,8 +1,8 @@
 {
   "name": "Komari Data Center Studio",
   "short": "komari-datacenter-3d",
-  "description": "极简影棚纯 CSS 3D 固定微侧透视拟物机柜监控主题（零 Three.js 零 WebGL）：Retina 高清矢量服务器面板与滑轨抽拉动效、高帧率冷通道机柜切换、建筑感 3D 竖排状态悬浮主视觉、Apple Liquid Glass 液态玻璃光学悬浮 HUD、多探针延迟遥测抽屉、极简点阵全球节点地图（含摩洛哥等全区矢量国旗）与管理员编排。",
-  "version": "2.1.0",
+  "description": "极简影棚纯 CSS 3D 固定微侧透视拟物机柜监控主题（零 Three.js 零 WebGL）：Retina 高清矢量服务器面板与滑轨抽拉动效、高帧率冷通道机柜切换、纯矢量 SVG 3D 竖排状态主视觉与精密旋转表盘状态环、精致轻拟物与 Apple Liquid Glass 双风格界面实时切换、居中全球态势仪条与点阵地图控制台、多探针延迟遥测抽屉及管理员云端编排。",
+  "version": "2.2.0",
   "author": "VAN4622",
   "url": "https://github.com/VAN4622/komari-datacenter-3d",
   "preview": "preview.png",
@@ -20,6 +20,14 @@
         "options": "studio-dark,studio-light",
         "default": "studio-dark",
         "help": "访客首次打开时默认进入的影棚布光：studio-dark（深石墨影棚，默认）、studio-light（浅银画廊）。"
+      },
+      {
+        "key": "defaultUiStyle",
+        "name": "默认界面材质风格",
+        "type": "select",
+        "options": "tactile,glass",
+        "default": "tactile",
+        "help": "tactile（精致轻拟物，贴合阳极铝机柜硬件质感，默认）、glass（Apple Liquid Glass 液态玻璃风格）。访客仍可在菜单内随时切换。"
       },
       {
         "key": "defaultViewAngle",
