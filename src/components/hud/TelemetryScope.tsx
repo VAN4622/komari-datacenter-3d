@@ -449,6 +449,7 @@ function LatencyScopeCard({
                           height={plotH}
                           fill="transparent"
                           onMouseEnter={() => setHoverIdx(i)}
+                          onClick={() => setHoverIdx((cur) => (cur === i ? null : i))}
                         />
                       );
                     })}
@@ -740,6 +741,7 @@ function LoadScopeCard({
                       height={plotH}
                       fill="transparent"
                       onMouseEnter={() => setHoverIdx(i)}
+                      onClick={() => setHoverIdx((cur) => (cur === i ? null : i))}
                     />
                   );
                 })}
@@ -1026,6 +1028,7 @@ function ThroughputScopeCard({
                       height={plotH}
                       fill="transparent"
                       onMouseEnter={() => setHoverIdx(i)}
+                      onClick={() => setHoverIdx((cur) => (cur === i ? null : i))}
                     />
                   );
                 })}

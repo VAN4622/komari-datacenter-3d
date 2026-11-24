@@ -78,6 +78,7 @@ export function StudioRackStage({
   const touchRef = useRef<{
     x: number;
     y: number;
+    t: number;
     locked: 'h' | 'v' | null;
     dx: number;
   } | null>(null);
@@ -163,12 +164,13 @@ export function StudioRackStage({
     return () => el.removeEventListener('wheel', handleWheel);
   }, [racks.length, activeIdx, stepRack]);
 
-  // Live 1:1 touch drag with gentle elastic edge damping
+  // Live 1:1 touch drag with gentle elastic edge damping & velocity flick
   const handleTouchStart = (e: TouchEvent<HTMLElement>) => {
     if (racks.length <= 1 || e.touches.length !== 1) return;
     touchRef.current = {
       x: e.touches[0].clientX,
       y: e.touches[0].clientY,
+      t: performance.now(),
       locked: null,
       dx: 0,
     };
@@ -203,9 +205,12 @@ export function StudioRackStage({
     setDragOffset(0);
 
     if (!st || st.locked !== 'h' || racks.length <= 1) return;
-    if (st.dx < -56 && activeIdx < racks.length - 1) {
+    const elapsed = Math.max(1, performance.now() - st.t);
+    const isQuickFlick = elapsed < 280 && Math.abs(st.dx) > 28;
+    const threshold = isQuickFlick ? 28 : 52;
+    if (st.dx < -threshold && activeIdx < racks.length - 1) {
       stepRack(1);
-    } else if (st.dx > 56 && activeIdx > 0) {
+    } else if (st.dx > threshold && activeIdx > 0) {
       stepRack(-1);
     }
   };

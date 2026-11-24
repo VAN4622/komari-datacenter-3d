@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { RegionFlag, RegionFlagGlyph } from '@/components/ui/RegionFlag';
 import {
   WORLD_COUNTRY_DOTS,
@@ -174,6 +174,16 @@ export function GlobalNodeMap({
 
   const activeCluster: RegionCluster | null =
     activeClusterIndex >= 0 ? clusters[activeClusterIndex] : null;
+  const flagStripRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const strip = flagStripRef.current;
+    if (!strip || !activeCluster) return;
+    const activeBtn = strip.querySelector<HTMLButtonElement>(
+      `[data-region-code="${activeCluster.hub.code}"]`,
+    );
+    activeBtn?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+  }, [activeCluster?.hub.code]);
 
   const stepRegion = (delta: -1 | 1) => {
     if (clusters.length <= 1) return;
@@ -480,6 +490,9 @@ export function GlobalNodeMap({
                     }
                   }}
                 >
+                  {/* Generous invisible touch hit target for reliable mobile tapping */}
+                  <circle r="30" fill="transparent" className="wmap-pin-hit" />
+
                   {/* Quiet breathing pulse ring on selected or primary online hub */}
                   {isOnline && (
                     <circle
@@ -516,6 +529,14 @@ export function GlobalNodeMap({
                     className="wmap-pin-pill"
                     transform={`translate(${offset.dx}, ${offset.dy})`}
                   >
+                    <rect
+                      x={-pillW / 2 - 8}
+                      y={-18}
+                      width={pillW + 16}
+                      height="36"
+                      rx="18"
+                      fill="transparent"
+                    />
                     <rect
                       x={-pillW / 2}
                       y={-10.5}
@@ -623,7 +644,7 @@ export function GlobalNodeMap({
           </header>
 
           {/* Horizontal Region Flag Pills with Live Node Counts */}
-          <div className="wmap-flag-strip" role="tablist" aria-label="按地区切换">
+          <div ref={flagStripRef} className="wmap-flag-strip" role="tablist" aria-label="按地区切换">
             {clusters.map((c) => {
               const isAct = c.hub.code === activeCluster.hub.code;
               return (
@@ -631,6 +652,7 @@ export function GlobalNodeMap({
                   key={c.hub.code}
                   type="button"
                   role="tab"
+                  data-region-code={c.hub.code}
                   aria-selected={isAct}
                   className={`wmap-flag-tab${isAct ? ' is-active' : ''}${c.onlineCount === 0 ? ' is-off' : ''}`}
                   onClick={() => setActiveCode(c.hub.code)}

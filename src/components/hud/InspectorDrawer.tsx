@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from 'react';
 import { ServerUnitSvg } from '@/components/hardware/ServerChassisSvg';
 import { TelemetryScope } from '@/components/hud/TelemetryScope';
 import { RegionFlag } from '@/components/ui/RegionFlag';
@@ -165,6 +165,41 @@ export function InspectorDrawer({
   const [showImportBox, setShowImportBox] = useState(false);
   const [importDraft, setImportDraft] = useState('');
   const [importErr, setImportErr] = useState<string | null>(null);
+  const [sheetDragY, setSheetDragY] = useState(0);
+  const sheetTouchRef = useRef<{ startY: number; dy: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setSheetDragY(0);
+      sheetTouchRef.current = null;
+    }
+  }, [open]);
+
+  const handleSheetTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1) return;
+    sheetTouchRef.current = { startY: e.touches[0].clientY, dy: 0 };
+  };
+
+  const handleSheetTouchMove = (e: ReactTouchEvent<HTMLDivElement>) => {
+    const st = sheetTouchRef.current;
+    if (!st || e.touches.length !== 1) return;
+    const dy = Math.max(0, e.touches[0].clientY - st.startY);
+    st.dy = dy;
+    if (dy > 4) {
+      setSheetDragY(dy);
+    }
+  };
+
+  const handleSheetTouchEnd = () => {
+    const st = sheetTouchRef.current;
+    sheetTouchRef.current = null;
+    if (st && st.dy > 76) {
+      setSheetDragY(0);
+      onClose();
+    } else {
+      setSheetDragY(0);
+    }
+  };
 
   useEffect(() => {
     setUrlDraft(config.api.baseUrl);
@@ -324,14 +359,29 @@ export function InspectorDrawer({
     <>
       {open && <div className="drawer-mobile-backdrop" onClick={onClose} aria-hidden="true" />}
       <aside
-        className={`inspector-drawer${open ? ' is-open' : ''}`}
+        className={`inspector-drawer${open ? ' is-open' : ''}${sheetDragY > 0 ? ' is-dragging-sheet' : ''}`}
+        style={sheetDragY > 0 ? { transform: `translate3d(0, ${sheetDragY}px, 0)` } : undefined}
         aria-label="机房精调检视面板"
         aria-hidden={!open}
       >
-        <div className="drawer-sheet-handle" onClick={onClose} aria-hidden="true">
+        <div
+          className="drawer-sheet-handle"
+          onClick={onClose}
+          onTouchStart={handleSheetTouchStart}
+          onTouchMove={handleSheetTouchMove}
+          onTouchEnd={handleSheetTouchEnd}
+          onTouchCancel={handleSheetTouchEnd}
+          aria-hidden="true"
+        >
           <span />
         </div>
-        <div className="drawer-head">
+        <div
+          className="drawer-head"
+          onTouchStart={handleSheetTouchStart}
+          onTouchMove={handleSheetTouchMove}
+          onTouchEnd={handleSheetTouchEnd}
+          onTouchCancel={handleSheetTouchEnd}
+        >
         <div className="drawer-tabs" role="tablist" aria-label="检视功能页签">
           {TABS.map((t) => (
             <button

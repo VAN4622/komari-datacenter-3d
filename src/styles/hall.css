@@ -16,6 +16,8 @@ body,
   width: 100%;
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'PingFang SC', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -1623,6 +1625,11 @@ textarea {
   right: 0;
   width: 268px;
   max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 80px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
   padding: 13px;
   border-radius: 20px;
   background: var(--lg-surface-solid);
@@ -1888,6 +1895,7 @@ textarea {
   inset: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   pointer-events: none;
   z-index: 26;
   overflow: visible;
@@ -3222,6 +3230,27 @@ textarea {
   transform: translateX(0);
   opacity: 1;
   pointer-events: auto;
+}
+
+.inspector-drawer.is-dragging-sheet {
+  transition: none !important;
+}
+
+.drawer-mobile-backdrop {
+  display: none;
+}
+
+.drawer-sheet-handle {
+  display: none;
+}
+
+@keyframes drawerBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .drawer-head {
@@ -5648,18 +5677,24 @@ textarea {
 
 @media (max-width: 900px) {
   .studio-viewport-scroll {
-    padding: 68px 14px 236px;
+    padding: calc(66px + env(safe-area-inset-top, 0px)) 14px calc(88px + env(safe-area-inset-bottom, 0px));
     align-items: flex-start;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .studio-stage.has-hud .studio-viewport-scroll {
+    padding-bottom: calc(272px + env(safe-area-inset-bottom, 0px));
   }
 
   .studio-pivot.angle-side {
-    transform: rotateY(-10deg) rotateX(1.5deg);
+    transform: rotateY(-8deg) rotateX(1.2deg);
   }
 
   .srack-cabinet,
   .studio-stage.scale-compact .srack-cabinet {
-    --rack-w: calc(100vw - 32px);
-    --rack-depth: 56px;
+    --rack-w: min(520px, calc(100vw - 28px));
+    --rack-depth: 48px;
   }
 
   .srack-unit-u {
@@ -5667,53 +5702,131 @@ textarea {
   }
 
   .srack-unit.is-selected {
-    transform: translate3d(0, 0, 22px);
+    transform: translate3d(0, 0, 18px);
   }
 
-  /* Dock Liquid Glass HUD neatly above the bottom rack switcher on mobile */
+  /* Dock Server Status HUD neatly above the bottom rack switcher on mobile */
   .lg-hud-card.is-mobile {
-    left: 12px;
-    right: 12px;
-    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    left: max(10px, env(safe-area-inset-left, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
+    bottom: calc(60px + env(safe-area-inset-bottom, 0px));
     width: auto;
     max-width: 520px;
+    max-height: calc(100dvh - 130px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     margin: 0 auto;
+    border-radius: 20px;
+  }
+
+  .dc-app.ui-tactile .lg-hud-card.is-mobile {
+    border-radius: 16px;
   }
 
   .lg-hud-restore {
-    right: 12px;
-    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    bottom: calc(60px + env(safe-area-inset-bottom, 0px));
   }
 
   .studio-side-nav {
     display: none;
   }
 
+  /* Global Node Map — Fix mobile sheet off-screen transform & ribbon clearance */
+  .wmap-top-ribbon {
+    top: calc(58px + env(safe-area-inset-top, 0px));
+    height: 34px;
+    padding: 0 12px;
+    gap: 9px;
+    max-width: calc(100vw - 20px);
+  }
+
   .wmap-canvas-wrap {
-    padding: 74px 12px 244px;
+    padding: calc(102px + env(safe-area-inset-top, 0px)) 10px calc(258px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .wmap-canvas-wrap.is-expanded {
+    padding: calc(102px + env(safe-area-inset-top, 0px)) 10px calc(136px + env(safe-area-inset-bottom, 0px));
   }
 
   .wmap-sheet {
-    left: 10px;
-    right: 10px;
+    left: max(10px, env(safe-area-inset-left, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
     bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    transform: none;
     width: auto;
     max-width: none;
+    border-radius: 20px;
+  }
+
+  .dc-app.ui-tactile .wmap-sheet {
+    border-radius: 16px;
+  }
+
+  /* Inspector Drawer — Native Mobile Bottom Sheet with Scrim & Drag Handle */
+  .drawer-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    background: rgba(4, 7, 13, 0.46);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: drawerBackdropIn 0.24s ease;
+  }
+
+  .dc-app.atmo-studio-light .drawer-mobile-backdrop {
+    background: rgba(15, 23, 42, 0.22);
+  }
+
+  .drawer-sheet-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 0 4px;
+    cursor: grab;
+    touch-action: none;
+    flex-shrink: 0;
+  }
+
+  .drawer-sheet-handle > span {
+    width: 40px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--hud-border-strong);
+    opacity: 0.78;
   }
 
   .inspector-drawer {
     top: auto;
-    left: 8px;
-    right: 8px;
+    left: max(8px, env(safe-area-inset-left, 0px));
+    right: max(8px, env(safe-area-inset-right, 0px));
     bottom: max(8px, env(safe-area-inset-bottom, 0px));
     width: auto;
     max-width: none;
-    height: min(76dvh, 620px);
-    transform: translateY(calc(100% + 24px));
+    height: min(80dvh, 660px);
+    border-radius: 22px;
+    transform: translate3d(0, calc(100% + 28px), 0);
+  }
+
+  .dc-app.ui-tactile .inspector-drawer {
+    border-radius: 18px;
   }
 
   .inspector-drawer.is-open {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
+  }
+
+  .drawer-head {
+    padding: 6px 12px 10px;
+    touch-action: none;
+  }
+
+  .drawer-scroll {
+    padding: 14px 14px calc(18px + env(safe-area-inset-bottom, 0px));
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -5725,22 +5838,33 @@ textarea {
 
   .hud-top {
     top: max(10px, env(safe-area-inset-top, 0px));
-    left: 10px;
-    right: 10px;
+    left: max(10px, env(safe-area-inset-left, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
     gap: 6px;
   }
 
   .hud-brand-pill {
     height: 36px;
     padding: 0 10px;
-    max-width: 50vw;
+    gap: 6px;
+    max-width: calc(100vw - 172px);
+    flex: 0 1 auto;
+  }
+
+  .hud-site-name {
+    font-size: 11.5px;
+  }
+
+  .hud-right-group {
+    gap: 6px;
   }
 
   .hud-map-toggle,
   .hud-menu-trigger,
   .hud-publish-pill {
     height: 36px;
-    padding: 0 10px;
+    padding: 0 11px;
+    gap: 5px;
     font-size: 11.5px;
   }
 
@@ -5748,24 +5872,93 @@ textarea {
     display: none;
   }
 
+  .hud-popover {
+    width: min(296px, calc(100vw - 20px));
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .hud-atmo-chip {
+    height: 36px;
+    font-size: 12px;
+  }
+
+  .hud-pop-row {
+    min-height: 36px;
+    padding: 6px 8px;
+    font-size: 12.5px;
+  }
+
+  .hud-notice {
+    top: calc(54px + env(safe-area-inset-top, 0px));
+    max-width: calc(100vw - 20px);
+    padding: 7px 12px;
+    font-size: 11.5px;
+  }
+
   .hud-bottom-dock {
     bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    max-width: calc(100vw - 20px);
   }
 
   .hud-studio-dock {
-    height: 38px;
-    padding: 3px 5px;
+    height: 40px;
+    padding: 4px 6px;
     gap: 4px;
   }
 
-  .hud-seg-btn {
+  .hud-rack-arrow {
+    width: 28px;
     height: 28px;
-    padding: 0 8px;
-    font-size: 11px;
+  }
+
+  .hud-seg-btn {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 11.5px;
+    touch-action: manipulation;
+  }
+
+  /* Studio Rack Stage — Tight, balanced narrow-phone proportions */
+  .studio-viewport-scroll {
+    padding: calc(58px + env(safe-area-inset-top, 0px)) 10px calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .studio-stage.has-hud .studio-viewport-scroll {
+    padding-bottom: calc(278px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .studio-pivot.angle-side {
+    transform: rotateY(-5deg) rotateX(0.8deg);
+  }
+
+  .srack-cabinet,
+  .studio-stage.scale-compact .srack-cabinet {
+    --rack-w: min(440px, calc(100vw - 22px));
+    --rack-depth: 36px;
+  }
+
+  .srack-header {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .srack-header-left {
+    gap: 6px;
+  }
+
+  .srack-bay-code {
+    padding: 1.5px 5px;
+    font-size: 9.5px;
+  }
+
+  .srack-name-text,
+  .srack-name-btn {
+    font-size: 12px;
   }
 
   .srack-body {
-    grid-template-columns: 8px minmax(0, 1fr) 8px;
+    grid-template-columns: 7px minmax(0, 1fr) 7px;
   }
 
   .srack-bay {
@@ -5773,12 +5966,241 @@ textarea {
   }
 
   .srack-unit-strip {
-    padding: 3px 7px;
+    padding: 3.5px 7px;
+    gap: 6px;
     font-size: 9.5px;
+  }
+
+  .srack-strip-label {
+    font-size: 10px;
+  }
+
+  /* Server Status HUD Mobile Ergonomics */
+  .lg-hud-card.is-mobile {
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .lg-hud-restore {
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    height: 36px;
+    padding: 0 12px;
+    font-size: 11.5px;
+  }
+
+  .lg-hud-head {
+    padding: 11px 12px 8px;
+  }
+
+  .lg-hud-body {
+    padding: 2px 12px 12px;
+    gap: 9px;
+  }
+
+  .lg-icon-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
+
+  .lg-nav-group .lg-icon-btn {
+    width: 26px;
+    height: 26px;
+  }
+
+  .lg-metric-cell {
+    padding: 7px 9px;
   }
 
   .lg-actions {
     flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .lg-act-btn {
+    height: 36px;
+    font-size: 12px;
+    touch-action: manipulation;
+  }
+
+  /* Global Node Map — Mobile Ribbon, Canvas & Sheet */
+  .wmap-top-ribbon {
+    top: calc(54px + env(safe-area-inset-top, 0px));
+    height: 32px;
+    padding: 0 11px;
+    gap: 8px;
+  }
+
+  .wmap-ribbon-item {
+    gap: 5px;
+    font-size: 11px;
+  }
+
+  .wmap-ribbon-label {
+    font-size: 10px;
+  }
+
+  .wmap-canvas-wrap {
+    padding: calc(94px + env(safe-area-inset-top, 0px)) 6px calc(262px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .wmap-canvas-wrap.is-expanded {
+    padding: calc(94px + env(safe-area-inset-top, 0px)) 6px calc(134px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .wmap-svg {
+    max-height: none;
+  }
+
+  .wmap-sheet {
+    padding: 11px 12px 12px;
+    gap: 9px;
+  }
+
+  .wmap-sheet-head {
+    gap: 8px;
+  }
+
+  .wmap-region-id {
+    gap: 9px;
+  }
+
+  .wmap-region-id strong {
+    font-size: 13.5px;
+  }
+
+  .wmap-region-sub {
+    font-size: 10.5px;
+    white-space: normal;
+    line-height: 1.35;
+  }
+
+  .wmap-back-btn {
+    height: 32px;
+    padding: 0 11px;
+    font-size: 11.5px;
+    touch-action: manipulation;
+  }
+
+  .wmap-flag-strip {
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  .wmap-flag-tab {
+    height: 32px;
+    padding: 0 11px;
+    font-size: 11.5px;
+    scroll-snap-align: start;
+    touch-action: manipulation;
+  }
+
+  .wmap-node-list {
+    max-height: min(30dvh, 192px);
+    gap: 7px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .wmap-node-row {
+    padding: 10px 11px;
+    gap: 6px;
+  }
+
+  /* Inspector Drawer Mobile Controls & iOS Zoom Prevention */
+  .drawer-tab {
+    height: 34px;
+    font-size: 12px;
+  }
+
+  .drawer-close {
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
+  }
+
+  .d-chip,
+  .scope-btn,
+  .scope-probe-chip {
+    min-height: 30px;
+  }
+
+  .d-ghost-btn,
+  .d-primary-sm,
+  .d-mode-btn {
+    min-height: 34px;
+  }
+
+  .d-input,
+  .d-textarea,
+  .srack-name-input {
+    font-size: 16px;
+  }
+
+  .d-input-inline {
+    width: 148px;
+    max-width: 54%;
+  }
+}
+
+@media (max-width: 430px) {
+  .hud-badge {
+    display: none;
+  }
+
+  .srack-strip-net {
+    display: none;
+  }
+
+  .scope-kpi-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 6px;
+  }
+
+  .wmap-node-bottom {
+    flex-wrap: wrap;
+    gap: 5px 10px;
+  }
+
+  .wmap-node-bars {
+    flex-basis: 100%;
+  }
+}
+
+/* Touch Device Safeguards (no hover state required to use edit controls) */
+@media (hover: none) and (pointer: coarse) {
+  .srack-unit.is-selected .srack-unit-actions {
+    opacity: 1;
+  }
+
+  .srack-act-btn {
+    height: 26px;
+    min-width: 26px;
+    font-size: 11px;
+  }
+}
+
+/* Landscape Short-Height Mobile Screens */
+@media (max-height: 540px) and (max-width: 960px) {
+  .inspector-drawer {
+    height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+
+  .wmap-top-ribbon {
+    top: calc(50px + env(safe-area-inset-top, 0px));
+    height: 30px;
+  }
+
+  .wmap-canvas-wrap {
+    padding: calc(84px + env(safe-area-inset-top, 0px)) 16px calc(184px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .wmap-canvas-wrap.is-expanded {
+    padding: calc(84px + env(safe-area-inset-top, 0px)) 16px calc(116px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .wmap-node-list {
+    max-height: 98px;
   }
 }
 

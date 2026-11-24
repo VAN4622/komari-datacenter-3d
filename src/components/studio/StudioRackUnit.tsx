@@ -181,7 +181,7 @@ export const StudioRackUnit = memo(function StudioRackUnit({
                 <>
                   <span>CPU {Math.round(node.cpu)}%</span>
                   <span>RAM {Math.round(node.ram)}%</span>
-                  <span>↓{formatNetSpeed(node.netDown, true)}</span>
+                  <span className="srack-strip-net">↓{formatNetSpeed(node.netDown, true)}</span>
                   {node.ping > 0 && <span>{node.ping}ms</span>}
                 </>
               ) : (
