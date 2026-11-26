@@ -28,6 +28,8 @@ export interface DataLinkArc {
   from: RegionCluster;
   to: RegionCluster;
   pathD: string;
+  ctrlX: number;
+  ctrlY: number;
   midX: number;
   midY: number;
   trafficBps: number;
@@ -316,11 +318,11 @@ export function buildRegionClusters(nodes: NodeInfo[]): RegionCluster[] {
     });
   }
 
-  // Sort by traffic & node count descending so main backbone hubs sit cleanly
+  // Sort deterministically by static topology (node count, then region code)
+  // so live traffic/online fluctuations never shuffle region order or jump map placards.
   clusters.sort(
     (a, b) =>
-      b.onlineCount - a.onlineCount ||
-      b.totalNetDown + b.totalNetUp - (a.totalNetDown + a.totalNetUp) ||
+      b.nodes.length - a.nodes.length ||
       a.hub.code.localeCompare(b.hub.code),
   );
 
@@ -335,9 +337,9 @@ export function buildRegionClusters(nodes: NodeInfo[]): RegionCluster[] {
 export function buildInterRegionLinks(clusters: RegionCluster[]): DataLinkArc[] {
   if (clusters.length < 2) return [];
 
-  const activeClusters = clusters.filter((c) => c.onlineCount > 0);
-  const pool = activeClusters.length >= 2 ? activeClusters : clusters;
-  if (pool.length < 2) return [];
+  // Always build the mesh over the static cluster set so topology & animations
+  // stay rock-solid even when live node metrics or online counts fluctuate.
+  const pool = clusters;
 
   const pairs = new Map<string, [RegionCluster, RegionCluster]>();
   const addPair = (a: RegionCluster, b: RegionCluster) => {
@@ -389,15 +391,16 @@ export function buildInterRegionLinks(clusters: RegionCluster[]): DataLinkArc[] 
 
     const trafficBps =
       from.totalNetDown + from.totalNetUp + to.totalNetDown + to.totalNetUp;
-    // Calm, fluid optical transit speed (between 3.0s and 5.8s)
-    const speedFactor = Math.min(1, Math.log10(Math.max(1, trafficBps / 1024 + 1)) / 5.5);
-    const durationSec = Math.round((5.8 - speedFactor * 2.6) * 10) / 10;
+    // Deterministic transit duration based on geographic span so CSS animations never stutter/reset
+    const durationSec = Math.round((3.0 + Math.min(2.6, dist / 280)) * 10) / 10;
 
     arcs.push({
       id: key,
       from,
       to,
       pathD: `M ${from.x} ${from.y} Q ${ctrlX.toFixed(1)} ${ctrlY.toFixed(1)} ${to.x} ${to.y}`,
+      ctrlX,
+      ctrlY,
       midX,
       midY,
       trafficBps,

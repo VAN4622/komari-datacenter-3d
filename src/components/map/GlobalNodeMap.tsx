@@ -28,10 +28,9 @@ import { formatNetSpeed } from '@/lib/formatters';
 import {
   buildInterRegionLinks,
   buildRegionClusters,
-  MAP_HEIGHT,
-  MAP_WIDTH,
   projectLatLon,
   resolveNodeGeo,
+  type DataLinkArc,
   type RegionCluster,
 } from '@/lib/geoRegions';
 import type { NodeInfo } from '@/types/rack';
@@ -73,14 +72,21 @@ const ALL_DECODED_BY_ISO: { iso: string; coords: [number, number][] }[] = Object
 
 const ALL_LAND_PATH = dotsToPath(ALL_DECODED_BY_ISO.flatMap((g) => g.coords));
 
+const VIEW_MIN_X = 36;
+const VIEW_MIN_Y = 8;
+const VIEW_WIDTH = 928;
+const VIEW_HEIGHT = 456;
+const VIEW_MAX_X = VIEW_MIN_X + VIEW_WIDTH;
+const VIEW_MAX_Y = VIEW_MIN_Y + VIEW_HEIGHT;
+
 const GRATICULE_PARALLELS = [
   { lat: 60, label: '60°N', isEq: false },
   { lat: 30, label: '30°N', isEq: false },
   { lat: 0, label: '0°', isEq: true },
   { lat: -30, label: '30°S', isEq: false },
 ].map((spec) => {
-  const left = projectLatLon(spec.lat, -169);
-  const right = projectLatLon(spec.lat, 189);
+  const left = projectLatLon(spec.lat, -160);
+  const right = projectLatLon(spec.lat, 178);
   return { ...spec, x1: left.x, x2: right.x, y: left.y };
 });
 
@@ -121,7 +127,14 @@ interface PlacardLayout {
   width: number;
   nameText: string;
   nameWidth: number;
-  countText: string;
+  maxCountWidth: number;
+}
+
+interface SampledArcPoint {
+  x: number;
+  y: number;
+  fromCode: string;
+  toCode: string;
 }
 
 function estimateTextWidth(text: string, cjkUnit: number, asciiUnit: number): number {
@@ -138,43 +151,114 @@ function formatClusterLabel(name: string): string {
 
 function measureClusterPlacard(cluster: RegionCluster): Omit<PlacardLayout, 'dx' | 'dy'> {
   const nameText = formatClusterLabel(cluster.hub.name);
-  const countText = `${cluster.onlineCount}/${cluster.nodes.length}`;
+  const maxCountText = `${cluster.nodes.length}/${cluster.nodes.length}`;
   const nameWidth = estimateTextWidth(nameText, 9.8, 5.7);
-  const countWidth = estimateTextWidth(countText, 8.6, 5.3);
-  const width = Math.ceil(5.5 + PLACARD_FLAG_W + 5 + nameWidth + 5 + 5 + countWidth + 5.5);
-  return { width, nameText, nameWidth, countText };
+  const maxCountWidth = estimateTextWidth(maxCountText, 8.6, 5.4);
+  const width = Math.ceil(5.5 + PLACARD_FLAG_W + 5 + nameWidth + 5 + 5 + maxCountWidth + 5.5);
+  return { width, nameText, nameWidth, maxCountWidth };
 }
 
-function computePlacardLayouts(clusters: RegionCluster[]): Map<string, PlacardLayout> {
+function sampleArcPoints(arcs: DataLinkArc[]): SampledArcPoint[] {
+  const pts: SampledArcPoint[] = [];
+  for (const arc of arcs) {
+    const dist = Math.hypot(arc.to.x - arc.from.x, arc.to.y - arc.from.y);
+    const steps = Math.max(24, Math.ceil(dist / 6));
+    for (let step = 1; step < steps; step++) {
+      const t = step / steps;
+      const inv = 1 - t;
+      const x = inv * inv * arc.from.x + 2 * inv * t * arc.ctrlX + t * t * arc.to.x;
+      const y = inv * inv * arc.from.y + 2 * inv * t * arc.ctrlY + t * t * arc.to.y;
+      pts.push({ x, y, fromCode: arc.from.hub.code, toCode: arc.to.hub.code });
+    }
+  }
+  return pts;
+}
+
+function stableCodeDelay(code: string, periodSec: number): number {
+  let hash = 0;
+  for (let idx = 0; idx < code.length; idx++) {
+    hash = (hash * 31 + code.charCodeAt(idx)) % 997;
+  }
+  return -((hash / 997) * periodSec);
+}
+
+function stemHitsBox(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  box: { left: number; right: number; top: number; bottom: number },
+): boolean {
+  const samples = 8;
+  for (let idx = 1; idx < samples; idx++) {
+    const t = idx / samples;
+    const px = x0 + (x1 - x0) * t;
+    const py = y0 + (y1 - y0) * t;
+    if (px >= box.left - 2 && px <= box.right + 2 && py >= box.top - 2 && py <= box.bottom + 2) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function computePlacardLayouts(
+  clusters: RegionCluster[],
+  arcs: DataLinkArc[],
+): Map<string, PlacardLayout> {
   const map = new Map<string, PlacardLayout>();
   const placedBoxes: { left: number; right: number; top: number; bottom: number }[] = [];
+  const placedStems: { x0: number; y0: number; x1: number; y1: number }[] = [];
+  const arcPoints = sampleArcPoints(arcs);
 
-  for (const cluster of clusters) {
+  const neighborCounts = new Map<string, number>();
+  for (const c of clusters) {
+    let near = 0;
+    for (const other of clusters) {
+      if (other.hub.code === c.hub.code) continue;
+      if (Math.hypot(other.x - c.x, other.y - c.y) < 140) near++;
+    }
+    neighborCounts.set(c.hub.code, near);
+  }
+  const placementOrder = [...clusters].sort(
+    (a, b) =>
+      (neighborCounts.get(b.hub.code) ?? 0) - (neighborCounts.get(a.hub.code) ?? 0) ||
+      b.nodes.length - a.nodes.length ||
+      a.hub.code.localeCompare(b.hub.code),
+  );
+
+  const boundLeft = VIEW_MIN_X + 8;
+  const boundRight = VIEW_MAX_X - 8;
+  const boundTop = VIEW_MIN_Y + 8;
+  const boundBottom = VIEW_MAX_Y - 12;
+
+  for (const cluster of placementOrder) {
     const metrics = measureClusterPlacard(cluster);
     const halfW = metrics.width / 2;
     const halfH = PLACARD_HALF_H;
 
     const candidates = [
-      { dx: 0, dy: -25 },
       { dx: 0, dy: 25 },
-      { dx: halfW + 14, dy: -16 },
-      { dx: -(halfW + 14), dy: -16 },
+      { dx: 0, dy: -25 },
       { dx: halfW + 14, dy: 16 },
       { dx: -(halfW + 14), dy: 16 },
+      { dx: halfW + 14, dy: -16 },
+      { dx: -(halfW + 14), dy: -16 },
       { dx: halfW + 16, dy: 0 },
       { dx: -(halfW + 16), dy: 0 },
-      { dx: 0, dy: -42 },
+      { dx: halfW + 16, dy: -26 },
+      { dx: -(halfW + 16), dy: -26 },
       { dx: 0, dy: 42 },
-      { dx: halfW + 20, dy: -34 },
-      { dx: -(halfW + 20), dy: -34 },
+      { dx: 0, dy: -42 },
       { dx: halfW + 20, dy: 34 },
       { dx: -(halfW + 20), dy: 34 },
-      { dx: halfW + 38, dy: -20 },
-      { dx: -(halfW + 38), dy: -20 },
+      { dx: halfW + 20, dy: -34 },
+      { dx: -(halfW + 20), dy: -34 },
       { dx: halfW + 38, dy: 20 },
       { dx: -(halfW + 38), dy: 20 },
-      { dx: 0, dy: -58 },
+      { dx: halfW + 38, dy: -20 },
+      { dx: -(halfW + 38), dy: -20 },
       { dx: 0, dy: 58 },
+      { dx: 0, dy: -58 },
     ];
 
     let best = candidates[0];
@@ -188,16 +272,28 @@ function computePlacardLayouts(clusters: RegionCluster[]): Map<string, PlacardLa
       const top = cy - halfH;
       const bottom = cy + halfH;
 
-      if (left < 10 || right > MAP_WIDTH - 10 || top < 10 || bottom > MAP_HEIGHT - 10) {
+      if (left < boundLeft || right > boundRight || top < boundTop || bottom > boundBottom) {
         continue;
       }
 
-      let penalty = 0;
+      let penalty = Math.hypot(cand.dx, cand.dy) * 0.16;
+      const candEdgeX = Math.max(left, Math.min(right, cluster.x));
+      const candEdgeY = Math.max(top, Math.min(bottom, cluster.y));
       for (const box of placedBoxes) {
         const overlapX = Math.min(right + 5, box.right) - Math.max(left - 5, box.left);
         const overlapY = Math.min(bottom + 5, box.bottom) - Math.max(top - 5, box.top);
         if (overlapX > 0 && overlapY > 0) {
-          penalty += overlapX * overlapY + 200;
+          penalty += overlapX * overlapY + 420;
+        }
+        if (stemHitsBox(cluster.x, cluster.y, candEdgeX, candEdgeY, box)) {
+          penalty += 180;
+        }
+      }
+
+      const candBox = { left, right, top, bottom };
+      for (const stem of placedStems) {
+        if (stemHitsBox(stem.x0, stem.y0, stem.x1, stem.y1, candBox)) {
+          penalty += 180;
         }
       }
 
@@ -209,31 +305,50 @@ function computePlacardLayouts(clusters: RegionCluster[]): Map<string, PlacardLa
           other.y >= top - 10 &&
           other.y <= bottom + 10
         ) {
-          penalty += 140;
+          penalty += 260;
         }
       }
 
-      if (penalty === 0) {
-        best = cand;
-        bestPenalty = 0;
-        break;
+      for (const pt of arcPoints) {
+        if (
+          (pt.fromCode === cluster.hub.code || pt.toCode === cluster.hub.code) &&
+          Math.hypot(pt.x - cluster.x, pt.y - cluster.y) < 15
+        ) {
+          continue;
+        }
+        if (
+          pt.x >= left - 4 &&
+          pt.x <= right + 4 &&
+          pt.y >= top - 4 &&
+          pt.y <= bottom + 4
+        ) {
+          penalty += 52;
+        }
       }
+
       if (penalty < bestPenalty) {
         bestPenalty = penalty;
         best = cand;
       }
     }
 
-    const finalCx = Math.max(10 + halfW, Math.min(MAP_WIDTH - 10 - halfW, cluster.x + best.dx));
-    const finalCy = Math.max(10 + halfH, Math.min(MAP_HEIGHT - 10 - halfH, cluster.y + best.dy));
+    const finalCx = Math.max(boundLeft + halfW, Math.min(boundRight - halfW, cluster.x + best.dx));
+    const finalCy = Math.max(boundTop + halfH, Math.min(boundBottom - halfH, cluster.y + best.dy));
     const dx = Math.round((finalCx - cluster.x) * 10) / 10;
     const dy = Math.round((finalCy - cluster.y) * 10) / 10;
 
-    placedBoxes.push({
+    const placedBox = {
       left: finalCx - halfW,
       right: finalCx + halfW,
       top: finalCy - halfH,
       bottom: finalCy + halfH,
+    };
+    placedBoxes.push(placedBox);
+    placedStems.push({
+      x0: cluster.x,
+      y0: cluster.y,
+      x1: Math.max(placedBox.left, Math.min(placedBox.right, cluster.x)),
+      y1: Math.max(placedBox.top, Math.min(placedBox.bottom, cluster.y)),
     });
 
     map.set(cluster.hub.code, { dx, dy, ...metrics });
@@ -258,7 +373,22 @@ export function GlobalNodeMap({
   const svgUid = useId().replace(/:/g, '');
   const clusters = useMemo(() => buildRegionClusters(nodes), [nodes]);
   const arcs = useMemo(() => buildInterRegionLinks(clusters), [clusters]);
-  const placardLayouts = useMemo(() => computePlacardLayouts(clusters), [clusters]);
+
+  const topologyKey = useMemo(
+    () => clusters.map((c) => `${c.hub.code}:${c.nodes.length}`).join('|'),
+    [clusters],
+  );
+  const placardCacheRef = useRef<{ key: string; map: Map<string, PlacardLayout> }>({
+    key: '',
+    map: new Map(),
+  });
+  if (placardCacheRef.current.key !== topologyKey) {
+    placardCacheRef.current = {
+      key: topologyKey,
+      map: computePlacardLayouts(clusters, arcs),
+    };
+  }
+  const placardLayouts = placardCacheRef.current.map;
 
   const [activeCode, setActiveCode] = useState<string>(focusedRegionCode || 'ALL');
   const [hoveredCode, setHoveredCode] = useState<string | null>(null);
@@ -267,6 +397,8 @@ export function GlobalNodeMap({
   const [mapExpandedMobile, setMapExpandedMobile] = useState(false);
   const [utcNow, setUtcNow] = useState(() => new Date());
   const regionStripRef = useRef<HTMLDivElement | null>(null);
+  const mapScrollRef = useRef<HTMLDivElement | null>(null);
+  const mapInitialCenteredRef = useRef(false);
 
   useEffect(() => {
     if (focusedRegionCode && clusters.some((c) => c.hub.code === focusedRegionCode)) {
@@ -296,6 +428,35 @@ export function GlobalNodeMap({
     () => (activeCode === 'ALL' ? null : clusters.find((c) => c.hub.code === activeCode) ?? null),
     [clusters, activeCode],
   );
+
+  useEffect(() => {
+    const wrap = mapScrollRef.current;
+    if (!wrap) return;
+    if (wrap.scrollWidth <= wrap.clientWidth + 4) return;
+
+    let targetX = VIEW_MIN_X + VIEW_WIDTH * 0.56;
+    if (activeCluster) {
+      targetX = activeCluster.x;
+    } else if (clusters.length > 0) {
+      let weightedSum = 0;
+      let totalWeight = 0;
+      for (const c of clusters) {
+        const weight = Math.max(1, c.nodes.length);
+        weightedSum += c.x * weight;
+        totalWeight += weight;
+      }
+      targetX = weightedSum / totalWeight;
+    }
+
+    const ratio = Math.max(0, Math.min(1, (targetX - VIEW_MIN_X) / VIEW_WIDTH));
+    const scrollLeft = Math.max(
+      0,
+      Math.min(wrap.scrollWidth - wrap.clientWidth, ratio * wrap.scrollWidth - wrap.clientWidth / 2),
+    );
+    const smooth = mapInitialCenteredRef.current;
+    mapInitialCenteredRef.current = true;
+    wrap.scrollTo({ left: scrollLeft, behavior: smooth ? 'smooth' : 'auto' });
+  }, [activeCluster?.hub.code, mapExpandedMobile, topologyKey]);
 
   const spotlightCode = hoveredCode ?? (activeCode !== 'ALL' ? activeCode : null);
   const spotlightCluster = useMemo(
@@ -400,10 +561,10 @@ export function GlobalNodeMap({
           </div>
         </div>
 
-        <div className="kdc-map-svg-wrap">
+        <div className="kdc-map-svg-wrap" ref={mapScrollRef}>
           <svg
             className="kdc-map-svg"
-            viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
+            viewBox={`${VIEW_MIN_X} ${VIEW_MIN_Y} ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
             role="img"
             aria-label={`全球节点分布地图，共 ${clusters.length} 个地区，${fleetSummary.onlineCount}/${fleetSummary.totalCount} 在线`}
           >
@@ -519,7 +680,7 @@ export function GlobalNodeMap({
             )}
 
             <g className="kdc-map-hubs">
-              {orderedClusters.map((cluster, idx) => {
+              {orderedClusters.map((cluster) => {
                 const isSelected = activeCode === cluster.hub.code;
                 const isHovered = hoveredCode === cluster.hub.code;
                 const isActivePin = isSelected || isHovered;
@@ -535,7 +696,8 @@ export function GlobalNodeMap({
                 const flagX = -halfW + 5.5;
                 const nameX = flagX + PLACARD_FLAG_W + 5;
                 const dividerX = nameX + layout.nameWidth + 5;
-                const countX = dividerX + 5;
+                const countCenterX = dividerX + 5 + layout.maxCountWidth / 2;
+                const countText = `${cluster.onlineCount}/${cluster.nodes.length}`;
 
                 const edgeX = Math.max(layout.dx - halfW, Math.min(layout.dx + halfW, 0));
                 const edgeY = Math.max(layout.dy - PLACARD_HALF_H, Math.min(layout.dy + PLACARD_HALF_H, 0));
@@ -576,7 +738,7 @@ export function GlobalNodeMap({
                       <circle
                         r="5.5"
                         className="kdc-map-pin-pulse"
-                        style={{ animationDelay: `${-((idx * 0.7) % 3.6).toFixed(2)}s` }}
+                        style={{ animationDelay: `${stableCodeDelay(cluster.hub.code, 3.6).toFixed(2)}s` }}
                       />
                     )}
 
@@ -641,9 +803,9 @@ export function GlobalNodeMap({
                         />
                         <text
                           x={nameX}
-                          y="0.35"
+                          y="3.65"
                           textAnchor="start"
-                          dominantBaseline="central"
+                          dominantBaseline="alphabetic"
                           className="kdc-map-pin-name"
                         >
                           {layout.nameText}
@@ -656,13 +818,13 @@ export function GlobalNodeMap({
                           className="kdc-map-pin-div"
                         />
                         <text
-                          x={countX}
-                          y="0.45"
-                          textAnchor="start"
-                          dominantBaseline="central"
+                          x={countCenterX}
+                          y="3.1"
+                          textAnchor="middle"
+                          dominantBaseline="alphabetic"
                           className="kdc-map-pin-count"
                         >
-                          {layout.countText}
+                          {countText}
                         </text>
                       </g>
                       {/* Generous invisible hit area around placard for reliable touch/click */}
