@@ -1,4 +1,6 @@
 import { memo, type DragEvent } from 'react';
+import { Button } from '@ui-sdk/react/button';
+import { Toggle } from '@ui-sdk/react/toggle';
 import { BlankSvg, PduSvg, ServerUnitSvg } from '@/components/hardware/ServerChassisSvg';
 import { RegionFlag } from '@/components/ui/RegionFlag';
 import { formatNetSpeed } from '@/lib/formatters';
@@ -127,42 +129,39 @@ export const StudioRackUnit = memo(function StudioRackUnit({
         {/* Admin-only Rail Controls (hidden completely in read-only monitoring mode) */}
         {editMode && (
           <div className="srack-unit-actions" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
+            <Button
               className="srack-act-btn"
               title="上移槽位"
               disabled={index === 0}
               onClick={() => onMoveItem(rackId, index, -1)}
             >
               ↑
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
               className="srack-act-btn"
               title="下移槽位"
               disabled={index === totalItems - 1}
               onClick={() => onMoveItem(rackId, index, 1)}
             >
               ↓
-            </button>
+            </Button>
             {isNode && item.type === 'node' && (
-              <button
-                type="button"
+              <Toggle
+                pressed={uidBlinking}
+                onPressedChange={() => onToggleUid(item.nodeId)}
                 className={`srack-act-btn${uidBlinking ? ' is-active' : ''}`}
                 title="切换物理定位灯 UID"
-                onClick={() => onToggleUid(item.nodeId)}
               >
                 UID
-              </button>
+              </Toggle>
             )}
-            <button
-              type="button"
+            <Button
               className="srack-act-btn is-danger"
               title="从机柜卸载"
               onClick={() => onRemoveItem(rackId, item.uid)}
             >
               ×
-            </button>
+            </Button>
           </div>
         )}
 

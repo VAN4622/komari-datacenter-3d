@@ -505,8 +505,8 @@ export interface SceneMeta {
 }
 
 export const ATMOSPHERES: SceneMeta[] = [
-  { id: 'studio-dark', label: '深石墨影棚', subtitle: '低干扰碳灰金属柔光棚拍', swatch: '#141923', isLight: false },
-  { id: 'studio-light', label: '浅银画廊', subtitle: '瑞士极简工业展台白昼光', swatch: '#e6ebf2', isLight: true },
+  { id: 'studio-dark', label: '深石墨影棚', subtitle: '阳极石墨柔光建筑展台', swatch: '#101218', isLight: false },
+  { id: 'studio-light', label: '暖瓷画廊', subtitle: '瑞士美术馆暖白昼光展台', swatch: '#f2f0ec', isLight: true },
 ];
 
 export interface UiStyleMeta {
@@ -516,8 +516,8 @@ export interface UiStyleMeta {
 }
 
 export const UI_STYLES: UiStyleMeta[] = [
-  { id: 'tactile', label: '精致轻拟物', subtitle: '阳极铝与微实体键帽，贴合机柜质感' },
-  { id: 'glass', label: '液态玻璃', subtitle: 'Apple Liquid Glass 光学折射通透界面' },
+  { id: 'tactile', label: '精致轻拟物', subtitle: '微浮雕阳极键帽与嵌入式凹槽质感' },
+  { id: 'glass', label: '柔雾玻璃', subtitle: '光学磨砂晶体折射与高透细边层次' },
 ];
 
 export const STORAGE_KEY = 'komari_datacenter_hall_v2';

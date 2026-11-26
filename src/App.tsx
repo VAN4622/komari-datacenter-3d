@@ -1,7 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { Button } from '@ui-sdk/react/button';
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@ui-sdk/react/dialog';
+import { useShortcut } from '@ui-sdk/react/shortcuts';
+import {
+  Toast,
+  ToastAction,
+  ToastClose,
+  ToastRegion,
+  ToastTitle,
+  createToaster,
+} from '@ui-sdk/react/toast';
+import { ExternalLink, X } from 'lucide-react';
 import { StudioRackStage } from '@/components/studio/StudioRackStage';
 import { StudioStatusSignage } from '@/components/studio/StudioStatusSignage';
 import { GlobalNodeMap } from '@/components/map/GlobalNodeMap';
+import { CommandPalette } from '@/components/hud/CommandPalette';
 import { FloatingHud } from '@/components/hud/FloatingHud';
 import { InspectorDrawer } from '@/components/hud/InspectorDrawer';
 import { ServerStatusHud } from '@/components/hud/ServerStatusHud';
@@ -64,13 +83,6 @@ import type {
   TelemetryPoint,
   UiStyle,
 } from '@/types/rack';
-
-interface ToastNotice {
-  id: number;
-  message: string;
-  actionLabel?: string;
-  onAction?: () => void;
-}
 
 function makeUid(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -157,8 +169,25 @@ export default function App() {
     return initial;
   });
 
-  const [notice, setNotice] = useState<ToastNotice | null>(null);
-  const noticeTimerRef = useRef<number | null>(null);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [toaster] = useState(() => createToaster<string>({ duration: 3000 }));
+
+  useEffect(() => {
+    return () => {
+      toaster.dismiss();
+    };
+  }, [toaster]);
+
+  // Sync atmosphere & UI material tokens onto :root so top-layer ui-sdk portals stay theme-matched
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.dataset.atmo = config.atmosphere;
+    document.documentElement.dataset.uiStyle = config.uiStyle;
+    const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (themeMeta) {
+      themeMeta.content = config.atmosphere === 'studio-light' ? '#f4f5f7' : '#090a0d';
+    }
+  }, [config.atmosphere, config.uiStyle]);
 
   const isLiveMode = config.api.mode === 'live';
   const isSameOriginLink = isSameOriginTarget(config.api.baseUrl);
@@ -215,22 +244,20 @@ export default function App() {
     return () => controller.abort();
   }, [isLiveMode, isSameOriginLink, config.api.baseUrl, authCheckNonce, liveConnectNonce]);
 
-  const showNotice = useCallback((message: string, actionLabel?: string, onAction?: () => void) => {
-    if (noticeTimerRef.current !== null) {
-      window.clearTimeout(noticeTimerRef.current);
-    }
-    const id = Date.now();
-    setNotice({ id, message, actionLabel, onAction });
-    noticeTimerRef.current = window.setTimeout(() => {
-      setNotice((cur) => (cur?.id === id ? null : cur));
-    }, actionLabel ? 6500 : 2800);
-  }, []);
+  const showNotice = useCallback(
+    (message: string, actionLabel?: string, onAction?: () => void) => {
+      toaster(message, {
+        duration: actionLabel ? 6500 : 2800,
+        ...(actionLabel && onAction
+          ? { action: { label: actionLabel, onAction } }
+          : {}),
+      });
+    },
+    [toaster],
+  );
 
-  useEffect(() => {
-    return () => {
-      if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current);
-    };
-  }, []);
+  useShortcut('mod+k', () => setCommandOpen((v) => !v), { description: '打开全局命令面板' });
+  useShortcut('mod+i', () => setDrawerOpen((v) => !v), { description: '切换机房检视台' });
 
   const updateCurrentRacks = useCallback(
     (updater: (racks: RackCabinetData[]) => RackCabinetData[], nextActiveRackId?: string) => {
@@ -1209,7 +1236,6 @@ export default function App() {
           }),
         );
         markLayoutDirty();
-        setNotice(null);
       });
     },
     [ensureCanEdit, activeRackList, nodesMap, updateCurrentRacks, markLayoutDirty, showNotice],
@@ -1227,7 +1253,6 @@ export default function App() {
     showNotice(`已清空 ${rackName}（${snapshot.length} 台设备）`, '撤销清空', () => {
       updateCurrentRacks((racks) => racks.map((r) => (r.id === rackId ? { ...r, items: snapshot } : r)));
       markLayoutDirty();
-      setNotice(null);
     });
   };
 
@@ -1524,6 +1549,7 @@ export default function App() {
           setDrawerTab('api');
           setDrawerOpen(true);
         }}
+        onOpenCommandPalette={() => setCommandOpen(true)}
       />
 
       {stageView === 'rack' && (
@@ -1634,56 +1660,81 @@ export default function App() {
         onImportConfigJson={handleImportConfigJson}
       />
 
-      {/* Private-Site Authentication Guidance Overlay */}
-      {isLiveMode && apiStatus === 'auth_required' && (
-        <div className="hud-auth-overlay" role="dialog" aria-modal="false" aria-label="私密站点鉴权提示">
-          <div className="hud-auth-card">
-            <div className="hud-auth-badge">PRIVATE SITE · AUTH REQUIRED</div>
-            <h2 className="hud-auth-title">{publicInfo?.sitename || 'Komari Monitor'}</h2>
-            <p className="hud-auth-desc">
-              {isSameOriginLink
-                ? '当前 Komari 站点已开启私密模式（private_site），需要管理员登录后才可读取实时节点与遥测数据。'
-                : '目标远程站点已开启私密模式（private_site）。跨站浏览器无法携带目标站登录 Cookie，请将本主题直接安装到目标 Komari 后台或关闭私密模式。'}
-            </p>
-            <div className="hud-auth-actions">
-              <a
-                className="hud-auth-primary"
-                href={adminUrl}
-                target={isSameOriginLink ? undefined : '_blank'}
-                rel={isSameOriginLink ? undefined : 'noreferrer'}
-              >
-                前往 Komari 后台登录
-              </a>
-              <button
-                type="button"
-                className="hud-auth-ghost"
-                onClick={() => setLiveConnectNonce((n) => n + 1)}
-              >
-                重新检测
-              </button>
-              <button
-                type="button"
-                className="hud-auth-ghost"
-                onClick={() => handleSwitchDataMode('demo')}
-              >
-                预览演示机房
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        nodes={nodes}
+        racks={activeRackList}
+        activeRackId={activeRack.id}
+        stageView={stageView}
+        viewAngle={config.viewAngle}
+        atmosphere={config.atmosphere}
+        uiStyle={config.uiStyle}
+        canEnterEditMode={canEnterEditMode}
+        editMode={canEdit}
+        onJumpToNode={handleJumpToNodeFromMap}
+        onSelectRack={(rackId) => handleSelectRack(rackId)}
+        onToggleStageView={() => setStageView((v) => (v === 'rack' ? 'map' : 'rack'))}
+        onChangeViewAngle={handleChangeViewAngle}
+        onChangeAtmosphere={handleChangeAtmosphere}
+        onChangeUiStyle={handleChangeUiStyle}
+        onOpenDrawerTab={(t) => {
+          setDrawerTab(t);
+          setDrawerOpen(true);
+        }}
+        onToggleEditMode={handleToggleEditMode}
+      />
 
-      {/* Quiet bottom-left notice pill (pure CSS, zero external animation libs) */}
-      {notice && (
-        <div className="hud-notice" role="status" aria-live="polite">
-          <span>{notice.message}</span>
-          {notice.actionLabel && notice.onAction && (
-            <button type="button" className="hud-notice-action" onClick={notice.onAction}>
-              {notice.actionLabel}
-            </button>
-          )}
-        </div>
-      )}
+      <Dialog open={isLiveMode && apiStatus === 'auth_required'} modal={false}>
+        <DialogBackdrop className="kdc-dialog-backdrop" />
+        <DialogContent className="kdc-auth-dialog" aria-label="私密站点鉴权提示">
+          <div className="kdc-auth-badge">PRIVATE SITE · AUTH REQUIRED</div>
+          <DialogTitle className="kdc-auth-title">
+            {publicInfo?.sitename || 'Komari Monitor'}
+          </DialogTitle>
+          <DialogDescription className="kdc-auth-desc">
+            {isSameOriginLink
+              ? '当前 Komari 站点已开启私密模式（private_site），需要管理员登录后才可读取实时节点与遥测数据。'
+              : '目标远程站点已开启私密模式（private_site）。跨站浏览器无法携带目标站登录 Cookie，请将本主题直接安装到目标 Komari 后台或关闭私密模式。'}
+          </DialogDescription>
+          <div className="kdc-auth-actions">
+            <Button
+              data-variant="solid"
+              className="kdc-d-btn"
+              render={
+                <a
+                  href={adminUrl}
+                  target={isSameOriginLink ? undefined : '_blank'}
+                  rel={isSameOriginLink ? undefined : 'noreferrer'}
+                />
+              }
+            >
+              <ExternalLink size={12} aria-hidden="true" />
+              <span>前往 Komari 后台登录</span>
+            </Button>
+            <Button className="kdc-d-btn" onClick={() => setLiveConnectNonce((n) => n + 1)}>
+              重新检测
+            </Button>
+            <Button className="kdc-d-btn" onClick={() => handleSwitchDataMode('demo')}>
+              预览演示机房
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ToastRegion toaster={toaster} side="bottom" align="start" aria-label="系统通知">
+        {() => (
+          <Toast className="kdc-toast">
+            <ToastTitle className="kdc-toast-title" />
+            <div className="kdc-toast-acts">
+              <ToastAction className="kdc-toast-action" />
+              <ToastClose className="kdc-toast-close" aria-label="关闭通知">
+                <X size={12} aria-hidden="true" />
+              </ToastClose>
+            </div>
+          </Toast>
+        )}
+      </ToastRegion>
     </div>
   );
 }

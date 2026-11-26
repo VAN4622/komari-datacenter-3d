@@ -7,6 +7,9 @@ import {
   type DragEvent,
   type TouchEvent,
 } from 'react';
+import { Button } from '@ui-sdk/react/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@ui-sdk/react/tooltip';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { StudioRackCabinet } from '@/components/studio/StudioRackCabinet';
 import type { AppConfig, NodeInfo, RackCabinetData, RackViewAngle } from '@/types/rack';
 
@@ -146,7 +149,13 @@ export function StudioRackStage({
     const handleWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaX) < 28 || Math.abs(e.deltaX) < Math.abs(e.deltaY) * 1.6) return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest('.inspector-drawer, .hud-popover, .lg-hud-card')) return;
+      if (
+        target?.closest(
+          '.kdc-hud-card, [data-slot="drawer-content"], [data-slot="dialog-content"], [data-slot="menu-content"], [data-slot="select-content"]',
+        )
+      ) {
+        return;
+      }
 
       const now = performance.now();
       if (now < wheelLockUntilRef.current) return;
@@ -167,6 +176,14 @@ export function StudioRackStage({
   // Live 1:1 touch drag with gentle elastic edge damping & velocity flick
   const handleTouchStart = (e: TouchEvent<HTMLElement>) => {
     if (racks.length <= 1 || e.touches.length !== 1) return;
+    const target = e.target as HTMLElement | null;
+    if (
+      target?.closest(
+        '.kdc-hud-card, [data-slot="drawer-content"], [data-slot="dialog-content"], [data-slot="menu-content"], [data-slot="select-content"]',
+      )
+    ) {
+      return;
+    }
     touchRef.current = {
       x: e.touches[0].clientX,
       y: e.touches[0].clientY,
@@ -244,44 +261,42 @@ export function StudioRackStage({
         <div className="studio-vignette" />
       </div>
 
-      {/* Subtle Liquid Glass Stage Side Arrows for Multi-Rack Camera Pan */}
+      {/* Stage Side Arrows (ui-sdk Button + Tooltip) */}
       {racks.length > 1 && (
         <>
-          <button
-            type="button"
-            className="studio-side-nav is-prev"
-            onClick={() => stepRack(-1)}
-            aria-label={`切换到上一座机柜：${prevRack?.name || ''}`}
-            title={`上一座机柜 · ${prevRack?.name || ''} (←)`}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path
-                d="M10.25 3.25L5.5 8l4.75 4.75"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  className="studio-side-nav is-prev"
+                  onClick={() => stepRack(-1)}
+                  aria-label={`切换到上一座机柜：${prevRack?.name || ''}`}
+                />
+              }
+            >
+              <ChevronLeft size={16} aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              上一座机柜 · {prevRack?.name || ''} (←)
+            </TooltipContent>
+          </Tooltip>
 
-          <button
-            type="button"
-            className="studio-side-nav is-next"
-            onClick={() => stepRack(1)}
-            aria-label={`切换到下一座机柜：${nextRack?.name || ''}`}
-            title={`下一座机柜 · ${nextRack?.name || ''} (→)`}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path
-                d="M5.75 3.25L10.5 8l-4.75 4.75"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  className="studio-side-nav is-next"
+                  onClick={() => stepRack(1)}
+                  aria-label={`切换到下一座机柜：${nextRack?.name || ''}`}
+                />
+              }
+            >
+              <ChevronRight size={16} aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              下一座机柜 · {nextRack?.name || ''} (→)
+            </TooltipContent>
+          </Tooltip>
         </>
       )}
 

@@ -1,8 +1,95 @@
-import { useEffect, useRef, useState, type TouchEvent as ReactTouchEvent } from 'react';
+import { useEffect, useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogBackdrop,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from '@ui-sdk/react/alert-dialog';
+import { Button } from '@ui-sdk/react/button';
+import {
+  Drawer,
+  DrawerBackdrop,
+  DrawerClose,
+  DrawerContent,
+  DrawerHandle,
+  DrawerTitle,
+} from '@ui-sdk/react/drawer';
+import { Field, FieldDescription, FieldLabel } from '@ui-sdk/react/field';
+import { Input } from '@ui-sdk/react/input';
+import {
+  Meter,
+  MeterIndicator,
+  MeterLabel,
+  MeterTrack,
+  MeterValue,
+} from '@ui-sdk/react/meter';
+import {
+  ScrollArea,
+  ScrollAreaContent,
+  ScrollAreaScrollbar,
+  ScrollAreaThumb,
+  ScrollAreaViewport,
+} from '@ui-sdk/react/scroll-area';
+import {
+  SegmentedControl,
+  SegmentedControlIndicator,
+  SegmentedControlItem,
+} from '@ui-sdk/react/segmented-control';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectItemIndicator,
+  SelectItemText,
+  SelectTrigger,
+  SelectValue,
+} from '@ui-sdk/react/select';
+import { Separator } from '@ui-sdk/react/separator';
+import { Switch, SwitchThumb } from '@ui-sdk/react/switch';
+import {
+  Tabs,
+  TabsIndicator,
+  TabsList,
+  TabsPanel,
+  TabsTab,
+} from '@ui-sdk/react/tabs';
+import { Textarea } from '@ui-sdk/react/textarea';
+import { Toggle } from '@ui-sdk/react/toggle';
+import {
+  Activity,
+  ArrowDown,
+  ArrowUp,
+  Check,
+  Copy,
+  Download,
+  ExternalLink,
+  Lock,
+  Palette,
+  Plug,
+  Plus,
+  Radio,
+  RefreshCw,
+  RotateCcw,
+  SlidersHorizontal,
+  Trash2,
+  Upload,
+  UploadCloud,
+  X,
+} from 'lucide-react';
 import { ServerUnitSvg } from '@/components/hardware/ServerChassisSvg';
 import { TelemetryScope } from '@/components/hud/TelemetryScope';
 import { RegionFlag } from '@/components/ui/RegionFlag';
-import { ACCENTS, CABINET_THEMES, FINISHES, OLEDS, autoDetectModel, formatBytesGiB, getEffectiveStyle } from '@/data/fleet';
+import {
+  ACCENTS,
+  CABINET_THEMES,
+  FINISHES,
+  OLEDS,
+  autoDetectModel,
+  formatBytesGiB,
+  getEffectiveStyle,
+} from '@/data/fleet';
 import { formatNetSpeed, formatTrafficBytes } from '@/lib/formatters';
 import { resolveNodeGeo } from '@/lib/geoRegions';
 import type {
@@ -101,6 +188,12 @@ const MODEL_OPTIONS: { value: ModelSelection; label: string; desc: string }[] = 
   { value: 'B4', label: 'B4 · 1U', desc: 'CNC迷你' },
 ];
 
+function getMeterTone(pct: number, warnAt = 80, critAt = 92): 'normal' | 'warn' | 'crit' {
+  if (pct >= critAt) return 'crit';
+  if (pct >= warnAt) return 'warn';
+  return 'normal';
+}
+
 export function InspectorDrawer({
   open,
   tab,
@@ -160,46 +253,20 @@ export function InspectorDrawer({
   onExportConfigJson,
   onImportConfigJson,
 }: InspectorDrawerProps) {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth <= 900 : false,
+  );
   const [urlDraft, setUrlDraft] = useState(config.api.baseUrl);
   const [confirmAction, setConfirmAction] = useState<'clear' | 'delete' | 'reset' | null>(null);
   const [showImportBox, setShowImportBox] = useState(false);
   const [importDraft, setImportDraft] = useState('');
   const [importErr, setImportErr] = useState<string | null>(null);
-  const [sheetDragY, setSheetDragY] = useState(0);
-  const sheetTouchRef = useRef<{ startY: number; dy: number } | null>(null);
 
   useEffect(() => {
-    if (!open) {
-      setSheetDragY(0);
-      sheetTouchRef.current = null;
-    }
-  }, [open]);
-
-  const handleSheetTouchStart = (e: ReactTouchEvent<HTMLDivElement>) => {
-    if (e.touches.length !== 1) return;
-    sheetTouchRef.current = { startY: e.touches[0].clientY, dy: 0 };
-  };
-
-  const handleSheetTouchMove = (e: ReactTouchEvent<HTMLDivElement>) => {
-    const st = sheetTouchRef.current;
-    if (!st || e.touches.length !== 1) return;
-    const dy = Math.max(0, e.touches[0].clientY - st.startY);
-    st.dy = dy;
-    if (dy > 4) {
-      setSheetDragY(dy);
-    }
-  };
-
-  const handleSheetTouchEnd = () => {
-    const st = sheetTouchRef.current;
-    sheetTouchRef.current = null;
-    if (st && st.dy > 76) {
-      setSheetDragY(0);
-      onClose();
-    } else {
-      setSheetDragY(0);
-    }
-  };
+    const onResize = () => setIsMobile(window.innerWidth <= 900);
+    window.addEventListener('resize', onResize, { passive: true });
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => {
     setUrlDraft(config.api.baseUrl);
@@ -225,59 +292,96 @@ export function InspectorDrawer({
     }
   };
 
+  const renderNodeSelect = (ariaLabel: string, includeStatus = false) => (
+    <Select
+      value={selectedNode?.uuid ?? null}
+      onValueChange={(next) => {
+        if (next) onSelectNodeById(next);
+      }}
+      disabled={nodes.length === 0}
+    >
+      <SelectTrigger className="kdc-select-trigger" aria-label={ariaLabel}>
+        <SelectValue placeholder="暂无节点" />
+      </SelectTrigger>
+      <SelectContent align="start" sideOffset={6} className="kdc-select-content">
+        {nodes.map((node) => {
+          const geo = resolveNodeGeo(node);
+          const label = includeStatus
+            ? `[${geo.code}] ${node.name} · ${node.online ? '在线' : '离线'}`
+            : `[${geo.code}] ${node.name} (${autoDetectModel(node)})`;
+          return (
+            <SelectItem key={node.uuid} value={node.uuid} label={label} className="kdc-select-item">
+              <SelectItemIndicator keepMounted className="kdc-select-ind">
+                <Check size={12} aria-hidden="true" />
+              </SelectItemIndicator>
+              <RegionFlag code={geo.code} size="xs" />
+              <SelectItemText className="kdc-select-text">{node.name}</SelectItemText>
+              <span className="kdc-select-meta">
+                {includeStatus ? (node.online ? `${node.ping || 0}ms` : '离线') : autoDetectModel(node)}
+              </span>
+            </SelectItem>
+          );
+        })}
+      </SelectContent>
+    </Select>
+  );
+
   const renderEditLockBanner = () => {
     if (canEdit) return null;
     const isRemoteReadOnly = isLiveMode && !isSameOriginLink;
     const isLiveGuest = isLiveMode && isSameOriginLink && adminAuthStatus !== 'authenticated';
 
     return (
-      <section className="d-sec d-auth-gate">
-        <div className="d-sec-head">
-          <h3 className="d-title">
-            {isRemoteReadOnly
-              ? '远程只读监看模式'
-              : isLiveGuest
-                ? '访客只读 · 需管理员鉴权'
-                : '当前处于只读监看模式'}
+      <section className="kdc-d-card is-lock">
+        <div className="kdc-d-head">
+          <h3 className="kdc-d-title">
+            <Lock size={12} aria-hidden="true" />
+            <span>{isLiveMode ? '只读监控模式' : '演示只读模式'}</span>
           </h3>
-          <span className="d-meta">LOCKED</span>
+          <span className="kdc-d-tag">READ ONLY</span>
         </div>
-        <p className="d-note">
-          {isRemoteReadOnly
-            ? '跨站远程连接无法携带目标站 Komari 登录 Cookie，访客与远程预览仅允许只读检视机柜，避免未授权编排。'
-            : isLiveGuest
-              ? '已通过 /api/me 校验：当前浏览器未登录 Komari 管理员账号，所有机柜编排、上架与涂装修改均已锁定。'
+        <p className="kdc-d-note">
+          {isLiveGuest
+            ? '普通访客可自由查看所有节点与历史遥测。如需调整机柜上架、涂装并向全员发布，请先登录 Komari 管理员后台。'
+            : isRemoteReadOnly
+              ? '当前为跨域远程连接，浏览器无法校验目标站管理员会话，因此自动锁定为只读展示。'
               : isLiveMode
-                ? `已通过 /api/me 鉴权（${adminUsername || 'Admin'}），点击下方按钮即可进入管理员编排模式。`
-                : '默认以只读监看视图呈现，避免误操作。如需体验机柜上架与涂装，可手动开启本地演示编排模式。'}
+                ? `已通过 Komari 管理员会话校验（${adminUsername || '管理员'}）。点击下方即可解锁编排，完成后可一键发布至服务端。`
+                : '默认保持纯净监控视图；如需在演示机房中体验拖拽上架与涂装，可手动开启本地演示编排。'}
         </p>
-        <div className="d-two-col">
+        <div className="kdc-d-two-col">
           {isLiveGuest ? (
             <>
-              <a className="d-primary-sm d-link-cta" href={adminUrl}>
-                前往 /admin 登录
-              </a>
-              <button type="button" className="d-ghost-btn" onClick={onRecheckAdminAuth}>
-                刷新鉴权状态
-              </button>
+              <Button
+                data-variant="solid"
+                className="kdc-d-btn"
+                render={<a href={adminUrl} />}
+              >
+                <ExternalLink size={12} aria-hidden="true" />
+                <span>前往 /admin 登录</span>
+              </Button>
+              <Button className="kdc-d-btn" onClick={onRecheckAdminAuth}>
+                <RefreshCw size={12} aria-hidden="true" />
+                <span>刷新鉴权</span>
+              </Button>
             </>
           ) : isRemoteReadOnly ? (
-            <a
-              className="d-ghost-btn d-btn-full d-link-cta"
-              href={adminUrl}
-              target="_blank"
-              rel="noreferrer"
+            <Button
+              className="kdc-d-btn is-full"
+              render={<a href={adminUrl} target="_blank" rel="noreferrer" />}
             >
-              打开目标站后台 (/admin)
-            </a>
+              <ExternalLink size={12} aria-hidden="true" />
+              <span>打开目标站后台 (/admin)</span>
+            </Button>
           ) : canEnterEditMode ? (
-            <button type="button" className="d-primary-sm d-btn-full" onClick={onToggleEditMode}>
-              {isLiveMode ? '解锁管理员编排模式' : '开启本地演示编排'}
-            </button>
+            <Button data-variant="solid" className="kdc-d-btn is-full" onClick={onToggleEditMode}>
+              <span>{isLiveMode ? '解锁管理员编排模式' : '开启本地演示编排'}</span>
+            </Button>
           ) : (
-            <button type="button" className="d-ghost-btn d-btn-full" onClick={onRecheckAdminAuth}>
-              重新校验管理员会话
-            </button>
+            <Button className="kdc-d-btn is-full" onClick={onRecheckAdminAuth}>
+              <RefreshCw size={12} aria-hidden="true" />
+              <span>重新校验管理员会话</span>
+            </Button>
           )}
         </div>
       </section>
@@ -285,33 +389,32 @@ export function InspectorDrawer({
   };
 
   const renderLayoutSyncCard = () => {
-    const sourceText =
-      !isLiveMode
-        ? '本地演示草稿 (localStorage)'
-        : layoutSyncSource === 'server'
-          ? 'Komari 服务端已发布 (theme_settings)'
-          : layoutSyncSource === 'local_draft'
-            ? '本地未发布草稿 (仅本机可见)'
-            : '按节点分组自动生成';
+    const sourceText = !isLiveMode
+      ? '本地演示草稿 (localStorage)'
+      : layoutSyncSource === 'server'
+        ? 'Komari 服务端已发布 (theme_settings)'
+        : layoutSyncSource === 'local_draft'
+          ? '本地未发布草稿 (仅本机可见)'
+          : '按节点分组自动生成';
 
     return (
-      <section className="d-sec d-sync-card">
-        <div className="d-sec-head">
-          <h3 className="d-title">编排保存与同步机制</h3>
-          <span className={`d-meta${hasUnpublishedChanges ? ' is-warn-text' : ''}`}>
+      <section className="kdc-d-card">
+        <div className="kdc-d-head">
+          <h3 className="kdc-d-title">编排保存与同步</h3>
+          <span className={`kdc-d-tag${hasUnpublishedChanges ? ' is-warn' : ''}`}>
             {hasUnpublishedChanges ? '待发布' : layoutSyncSource.toUpperCase()}
           </span>
         </div>
-        <div className="d-status-box">
-          <div className="d-status-row">
+        <div className="kdc-d-kv-box">
+          <div className="kdc-d-kv-row">
             <span>当前来源</span>
             <strong>{sourceText}</strong>
           </div>
-          <div className="d-status-row">
+          <div className="kdc-d-kv-row">
             <span>管理员鉴权</span>
             <strong className={adminAuthStatus === 'authenticated' ? 'is-ok' : ''}>
               {!isLiveMode
-                ? 'DEMO 本地沙盒'
+                ? 'DEMO 沙盒'
                 : adminAuthStatus === 'authenticated'
                   ? `已登录 (${adminUsername || 'Admin'})`
                   : adminAuthStatus === 'checking'
@@ -321,1046 +424,1082 @@ export function InspectorDrawer({
                       : '未登录访客'}
             </strong>
           </div>
+          {lastSyncAt && (
+            <div className="kdc-d-kv-row">
+              <span>最近同步</span>
+              <strong>{lastSyncAt}</strong>
+            </div>
+          )}
         </div>
-        <p className="d-note">
-          编辑过程实时暂存于本机浏览器 <code>localStorage</code>；同源登录 Komari 管理员后点击「发布到 Komari 服务端」，会写入主题配置 <code>rackLayoutJson</code>，所有访客通过 <code>/api/public</code> 自动同步展示。
+        <p className="kdc-d-note">
+          编辑实时暂存于本机 <code>localStorage</code>；同源登录管理员后点击发布，将写入主题配置 <code>rackLayoutJson</code> 全员同步。
         </p>
 
         {isLiveMode && isSameOriginLink && adminAuthStatus === 'authenticated' && (
-          <button
-            type="button"
-            className="d-primary-sm d-btn-full"
+          <Button
+            data-variant="solid"
+            className="kdc-d-btn is-full"
             disabled={isPublishingLayout}
             onClick={onPublishLayout}
           >
-            {isPublishingLayout ? '正在发布至 Komari 服务端…' : '保存并发布到 Komari 服务端（全员生效）'}
-          </button>
+            <UploadCloud size={13} aria-hidden="true" />
+            <span>{isPublishingLayout ? '正在发布至服务端…' : '保存并发布到 Komari 服务端'}</span>
+          </Button>
         )}
 
-        <div className="d-two-col">
-          <button type="button" className="d-ghost-btn" onClick={onCopyServerLayoutJson}>
-            复制 rackLayoutJson
-          </button>
+        <div className="kdc-d-two-col">
+          <Button className="kdc-d-btn" onClick={onCopyServerLayoutJson}>
+            <Copy size={12} aria-hidden="true" />
+            <span>复制布局 JSON</span>
+          </Button>
           {isLiveMode && hasServerLayout ? (
-            <button type="button" className="d-ghost-btn" onClick={onReloadServerLayout}>
-              拉取服务端编排
-            </button>
+            <Button className="kdc-d-btn" onClick={onReloadServerLayout}>
+              <RefreshCw size={12} aria-hidden="true" />
+              <span>拉取服务端编排</span>
+            </Button>
           ) : (
-            <button type="button" className="d-ghost-btn" onClick={onExportConfigJson}>
-              导出完整 JSON
-            </button>
+            <Button className="kdc-d-btn" onClick={onExportConfigJson}>
+              <Download size={12} aria-hidden="true" />
+              <span>导出完整配置</span>
+            </Button>
           )}
         </div>
       </section>
     );
   };
 
+  const confirmMeta =
+    confirmAction === 'clear'
+      ? {
+          title: `清空机柜「${activeRack.name}」？`,
+          desc: `将卸载当前机柜中的 ${activeRack.items.length} 台设备，所有节点均会退回至「待上架设备」列表。`,
+          cta: '确认清空',
+          onConfirm: () => {
+            setConfirmAction(null);
+            onClearActiveRack();
+          },
+        }
+      : confirmAction === 'delete'
+        ? {
+            title: `删除机柜「${activeRack.name}」？`,
+            desc: '删除后该机柜内的全部服务器节点会退回至待上架池，此操作可重新新增机柜恢复。',
+            cta: '确认删除',
+            onConfirm: () => {
+              setConfirmAction(null);
+              onDeleteActiveRack();
+            },
+          }
+        : confirmAction === 'reset'
+          ? {
+              title: isLiveMode ? '按分组自动重排机柜？' : '恢复默认机房编排？',
+              desc: isLiveMode
+                ? '将依据 Komari 节点分组重新生成机柜布局，未发布的自定义排布将被覆盖。'
+                : '将恢复所有演示机柜、槽位排布与硬件涂装至初始状态。',
+              cta: '确认重置',
+              onConfirm: () => {
+                setConfirmAction(null);
+                onResetDefaultLayout();
+              },
+            }
+          : null;
+
   return (
     <>
-      {open && <div className="drawer-mobile-backdrop" onClick={onClose} aria-hidden="true" />}
-      <aside
-        className={`inspector-drawer${open ? ' is-open' : ''}${sheetDragY > 0 ? ' is-dragging-sheet' : ''}`}
-        style={sheetDragY > 0 ? { transform: `translate3d(0, ${sheetDragY}px, 0)` } : undefined}
-        aria-label="机房精调检视面板"
-        aria-hidden={!open}
+      <Drawer
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) onClose();
+        }}
+        side={isMobile ? 'bottom' : 'right'}
+        modal={isMobile}
+        closeOnOutsidePress={isMobile}
       >
-        <div
-          className="drawer-sheet-handle"
-          onClick={onClose}
-          onTouchStart={handleSheetTouchStart}
-          onTouchMove={handleSheetTouchMove}
-          onTouchEnd={handleSheetTouchEnd}
-          onTouchCancel={handleSheetTouchEnd}
-          aria-hidden="true"
+        {isMobile && <DrawerBackdrop className="kdc-drawer-backdrop" />}
+        <DrawerContent
+          className="kdc-drawer-content"
+          aria-label="机房检视与编排面板"
         >
-          <span />
-        </div>
-        <div
-          className="drawer-head"
-          onTouchStart={handleSheetTouchStart}
-          onTouchMove={handleSheetTouchMove}
-          onTouchEnd={handleSheetTouchEnd}
-          onTouchCancel={handleSheetTouchEnd}
-        >
-        <div className="drawer-tabs" role="tablist" aria-label="检视功能页签">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.id}
-              className={`drawer-tab${tab === t.id ? ' is-active' : ''}`}
-              onClick={() => onTabChange(t.id)}
-            >
-              {t.label}
-              {(t.id === 'builder' || t.id === 'style') && !canEdit && (
-                <span className="drawer-tab-lock" aria-hidden="true">
-                  ·只读
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-        <button type="button" className="drawer-close" onClick={onClose} aria-label="关闭面板" title="收起面板">
-          ×
-        </button>
-      </div>
+          {isMobile && (
+            <div className="kdc-drawer-grab-wrap">
+              <DrawerHandle className="kdc-drawer-handle" aria-label="拖动调整或关闭面板">
+                <span />
+              </DrawerHandle>
+            </div>
+          )}
 
-      <div className="drawer-scroll">
-        {tab === 'builder' && (
-          <div className="drawer-sections">
-            {renderEditLockBanner()}
+          <div className="kdc-drawer-header">
+            <div className="kdc-drawer-heading">
+              <DrawerTitle className="kdc-drawer-title">机房检视台</DrawerTitle>
+              <span className="kdc-drawer-sub">
+                {selectedNode ? selectedNode.name : activeRack.name}
+              </span>
+            </div>
+            <DrawerClose className="kdc-icon-btn" aria-label="关闭面板">
+              <X size={14} aria-hidden="true" />
+            </DrawerClose>
+          </div>
 
-            <section className="d-sec">
-              <div className="d-sec-head">
-                <h3 className="d-title">机柜阵列</h3>
-                {canEdit && (
-                  <button type="button" className="d-link-btn" onClick={onAddRack}>
-                    + 新增机柜
-                  </button>
-                )}
-              </div>
+          <Tabs
+            value={tab}
+            onValueChange={(next) => {
+              if (next === 'telemetry' || next === 'builder' || next === 'style' || next === 'api') {
+                onTabChange(next);
+              }
+            }}
+            className="kdc-drawer-tabs"
+          >
+            <TabsList aria-label="检视功能页签" className="kdc-drawer-tablist">
+              {TABS.map((t) => (
+                <TabsTab key={t.id} value={t.id} className="kdc-drawer-tab">
+                  {t.id === 'telemetry' && <Activity size={12} aria-hidden="true" />}
+                  {t.id === 'builder' && <SlidersHorizontal size={12} aria-hidden="true" />}
+                  {t.id === 'style' && <Palette size={12} aria-hidden="true" />}
+                  {t.id === 'api' && <Plug size={12} aria-hidden="true" />}
+                  <span>{t.label}</span>
+                  {(t.id === 'builder' || t.id === 'style') && !canEdit && (
+                    <Lock size={10} className="kdc-tab-lock" aria-hidden="true" />
+                  )}
+                </TabsTab>
+              ))}
+              <TabsIndicator className="kdc-drawer-tab-ind" />
+            </TabsList>
 
-              <div className="d-rack-list">
-                {racks.map((rack, idx) => (
-                  <button
-                    key={rack.id}
-                    type="button"
-                    className={`d-rack-item${rack.id === activeRack.id ? ' is-active' : ''}`}
-                    onClick={() => onSelectRack(rack.id)}
-                  >
-                    <span className="d-rack-code">A-0{idx + 1}</span>
-                    <span className="d-rack-name">{rack.name}</span>
-                    <span className="d-rack-count">{rack.items.length}台</span>
-                  </button>
-                ))}
-              </div>
+            <ScrollArea className="kdc-drawer-scroll">
+              <ScrollAreaViewport className="kdc-drawer-viewport">
+                <ScrollAreaContent className="kdc-drawer-body">
+                  <TabsPanel value="telemetry" className="kdc-d-panel">
+                    <section className="kdc-d-card">
+                      <div className="kdc-d-head">
+                        <h3 className="kdc-d-title">监控节点</h3>
+                        <Button className="kdc-d-link-btn" onClick={onRefreshTelemetry}>
+                          <RefreshCw size={11} aria-hidden="true" />
+                          <span>刷新采样</span>
+                        </Button>
+                      </div>
 
-              {canEdit && (
-                <>
-                  <div className="d-row-between">
-                    <span className="d-label">机柜名称</span>
-                    <input
-                      type="text"
-                      className="d-input d-input-inline"
-                      value={activeRack.name}
-                      maxLength={24}
-                      aria-label="当前机柜名称"
-                      onChange={(e) => onRenameRack(activeRack.id, e.target.value)}
-                    />
-                  </div>
+                      {renderNodeSelect('选择遥测节点', true)}
 
-                  <div className="d-row-between">
-                    <span className="d-label">机柜材质</span>
-                    <div className="d-chip-group">
-                      {CABINET_THEMES.map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          className={`d-chip${activeRack.theme === t.id ? ' is-active' : ''}`}
-                          onClick={() => onChangeRackTheme(activeRack.id, t.id)}
-                        >
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
+                      {selectedNode && (() => {
+                        const geo = resolveNodeGeo(selectedNode);
+                        return (
+                          <div className="kdc-d-tel-toolbar">
+                            <div className="kdc-d-tel-id">
+                              <span className={`kdc-sig-dot ${selectedNode.online ? 'is-live' : 'is-err'}`} />
+                              <RegionFlag code={geo.code} size="xs" />
+                              <span className="kdc-d-tel-geo">{geo.name}</span>
+                              {selectedNode.group && (
+                                <span className="kdc-d-pill">{selectedNode.group}</span>
+                              )}
+                            </div>
 
-              <div className="d-row-between">
-                <span className="d-label">服务器状态指示条</span>
-                <div className="d-chip-group">
-                  <button
-                    type="button"
-                    className={`d-chip${config.showStrip ? ' is-active' : ''}`}
-                    onClick={() => {
-                      if (!config.showStrip) onToggleStrip();
-                    }}
-                  >
-                    显示
-                  </button>
-                  <button
-                    type="button"
-                    className={`d-chip${!config.showStrip ? ' is-active' : ''}`}
-                    onClick={() => {
-                      if (config.showStrip) onToggleStrip();
-                    }}
-                  >
-                    隐藏
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            {activeRack.items.length > 0 && (
-              <section className="d-sec">
-                <div className="d-sec-head">
-                  <h3 className="d-title">当前机柜槽位</h3>
-                  <span className="d-meta">{activeRack.items.length} 台在柜</span>
-                </div>
-                <div className="d-slot-list">
-                  {activeRack.items.map((item, idx) => {
-                    const node = item.type === 'node' ? nodes.find((n) => n.uuid === item.nodeId) : null;
-                    const geoCode = node ? resolveNodeGeo(node).code : null;
-                    const title =
-                      item.type === 'node'
-                        ? node
-                          ? node.name
-                          : '未知节点'
-                        : item.type === 'pdu'
-                          ? item.label || '1U 计量 PDU'
-                          : item.label || '1U 导风盲板';
-                    return (
-                      <div key={item.uid} className="d-slot-row">
-                        <button
-                          type="button"
-                          className="d-slot-select"
-                          onClick={() => {
-                            if (node) {
-                              onSelectNodeById(node.uuid);
-                              onTabChange(canEdit ? 'style' : 'telemetry');
-                            }
-                          }}
-                          disabled={!node}
-                          title={node ? (canEdit ? '点击检视与涂装该节点' : '点击查看该节点遥测') : title}
-                        >
-                          <span className="d-slot-idx">#{idx + 1}</span>
-                          <span className="d-slot-name">
-                            {geoCode && <RegionFlag code={geoCode} size="xs" />}
-                            <span>{title}</span>
-                          </span>
-                        </button>
-                        {canEdit && (
-                          <div className="d-slot-actions">
-                            <button
-                              type="button"
-                              className="d-slot-btn"
-                              disabled={idx === 0}
-                              onClick={() => onMoveItem(activeRack.id, idx, -1)}
-                              title="上移槽位"
+                            <SegmentedControl
+                              aria-label="全局采样时间窗口"
+                              value={String(config.api.recordHours)}
+                              onValueChange={(next) => {
+                                const hr = Number(next) as RecordHours;
+                                if (hr === 1 || hr === 6 || hr === 24) onChangeRecordHours(hr);
+                              }}
+                              className="kdc-seg-sm"
                             >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              className="d-slot-btn"
-                              disabled={idx === activeRack.items.length - 1}
-                              onClick={() => onMoveItem(activeRack.id, idx, 1)}
-                              title="下移槽位"
-                            >
-                              ↓
-                            </button>
-                            <button
-                              type="button"
-                              className="d-slot-btn is-del"
-                              onClick={() => onRemoveItem(activeRack.id, item.uid)}
-                              title="卸载设备"
-                            >
-                              ×
-                            </button>
+                              <SegmentedControlIndicator />
+                              {HOUR_OPTIONS.map((hr) => (
+                                <SegmentedControlItem key={hr} value={String(hr)} className="kdc-seg-sm-item">
+                                  {hr}H
+                                </SegmentedControlItem>
+                              ))}
+                            </SegmentedControl>
                           </div>
+                        );
+                      })()}
+                    </section>
+
+                    {selectedNode && (() => {
+                      const ramUsedBytes =
+                        selectedNode.ramUsed !== undefined
+                          ? selectedNode.ramUsed
+                          : Math.round((selectedNode.ram / 100) * selectedNode.mem_total);
+                      const diskUsedBytes =
+                        selectedNode.diskUsed !== undefined
+                          ? selectedNode.diskUsed
+                          : Math.round((selectedNode.disk / 100) * selectedNode.disk_total);
+                      const hasSwap = (selectedNode.swap_total ?? 0) > 0;
+                      const swapPct = hasSwap ? Math.max(0, Math.min(100, Math.round(selectedNode.swap ?? 0))) : 0;
+                      const swapUsedBytes = hasSwap
+                        ? (selectedNode.swapUsed ?? Math.round((swapPct / 100) * (selectedNode.swap_total ?? 0)))
+                        : 0;
+                      const cpuPct = selectedNode.online ? Math.max(0, Math.min(100, Math.round(selectedNode.cpu))) : 0;
+                      const ramPct = selectedNode.online ? Math.max(0, Math.min(100, Math.round(selectedNode.ram))) : 0;
+                      const diskPct = Math.max(0, Math.min(100, Math.round(selectedNode.disk)));
+
+                      const totalDown = selectedNode.totalDown ?? 0;
+                      const totalUp = selectedNode.totalUp ?? 0;
+                      const combinedTraffic = totalDown + totalUp;
+                      const rxShare = combinedTraffic > 0 ? Math.round((totalDown / combinedTraffic) * 100) : 50;
+
+                      const loadPerCore =
+                        selectedNode.load1 !== undefined && selectedNode.cpu_cores > 0
+                          ? selectedNode.load1 / selectedNode.cpu_cores
+                          : null;
+                      const loadLabel =
+                        selectedNode.load1 !== undefined
+                          ? `${selectedNode.load1.toFixed(2)} / ${selectedNode.load5 !== undefined ? selectedNode.load5.toFixed(2) : '--'} / ${selectedNode.load15 !== undefined ? selectedNode.load15.toFixed(2) : '--'}`
+                          : '--';
+
+                      const tagList = (selectedNode.tags ?? '')
+                        .split(/[;,]/)
+                        .map((t) => t.trim())
+                        .filter(Boolean);
+
+                      return (
+                        <>
+                          <section className="kdc-d-card">
+                            <div className="kdc-d-meter-grid">
+                              <div className="kdc-d-meter-tile">
+                                <Meter
+                                  value={cpuPct}
+                                  min={0}
+                                  max={100}
+                                  className={`kdc-d-meter tone-${getMeterTone(cpuPct, 78, 90)}`}
+                                >
+                                  <div className="kdc-d-meter-top">
+                                    <MeterLabel className="kdc-d-meter-lbl">CPU</MeterLabel>
+                                    <MeterValue className="kdc-d-meter-val">
+                                      {selectedNode.online ? `${cpuPct}%` : '--'}
+                                    </MeterValue>
+                                  </div>
+                                  <MeterTrack className="kdc-meter-track">
+                                    <MeterIndicator className="kdc-meter-ind" />
+                                  </MeterTrack>
+                                </Meter>
+                                <span className="kdc-d-meter-sub">{selectedNode.cpu_cores} 核心</span>
+                              </div>
+
+                              <div className="kdc-d-meter-tile">
+                                <Meter
+                                  value={ramPct}
+                                  min={0}
+                                  max={100}
+                                  className={`kdc-d-meter tone-${getMeterTone(ramPct, 82, 92)}`}
+                                >
+                                  <div className="kdc-d-meter-top">
+                                    <MeterLabel className="kdc-d-meter-lbl">内存</MeterLabel>
+                                    <MeterValue className="kdc-d-meter-val">
+                                      {selectedNode.online ? `${ramPct}%` : '--'}
+                                    </MeterValue>
+                                  </div>
+                                  <MeterTrack className="kdc-meter-track">
+                                    <MeterIndicator className="kdc-meter-ind" />
+                                  </MeterTrack>
+                                </Meter>
+                                <span className="kdc-d-meter-sub">
+                                  {selectedNode.online ? formatTrafficBytes(ramUsedBytes) : '0 B'} /{' '}
+                                  {formatBytesGiB(selectedNode.mem_total)}
+                                </span>
+                              </div>
+
+                              <div className="kdc-d-meter-tile">
+                                <Meter
+                                  value={hasSwap && selectedNode.online ? swapPct : 0}
+                                  min={0}
+                                  max={100}
+                                  className={`kdc-d-meter tone-${getMeterTone(swapPct, 78, 90)}`}
+                                >
+                                  <div className="kdc-d-meter-top">
+                                    <MeterLabel className="kdc-d-meter-lbl">Swap</MeterLabel>
+                                    <MeterValue className="kdc-d-meter-val">
+                                      {!hasSwap ? '未启用' : selectedNode.online ? `${swapPct}%` : '--'}
+                                    </MeterValue>
+                                  </div>
+                                  <MeterTrack className="kdc-meter-track">
+                                    <MeterIndicator className="kdc-meter-ind" />
+                                  </MeterTrack>
+                                </Meter>
+                                <span className="kdc-d-meter-sub">
+                                  {hasSwap
+                                    ? `${selectedNode.online ? formatTrafficBytes(swapUsedBytes) : '0 B'} / ${formatTrafficBytes(selectedNode.swap_total)}`
+                                    : '0 B'}
+                                </span>
+                              </div>
+
+                              <div className="kdc-d-meter-tile">
+                                <Meter
+                                  value={diskPct}
+                                  min={0}
+                                  max={100}
+                                  className={`kdc-d-meter tone-${getMeterTone(diskPct, 85, 95)}`}
+                                >
+                                  <div className="kdc-d-meter-top">
+                                    <MeterLabel className="kdc-d-meter-lbl">磁盘</MeterLabel>
+                                    <MeterValue className="kdc-d-meter-val">{diskPct}%</MeterValue>
+                                  </div>
+                                  <MeterTrack className="kdc-meter-track">
+                                    <MeterIndicator className="kdc-meter-ind" />
+                                  </MeterTrack>
+                                </Meter>
+                                <span className="kdc-d-meter-sub">
+                                  {formatTrafficBytes(diskUsedBytes)} / {formatBytesGiB(selectedNode.disk_total)}
+                                </span>
+                              </div>
+                            </div>
+                          </section>
+
+                          <TelemetryScope
+                            points={telemetryHistory}
+                            pingProbes={pingProbes}
+                            nodeName={selectedNode.name}
+                            online={selectedNode.online}
+                            recordHours={config.api.recordHours}
+                            isLiveMode={isLiveMode}
+                            liveNetDown={selectedNode.netDown}
+                            liveNetUp={selectedNode.netUp}
+                          />
+
+                          <section className="kdc-d-card">
+                            <div className="kdc-d-head">
+                              <h3 className="kdc-d-title">负载与连接态势</h3>
+                              {loadPerCore !== null && selectedNode.online && (
+                                <span className={`kdc-d-tag${loadPerCore >= 0.85 ? ' is-warn' : ''}`}>
+                                  单核 {loadPerCore.toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+
+                            <dl className="kdc-d-dl">
+                              <div className="kdc-d-dl-row">
+                                <dt>系统负载 (1m/5m/15m)</dt>
+                                <dd>{selectedNode.online ? loadLabel : '--'}</dd>
+                              </div>
+                              <div className="kdc-d-dl-row">
+                                <dt>TCP / UDP 连接</dt>
+                                <dd>
+                                  {selectedNode.online && selectedNode.tcp !== undefined
+                                    ? `${selectedNode.tcp} / ${selectedNode.udp ?? 0}`
+                                    : '--'}
+                                </dd>
+                              </div>
+                              <div className="kdc-d-dl-row">
+                                <dt>活跃进程</dt>
+                                <dd>
+                                  {selectedNode.online && selectedNode.process !== undefined
+                                    ? `${selectedNode.process}`
+                                    : '--'}
+                                </dd>
+                              </div>
+                              <div className="kdc-d-dl-row">
+                                <dt>实时带宽</dt>
+                                <dd>
+                                  {selectedNode.online
+                                    ? `↓ ${formatNetSpeed(selectedNode.netDown)} · ↑ ${formatNetSpeed(selectedNode.netUp)}`
+                                    : '0 B/s'}
+                                </dd>
+                              </div>
+                              {(selectedNode.totalDown !== undefined || selectedNode.totalUp !== undefined) && (
+                                <div className="kdc-d-dl-block">
+                                  <div className="kdc-d-traffic-head">
+                                    <span>累计流量 (入/出)</span>
+                                    <span className="kdc-d-meta">总计 {formatTrafficBytes(combinedTraffic)}</span>
+                                  </div>
+                                  <strong className="kdc-d-dl-strong">
+                                    ↓ {formatTrafficBytes(selectedNode.totalDown)} / ↑{' '}
+                                    {formatTrafficBytes(selectedNode.totalUp)}
+                                  </strong>
+                                  {combinedTraffic > 0 && (
+                                    <div className="kdc-d-ratio" aria-label={`入站占比 ${rxShare}%`}>
+                                      <span className="is-rx" style={{ width: `${rxShare}%` }} />
+                                      <span className="is-tx" style={{ width: `${100 - rxShare}%` }} />
+                                    </div>
+                                  )}
+                                  {selectedNode.trafficLimit !== undefined && selectedNode.trafficLimit > 0 && (
+                                    <span className="kdc-d-meta">
+                                      限额 {formatTrafficBytes(selectedNode.trafficLimit)}
+                                      {selectedNode.trafficLimitType ? ` (${selectedNode.trafficLimitType})` : ''}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </dl>
+                          </section>
+
+                          <section className="kdc-d-card">
+                            <div className="kdc-d-head">
+                              <h3 className="kdc-d-title">硬件与运行环境</h3>
+                              <span className="kdc-d-meta">运行 {selectedNode.uptime}</span>
+                            </div>
+
+                            <dl className="kdc-d-dl">
+                              <div className="kdc-d-dl-row">
+                                <dt>处理器</dt>
+                                <dd>
+                                  {selectedNode.cpu_name} ({selectedNode.cpu_cores}C)
+                                </dd>
+                              </div>
+                              {selectedNode.gpu_name && (
+                                <div className="kdc-d-dl-row">
+                                  <dt>GPU</dt>
+                                  <dd>{selectedNode.gpu_name}</dd>
+                                </div>
+                              )}
+                              <div className="kdc-d-dl-row">
+                                <dt>系统内核</dt>
+                                <dd>
+                                  {selectedNode.os}
+                                  {selectedNode.kernel_version ? ` · ${selectedNode.kernel_version}` : ''}
+                                </dd>
+                              </div>
+                              <div className="kdc-d-dl-row">
+                                <dt>架构 / 虚拟化</dt>
+                                <dd>
+                                  {selectedNode.arch || '--'} · {selectedNode.virtualization || '--'}
+                                </dd>
+                              </div>
+                              {selectedNode.expiredAt && (
+                                <div className="kdc-d-dl-row">
+                                  <dt>到期时间</dt>
+                                  <dd>{selectedNode.expiredAt.slice(0, 10)}</dd>
+                                </div>
+                              )}
+                              {tagList.length > 0 && (
+                                <div className="kdc-d-dl-block">
+                                  <span className="kdc-d-dl-lbl">节点标签</span>
+                                  <div className="kdc-d-tag-list">
+                                    {tagList.map((tg) => (
+                                      <span key={tg} className="kdc-d-pill">
+                                        {tg}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {selectedNode.message && (
+                                <div className="kdc-d-dl-block">
+                                  <span className="kdc-d-dl-lbl">状态消息</span>
+                                  <strong className="kdc-d-dl-strong">{selectedNode.message}</strong>
+                                </div>
+                              )}
+                            </dl>
+
+                            <div className="kdc-d-stream-foot">
+                              <span className="kdc-d-meta">
+                                {isLiveMode
+                                  ? `WS 实时流${selectedNode.updatedAt ? ` · ${selectedNode.updatedAt.slice(11, 19)}` : ''}`
+                                  : '本地演示心跳 (3.2s)'}
+                              </span>
+                              {!isLiveMode && (
+                                <Button
+                                  className="kdc-d-btn-sm"
+                                  onClick={() => onToggleNodeOnline(selectedNode.uuid)}
+                                >
+                                  {selectedNode.online ? '模拟离线' : '恢复上线'}
+                                </Button>
+                              )}
+                            </div>
+                          </section>
+                        </>
+                      );
+                    })()}
+                  </TabsPanel>
+
+                  <TabsPanel value="builder" className="kdc-d-panel">
+                    {renderEditLockBanner()}
+
+                    <section className="kdc-d-card">
+                      <div className="kdc-d-head">
+                        <h3 className="kdc-d-title">机柜阵列</h3>
+                        {canEdit && (
+                          <Button className="kdc-d-link-btn" onClick={onAddRack}>
+                            <Plus size={12} aria-hidden="true" />
+                            <span>新增机柜</span>
+                          </Button>
                         )}
                       </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
 
-            {canEdit && (
-              <>
-                <section className="d-sec">
-                  <div className="d-sec-head">
-                    <h3 className="d-title">待上架设备</h3>
-                    <span className="d-meta">{unmountedNodes.length} 可用</span>
-                  </div>
-
-                  {unmountedNodes.length === 0 ? (
-                    <p className="d-note">
-                      {nodes.length === 0
-                        ? '当前无可用节点，请到「接口」连接 Komari 或切回 Demo。'
-                        : `全部 ${nodes.length} 台节点已在柜运行。卸载任意设备后可重新编排。`}
-                    </p>
-                  ) : (
-                    <div className="d-mount-list">
-                      {unmountedNodes.map((node) => (
-                        <div key={node.uuid} className="d-mount-row">
-                          <div className="d-mount-info">
-                            <strong>
-                              <RegionFlag code={resolveNodeGeo(node).code} size="xs" />
-                              <span>{node.name}</span>
-                            </strong>
-                            <span>
-                              {autoDetectModel(node)} · {node.cpu_cores}C / {formatBytesGiB(node.mem_total)}
-                            </span>
-                          </div>
-                          <button type="button" className="d-primary-sm" onClick={() => onMountNode(node.uuid)}>
-                            上架
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="d-two-col">
-                    <button type="button" className="d-ghost-btn" onClick={() => onMountAccessory('pdu')}>
-                      + 1U 计量 PDU
-                    </button>
-                    <button type="button" className="d-ghost-btn" onClick={() => onMountAccessory('blank')}>
-                      + 1U 导风盲板
-                    </button>
-                  </div>
-                </section>
-
-                {renderLayoutSyncCard()}
-
-                <section className="d-sec">
-                  <div className="d-sec-head">
-                    <h3 className="d-title">机柜维护</h3>
-                    <span className="d-meta">{activeRack.name}</span>
-                  </div>
-
-                  <div className="d-danger-stack">
-                    {activeRack.items.length > 0 &&
-                      (confirmAction === 'clear' ? (
-                        <div className="d-confirm-bar">
-                          <span>确认清空 {activeRack.items.length} 台设备？</span>
-                          <div className="d-confirm-btns">
-                            <button type="button" className="d-link-btn" onClick={() => setConfirmAction(null)}>
-                              取消
-                            </button>
-                            <button
-                              type="button"
-                              className="d-danger-btn"
-                              onClick={() => {
-                                setConfirmAction(null);
-                                onClearActiveRack();
-                              }}
-                            >
-                              确认清空
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          className="d-ghost-btn d-btn-full"
-                          onClick={() => setConfirmAction('clear')}
-                        >
-                          清空当前机柜设备（{activeRack.items.length} 台）
-                        </button>
-                      ))}
-
-                    {racks.length > 1 ? (
-                      confirmAction === 'delete' ? (
-                        <div className="d-confirm-bar">
-                          <span>删除此机柜？设备将退回待上架</span>
-                          <div className="d-confirm-btns">
-                            <button type="button" className="d-link-btn" onClick={() => setConfirmAction(null)}>
-                              取消
-                            </button>
-                            <button
-                              type="button"
-                              className="d-danger-btn"
-                              onClick={() => {
-                                setConfirmAction(null);
-                                onDeleteActiveRack();
-                              }}
-                            >
-                              删除
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          className="d-ghost-btn d-btn-full d-text-danger"
-                          onClick={() => setConfirmAction('delete')}
-                        >
-                          移除当前机柜
-                        </button>
-                      )
-                    ) : confirmAction === 'reset' ? (
-                      <div className="d-confirm-bar">
-                        <span>重置默认机房编排？</span>
-                        <div className="d-confirm-btns">
-                          <button type="button" className="d-link-btn" onClick={() => setConfirmAction(null)}>
-                            取消
-                          </button>
-                          <button
-                            type="button"
-                            className="d-danger-btn"
-                            onClick={() => {
-                              setConfirmAction(null);
-                              onResetDefaultLayout();
-                            }}
+                      <div className="kdc-d-rack-list">
+                        {racks.map((rack, idx) => (
+                          <Button
+                            key={rack.id}
+                            className={`kdc-d-rack-item${rack.id === activeRack.id ? ' is-active' : ''}`}
+                            onClick={() => onSelectRack(rack.id)}
                           >
-                            重置
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="d-ghost-btn d-btn-full"
-                        onClick={() => setConfirmAction('reset')}
-                      >
-                        {isLiveMode ? '按分组自动重排机柜' : '恢复默认机房编排'}
-                      </button>
-                    )}
-                  </div>
-                </section>
-              </>
-            )}
-          </div>
-        )}
-
-        {tab === 'style' && (
-          <div className="drawer-sections">
-            {renderEditLockBanner()}
-
-            <section className="d-sec">
-              <div className="d-sec-head">
-                <h3 className="d-title">目标服务器</h3>
-                {selectedNode && canEdit && (
-                  <button
-                    type="button"
-                    className="d-link-btn"
-                    onClick={() => onResetNodeStyle(selectedNode.uuid)}
-                  >
-                    恢复默认
-                  </button>
-                )}
-              </div>
-              <select
-                className="d-select"
-                aria-label="选择要涂装的节点"
-                value={selectedNode?.uuid ?? ''}
-                onChange={(e) => e.target.value && onSelectNodeById(e.target.value)}
-              >
-                {nodes.length === 0 ? (
-                  <option value="">暂无节点</option>
-                ) : (
-                  nodes.map((n) => (
-                    <option key={n.uuid} value={n.uuid}>
-                      [{resolveNodeGeo(n).code}] {n.name} ({autoDetectModel(n)})
-                    </option>
-                  ))
-                )}
-              </select>
-            </section>
-
-            {selectedNode && selectedStyle && (
-              <>
-                <div className="d-chassis-preview" aria-label="服务器硬件面板实时预览">
-                  <ServerUnitSvg
-                    node={selectedNode}
-                    style={selectedStyle}
-                    uidBlinking={selectedNodeUidBlinking}
-                  />
-                </div>
-
-                {canEdit ? (
-                  <>
-                    <section className="d-sec">
-                      <div className="d-sec-head">
-                        <h3 className="d-title">机箱形态 (B1–B4)</h3>
-                        <span className="d-meta">{selectedStyle.model}</span>
-                      </div>
-                      <div className="d-model-grid">
-                        {MODEL_OPTIONS.map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`d-model-card${selectedStyle.rawModel === opt.value ? ' is-active' : ''}`}
-                            onClick={() => onUpdateNodeStyle(selectedNode.uuid, { model: opt.value })}
-                          >
-                            <strong>{opt.label}</strong>
-                            <span>{opt.desc}</span>
-                          </button>
+                            <span className="kdc-d-rack-code">A-0{idx + 1}</span>
+                            <span className="kdc-d-rack-name">{rack.name}</span>
+                            <span className="kdc-d-rack-count">{rack.items.length} 台</span>
+                          </Button>
                         ))}
                       </div>
-                    </section>
 
-                    <section className="d-sec">
-                      <h3 className="d-title">前面板阳极表面</h3>
-                      <div className="d-finish-grid">
-                        {finishList.map((fin) => (
-                          <button
-                            key={fin.id}
-                            type="button"
-                            className={`d-finish-card${selectedStyle.finish === fin.id ? ' is-active' : ''}`}
-                            onClick={() => onUpdateNodeStyle(selectedNode.uuid, { finish: fin.id as ChassisFinish })}
-                          >
-                            <span
-                              className="d-finish-swatch"
-                              style={{ background: `linear-gradient(180deg, ${fin.top}, ${fin.bot})` }}
+                      {canEdit && (
+                        <>
+                          <Separator />
+                          <Field className="kdc-d-field-row">
+                            <FieldLabel className="kdc-d-label">机柜名称</FieldLabel>
+                            <Input
+                              className="kdc-d-input"
+                              value={activeRack.name}
+                              maxLength={24}
+                              aria-label="当前机柜名称"
+                              onChange={(e) => onRenameRack(activeRack.id, e.target.value)}
                             />
-                            <span>{fin.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </section>
+                          </Field>
 
-                    <section className="d-sec">
-                      <h3 className="d-title">指示色与资产铭牌</h3>
-
-                      <div className="d-row-between">
-                        <span className="d-label">拉手点缀</span>
-                        <div className="d-swatch-row">
-                          {ACCENTS.map((acc) => (
-                            <button
-                              key={acc.id}
-                              type="button"
-                              className={`d-color-dot${selectedStyle.accent === acc.id ? ' is-active' : ''}`}
-                              style={{ background: acc.hex }}
-                              title={acc.name}
-                              aria-label={`强调色：${acc.name}`}
-                              onClick={() => onUpdateNodeStyle(selectedNode.uuid, { accent: acc.id })}
-                            />
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="d-row-between">
-                        <span className="d-label">OLED 荧光</span>
-                        <div className="d-chip-group">
-                          {OLEDS.map((o) => (
-                            <button
-                              key={o.id}
-                              type="button"
-                              className={`d-chip${selectedStyle.oled === o.id ? ' is-active' : ''}`}
-                              onClick={() => onUpdateNodeStyle(selectedNode.uuid, { oled: o.id })}
+                          <div className="kdc-d-row-between">
+                            <span className="kdc-d-label">机柜材质</span>
+                            <SegmentedControl
+                              aria-label="机柜外观材质"
+                              value={activeRack.theme}
+                              onValueChange={(next) => {
+                                if (next === 'obsidian' || next === 'titanium' || next === 'silver') {
+                                  onChangeRackTheme(activeRack.id, next);
+                                }
+                              }}
+                              className="kdc-seg-sm"
                             >
-                              <i className="d-pip" style={{ background: o.main }} />
-                              {o.name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="d-field">
-                        <label className="d-label" htmlFor="dc-asset-tag">
-                          面板标签
-                        </label>
-                        <div className="d-input-row">
-                          <input
-                            id="dc-asset-tag"
-                            className="d-input"
-                            value={selectedStyle.tag}
-                            maxLength={14}
-                            onChange={(e) => onUpdateNodeStyle(selectedNode.uuid, { tag: e.target.value })}
-                          />
-                          <button
-                            type="button"
-                            className={`d-chip${selectedNodeUidBlinking ? ' is-active' : ''}`}
-                            onClick={() => onToggleUid(selectedNode.uuid)}
-                          >
-                            {selectedNodeUidBlinking ? 'UID 闪烁中' : '点亮 UID'}
-                          </button>
-                        </div>
-                      </div>
-                    </section>
-                  </>
-                ) : (
-                  <section className="d-sec">
-                    <div className="d-row-between">
-                      <span className="d-label">机位定位灯 (UID)</span>
-                      <button
-                        type="button"
-                        className={`d-chip${selectedNodeUidBlinking ? ' is-active' : ''}`}
-                        onClick={() => onToggleUid(selectedNode.uuid)}
-                      >
-                        {selectedNodeUidBlinking ? 'UID 闪烁中' : '点亮定位'}
-                      </button>
-                    </div>
-                  </section>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {tab === 'telemetry' && (
-          <div className="drawer-sections">
-            <section className="d-sec d-tel-head-sec">
-              <div className="d-sec-head">
-                <h3 className="d-title">监控节点</h3>
-                <button type="button" className="d-link-btn" onClick={onRefreshTelemetry}>
-                  刷新采样
-                </button>
-              </div>
-              <select
-                className="d-select"
-                aria-label="选择遥测节点"
-                value={selectedNode?.uuid ?? ''}
-                onChange={(e) => e.target.value && onSelectNodeById(e.target.value)}
-              >
-                {nodes.length === 0 ? (
-                  <option value="">暂无节点</option>
-                ) : (
-                  nodes.map((n) => (
-                    <option key={n.uuid} value={n.uuid}>
-                      [{resolveNodeGeo(n).code}] {n.name} · {n.online ? '在线' : '离线'}
-                    </option>
-                  ))
-                )}
-              </select>
-
-              {selectedNode && (() => {
-                const geo = resolveNodeGeo(selectedNode);
-                return (
-                  <div className="d-tel-toolbar">
-                    <div className="d-tel-identity">
-                      <span className={`d-tel-status-dot${selectedNode.online ? ' is-on' : ''}`} />
-                      <RegionFlag code={geo.code} size="xs" />
-                      <span className="d-tel-geo">{geo.name}</span>
-                      {selectedNode.group && <span className="d-tel-tag">{selectedNode.group}</span>}
-                    </div>
-                    <div className="scope-range-row" role="group" aria-label="全局采样时间窗口">
-                      {HOUR_OPTIONS.map((hr) => (
-                        <button
-                          key={hr}
-                          type="button"
-                          className={`scope-btn${config.api.recordHours === hr ? ' is-active' : ''}`}
-                          onClick={() => onChangeRecordHours(hr)}
-                        >
-                          {hr}H
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-            </section>
-
-            {selectedNode && (() => {
-              const ramUsedBytes =
-                selectedNode.ramUsed !== undefined
-                  ? selectedNode.ramUsed
-                  : Math.round((selectedNode.ram / 100) * selectedNode.mem_total);
-              const diskUsedBytes =
-                selectedNode.diskUsed !== undefined
-                  ? selectedNode.diskUsed
-                  : Math.round((selectedNode.disk / 100) * selectedNode.disk_total);
-              const hasSwap = (selectedNode.swap_total ?? 0) > 0;
-              const swapPct = hasSwap ? (selectedNode.swap ?? 0) : 0;
-              const swapUsedBytes = hasSwap
-                ? (selectedNode.swapUsed ?? Math.round((swapPct / 100) * (selectedNode.swap_total ?? 0)))
-                : 0;
-
-              const totalDown = selectedNode.totalDown ?? 0;
-              const totalUp = selectedNode.totalUp ?? 0;
-              const combinedTraffic = totalDown + totalUp;
-              const rxShare = combinedTraffic > 0 ? Math.round((totalDown / combinedTraffic) * 100) : 50;
-
-              const loadPerCore =
-                selectedNode.load1 !== undefined && selectedNode.cpu_cores > 0
-                  ? selectedNode.load1 / selectedNode.cpu_cores
-                  : null;
-              const loadLabel =
-                selectedNode.load1 !== undefined
-                  ? `${selectedNode.load1.toFixed(2)} / ${selectedNode.load5 !== undefined ? selectedNode.load5.toFixed(2) : '--'} / ${selectedNode.load15 !== undefined ? selectedNode.load15.toFixed(2) : '--'}`
-                  : '--';
-
-              const tagList = (selectedNode.tags ?? '')
-                .split(/[;,]/)
-                .map((t) => t.trim())
-                .filter(Boolean);
-
-              return (
-                <>
-                  {/* 4-Tile Resource Utilization Overview */}
-                  <section className="d-sec d-tel-meters-sec">
-                    <div className="d-meter-grid">
-                      <div className="d-meter-tile">
-                        <div className="d-meter-head">
-                          <span>CPU</span>
-                          <strong>{selectedNode.online ? `${Math.round(selectedNode.cpu)}%` : '--'}</strong>
-                        </div>
-                        <div className="d-meter-track">
-                          <div
-                            className={`d-meter-fill${selectedNode.cpu >= 85 ? ' is-hot' : ''}`}
-                            style={{ width: `${selectedNode.online ? Math.min(100, selectedNode.cpu) : 0}%` }}
-                          />
-                        </div>
-                        <div className="d-meter-sub">{selectedNode.cpu_cores} 核心</div>
-                      </div>
-
-                      <div className="d-meter-tile">
-                        <div className="d-meter-head">
-                          <span>内存</span>
-                          <strong>{selectedNode.online ? `${Math.round(selectedNode.ram)}%` : '--'}</strong>
-                        </div>
-                        <div className="d-meter-track">
-                          <div
-                            className={`d-meter-fill${selectedNode.ram >= 88 ? ' is-hot' : ''}`}
-                            style={{ width: `${selectedNode.online ? Math.min(100, selectedNode.ram) : 0}%` }}
-                          />
-                        </div>
-                        <div className="d-meter-sub">
-                          {selectedNode.online ? formatTrafficBytes(ramUsedBytes) : '0 B'} /{' '}
-                          {formatBytesGiB(selectedNode.mem_total)}
-                        </div>
-                      </div>
-
-                      <div className="d-meter-tile">
-                        <div className="d-meter-head">
-                          <span>Swap</span>
-                          <strong>
-                            {!hasSwap ? '未启用' : selectedNode.online ? `${Math.round(swapPct)}%` : '--'}
-                          </strong>
-                        </div>
-                        <div className="d-meter-track">
-                          <div
-                            className={`d-meter-fill${swapPct >= 80 ? ' is-hot' : ''}`}
-                            style={{ width: `${hasSwap && selectedNode.online ? Math.min(100, swapPct) : 0}%` }}
-                          />
-                        </div>
-                        <div className="d-meter-sub">
-                          {hasSwap
-                            ? `${selectedNode.online ? formatTrafficBytes(swapUsedBytes) : '0 B'} / ${formatTrafficBytes(selectedNode.swap_total)}`
-                            : '0 B'}
-                        </div>
-                      </div>
-
-                      <div className="d-meter-tile">
-                        <div className="d-meter-head">
-                          <span>磁盘</span>
-                          <strong>{`${Math.round(selectedNode.disk)}%`}</strong>
-                        </div>
-                        <div className="d-meter-track">
-                          <div
-                            className={`d-meter-fill${selectedNode.disk >= 88 ? ' is-hot' : ''}`}
-                            style={{ width: `${Math.min(100, selectedNode.disk)}%` }}
-                          />
-                        </div>
-                        <div className="d-meter-sub">
-                          {formatTrafficBytes(diskUsedBytes)} / {formatBytesGiB(selectedNode.disk_total)}
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* Multi-Chart Telemetry Suite: Latency/Ping + CPU/RAM + Network Throughput */}
-                  <TelemetryScope
-                    points={telemetryHistory}
-                    pingProbes={pingProbes}
-                    nodeName={selectedNode.name}
-                    online={selectedNode.online}
-                    recordHours={config.api.recordHours}
-                    isLiveMode={isLiveMode}
-                    liveNetDown={selectedNode.netDown}
-                    liveNetUp={selectedNode.netUp}
-                  />
-
-                  {/* Load Average, Connections & Traffic Summary */}
-                  <section className="d-sec">
-                    <div className="d-sec-head">
-                      <h3 className="d-title">负载与连接态势</h3>
-                      {loadPerCore !== null && selectedNode.online && (
-                        <span className={`d-meta${loadPerCore >= 0.85 ? ' is-warn-text' : ''}`}>
-                          单核负载 {loadPerCore.toFixed(2)}
-                        </span>
+                              <SegmentedControlIndicator />
+                              {CABINET_THEMES.map((t) => (
+                                <SegmentedControlItem key={t.id} value={t.id} className="kdc-seg-sm-item">
+                                  {t.label}
+                                </SegmentedControlItem>
+                              ))}
+                            </SegmentedControl>
+                          </div>
+                        </>
                       )}
-                    </div>
 
-                    <div className="d-spec-grid">
-                      <div className="d-spec is-wide">
-                        <span>系统负载 (1m / 5m / 15m)</span>
-                        <strong>{selectedNode.online ? loadLabel : '--'}</strong>
+                      <Separator />
+                      <div className="kdc-d-row-between">
+                        <span className="kdc-d-label">机位遥测指示条</span>
+                        <Switch
+                          checked={config.showStrip}
+                          onCheckedChange={() => onToggleStrip()}
+                          aria-label="切换服务器状态指示条"
+                        >
+                          <SwitchThumb />
+                        </Switch>
                       </div>
-                      <div className="d-spec">
-                        <span>TCP / UDP 连接</span>
-                        <strong>
-                          {selectedNode.online && selectedNode.tcp !== undefined
-                            ? `${selectedNode.tcp} / ${selectedNode.udp ?? 0}`
-                            : '--'}
-                        </strong>
-                      </div>
-                      <div className="d-spec">
-                        <span>活跃进程数</span>
-                        <strong>
-                          {selectedNode.online && selectedNode.process !== undefined ? `${selectedNode.process}` : '--'}
-                        </strong>
-                      </div>
-                      <div className="d-spec is-wide">
-                        <span>实时带宽</span>
-                        <strong>
-                          {selectedNode.online
-                            ? `↓ ${formatNetSpeed(selectedNode.netDown)}   ↑ ${formatNetSpeed(selectedNode.netUp)}`
-                            : '0 B/s'}
-                        </strong>
-                      </div>
-                      {(selectedNode.totalDown !== undefined || selectedNode.totalUp !== undefined) && (
-                        <div className="d-spec is-wide">
-                          <div className="d-traffic-head">
-                            <span>累计流量 (入站 / 出站)</span>
-                            <span className="d-meta">总计 {formatTrafficBytes(combinedTraffic)}</span>
+                    </section>
+
+                    {activeRack.items.length > 0 && (
+                      <section className="kdc-d-card">
+                        <div className="kdc-d-head">
+                          <h3 className="kdc-d-title">当前机柜槽位</h3>
+                          <span className="kdc-d-meta">{activeRack.items.length} 台在柜</span>
+                        </div>
+                        <div className="kdc-d-slot-list">
+                          {activeRack.items.map((item, idx) => {
+                            const node = item.type === 'node' ? nodes.find((n) => n.uuid === item.nodeId) : null;
+                            const geoCode = node ? resolveNodeGeo(node).code : null;
+                            const title =
+                              item.type === 'node'
+                                ? node
+                                  ? node.name
+                                  : '未知节点'
+                                : item.type === 'pdu'
+                                  ? item.label || '1U 计量 PDU'
+                                  : item.label || '1U 导风盲板';
+                            return (
+                              <div key={item.uid} className="kdc-d-slot-row">
+                                <Button
+                                  className="kdc-d-slot-select"
+                                  onClick={() => {
+                                    if (node) {
+                                      onSelectNodeById(node.uuid);
+                                      onTabChange(canEdit ? 'style' : 'telemetry');
+                                    }
+                                  }}
+                                  disabled={!node}
+                                >
+                                  <span className="kdc-d-slot-idx">#{idx + 1}</span>
+                                  {geoCode && <RegionFlag code={geoCode} size="xs" />}
+                                  <span className="kdc-d-slot-name">{title}</span>
+                                </Button>
+                                {canEdit && (
+                                  <div className="kdc-d-slot-acts">
+                                    <Button
+                                      className="kdc-icon-btn-xs"
+                                      disabled={idx === 0}
+                                      onClick={() => onMoveItem(activeRack.id, idx, -1)}
+                                      aria-label="上移槽位"
+                                    >
+                                      <ArrowUp size={11} aria-hidden="true" />
+                                    </Button>
+                                    <Button
+                                      className="kdc-icon-btn-xs"
+                                      disabled={idx === activeRack.items.length - 1}
+                                      onClick={() => onMoveItem(activeRack.id, idx, 1)}
+                                      aria-label="下移槽位"
+                                    >
+                                      <ArrowDown size={11} aria-hidden="true" />
+                                    </Button>
+                                    <Button
+                                      className="kdc-icon-btn-xs is-danger"
+                                      onClick={() => onRemoveItem(activeRack.id, item.uid)}
+                                      aria-label="卸载设备"
+                                    >
+                                      <X size={11} aria-hidden="true" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    )}
+
+                    {canEdit && (
+                      <>
+                        <section className="kdc-d-card">
+                          <div className="kdc-d-head">
+                            <h3 className="kdc-d-title">待上架设备</h3>
+                            <span className="kdc-d-meta">{unmountedNodes.length} 可用</span>
                           </div>
-                          <strong>
-                            ↓ {formatTrafficBytes(selectedNode.totalDown)} / ↑ {formatTrafficBytes(selectedNode.totalUp)}
-                          </strong>
-                          {combinedTraffic > 0 && (
-                            <div className="d-traffic-ratio" aria-label={`入站占比 ${rxShare}%`}>
-                              <span className="d-ratio-rx" style={{ width: `${rxShare}%` }} />
-                              <span className="d-ratio-tx" style={{ width: `${100 - rxShare}%` }} />
+
+                          {unmountedNodes.length === 0 ? (
+                            <p className="kdc-d-note">
+                              {nodes.length === 0
+                                ? '当前无可用节点，请到「接口」连接 Komari 或切回 Demo。'
+                                : `全部 ${nodes.length} 台节点已在柜运行。卸载任意设备后可重新编排。`}
+                            </p>
+                          ) : (
+                            <div className="kdc-d-mount-list">
+                              {unmountedNodes.map((node) => (
+                                <div key={node.uuid} className="kdc-d-mount-row">
+                                  <div className="kdc-d-mount-info">
+                                    <strong>
+                                      <RegionFlag code={resolveNodeGeo(node).code} size="xs" />
+                                      <span>{node.name}</span>
+                                    </strong>
+                                    <span>
+                                      {autoDetectModel(node)} · {node.cpu_cores}C /{' '}
+                                      {formatBytesGiB(node.mem_total)}
+                                    </span>
+                                  </div>
+                                  <Button
+                                    data-variant="solid"
+                                    className="kdc-d-btn-sm"
+                                    onClick={() => onMountNode(node.uuid)}
+                                  >
+                                    上架
+                                  </Button>
+                                </div>
+                              ))}
                             </div>
                           )}
-                          {selectedNode.trafficLimit !== undefined && selectedNode.trafficLimit > 0 && (
-                            <span className="d-traffic-limit">
-                              限额 {formatTrafficBytes(selectedNode.trafficLimit)}
-                              {selectedNode.trafficLimitType ? ` (${selectedNode.trafficLimitType})` : ''}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </section>
 
-                  {/* Hardware & Runtime Specs */}
-                  <section className="d-sec">
-                    <div className="d-sec-head">
-                      <h3 className="d-title">硬件与运行环境</h3>
-                      <span className="d-meta">运行 {selectedNode.uptime}</span>
-                    </div>
-
-                    <div className="d-spec-grid">
-                      <div className="d-spec is-wide">
-                        <span>处理器</span>
-                        <strong>
-                          {selectedNode.cpu_name} ({selectedNode.cpu_cores}C)
-                        </strong>
-                      </div>
-                      {selectedNode.gpu_name && (
-                        <div className="d-spec is-wide">
-                          <span>GPU 加速卡</span>
-                          <strong>{selectedNode.gpu_name}</strong>
-                        </div>
-                      )}
-                      <div className="d-spec is-wide">
-                        <span>操作系统与内核</span>
-                        <strong>
-                          {selectedNode.os}
-                          {selectedNode.kernel_version ? ` · ${selectedNode.kernel_version}` : ''}
-                        </strong>
-                      </div>
-                      <div className="d-spec">
-                        <span>指令架构</span>
-                        <strong>{selectedNode.arch || '--'}</strong>
-                      </div>
-                      <div className="d-spec">
-                        <span>虚拟化平台</span>
-                        <strong>{selectedNode.virtualization || '--'}</strong>
-                      </div>
-                      {selectedNode.expiredAt && (
-                        <div className="d-spec is-wide">
-                          <span>到期时间</span>
-                          <strong>{selectedNode.expiredAt.slice(0, 10)}</strong>
-                        </div>
-                      )}
-                      {tagList.length > 0 && (
-                        <div className="d-spec is-wide">
-                          <span>节点标签</span>
-                          <div className="d-tag-list">
-                            {tagList.map((tg) => (
-                              <span key={tg} className="d-tag-pill">
-                                {tg}
-                              </span>
-                            ))}
+                          <div className="kdc-d-two-col">
+                            <Button className="kdc-d-btn" onClick={() => onMountAccessory('pdu')}>
+                              <Plus size={12} aria-hidden="true" />
+                              <span>1U 计量 PDU</span>
+                            </Button>
+                            <Button className="kdc-d-btn" onClick={() => onMountAccessory('blank')}>
+                              <Plus size={12} aria-hidden="true" />
+                              <span>1U 导风盲板</span>
+                            </Button>
                           </div>
-                        </div>
-                      )}
-                      {selectedNode.message && (
-                        <div className="d-spec is-wide">
-                          <span>节点状态消息</span>
-                          <strong>{selectedNode.message}</strong>
-                        </div>
-                      )}
-                    </div>
+                        </section>
 
-                    <div className="d-row-between">
-                      <span className="d-meta">
-                        {isLiveMode
-                          ? `WS 实时流${selectedNode.updatedAt ? ` · ${selectedNode.updatedAt.slice(11, 19)}` : ''}`
-                          : '本地演示心跳 (3.2s)'}
-                      </span>
-                      {!isLiveMode && (
-                        <button
-                          type="button"
-                          className="d-ghost-btn"
-                          onClick={() => onToggleNodeOnline(selectedNode.uuid)}
+                        {renderLayoutSyncCard()}
+
+                        <section className="kdc-d-card">
+                          <div className="kdc-d-head">
+                            <h3 className="kdc-d-title">机柜维护</h3>
+                            <span className="kdc-d-meta">{activeRack.name}</span>
+                          </div>
+                          <div className="kdc-d-danger-stack">
+                            {activeRack.items.length > 0 && (
+                              <Button
+                                className="kdc-d-btn is-full"
+                                onClick={() => setConfirmAction('clear')}
+                              >
+                                清空当前机柜设备（{activeRack.items.length} 台）
+                              </Button>
+                            )}
+                            {racks.length > 1 && (
+                              <Button
+                                data-variant="destructive"
+                                className="kdc-d-btn is-full"
+                                onClick={() => setConfirmAction('delete')}
+                              >
+                                <Trash2 size={12} aria-hidden="true" />
+                                <span>删除当前机柜</span>
+                              </Button>
+                            )}
+                            <Button
+                              className="kdc-d-btn is-full"
+                              onClick={() => setConfirmAction('reset')}
+                            >
+                              <RotateCcw size={12} aria-hidden="true" />
+                              <span>{isLiveMode ? '按分组自动重排机柜' : '恢复默认机房编排'}</span>
+                            </Button>
+                          </div>
+                        </section>
+                      </>
+                    )}
+                  </TabsPanel>
+
+                  <TabsPanel value="style" className="kdc-d-panel">
+                    {renderEditLockBanner()}
+
+                    <section className="kdc-d-card">
+                      <div className="kdc-d-head">
+                        <h3 className="kdc-d-title">目标服务器</h3>
+                        {selectedNode && canEdit && (
+                          <Button
+                            className="kdc-d-link-btn"
+                            onClick={() => onResetNodeStyle(selectedNode.uuid)}
+                          >
+                            <RotateCcw size={11} aria-hidden="true" />
+                            <span>恢复默认</span>
+                          </Button>
+                        )}
+                      </div>
+                      {renderNodeSelect('选择要涂装的节点', false)}
+                    </section>
+
+                    {selectedNode && selectedStyle && (
+                      <>
+                        <div className="kdc-d-chassis-preview" aria-label="服务器硬件面板实时预览">
+                          <ServerUnitSvg
+                            node={selectedNode}
+                            style={selectedStyle}
+                            uidBlinking={selectedNodeUidBlinking}
+                          />
+                        </div>
+
+                        {canEdit ? (
+                          <>
+                            <section className="kdc-d-card">
+                              <div className="kdc-d-head">
+                                <h3 className="kdc-d-title">机箱形态 (B1–B4)</h3>
+                                <span className="kdc-d-tag">{selectedStyle.model}</span>
+                              </div>
+                              <div className="kdc-d-model-grid">
+                                {MODEL_OPTIONS.map((opt) => (
+                                  <Button
+                                    key={opt.value}
+                                    className={`kdc-d-model-card${selectedStyle.rawModel === opt.value ? ' is-active' : ''}`}
+                                    onClick={() =>
+                                      onUpdateNodeStyle(selectedNode.uuid, { model: opt.value })
+                                    }
+                                  >
+                                    <strong>{opt.label}</strong>
+                                    <span>{opt.desc}</span>
+                                  </Button>
+                                ))}
+                              </div>
+                            </section>
+
+                            <section className="kdc-d-card">
+                              <div className="kdc-d-head">
+                                <h3 className="kdc-d-title">前面板阳极表面</h3>
+                              </div>
+                              <div className="kdc-d-finish-grid">
+                                {finishList.map((fin) => (
+                                  <Button
+                                    key={fin.id}
+                                    className={`kdc-d-finish-card${selectedStyle.finish === fin.id ? ' is-active' : ''}`}
+                                    onClick={() =>
+                                      onUpdateNodeStyle(selectedNode.uuid, {
+                                        finish: fin.id as ChassisFinish,
+                                      })
+                                    }
+                                  >
+                                    <span
+                                      className="kdc-d-finish-swatch"
+                                      style={{
+                                        background: `linear-gradient(180deg, ${fin.top}, ${fin.bot})`,
+                                      }}
+                                    />
+                                    <span>{fin.name}</span>
+                                  </Button>
+                                ))}
+                              </div>
+                            </section>
+
+                            <section className="kdc-d-card">
+                              <div className="kdc-d-head">
+                                <h3 className="kdc-d-title">指示色与资产铭牌</h3>
+                              </div>
+
+                              <div className="kdc-d-row-between">
+                                <span className="kdc-d-label">拉手点缀</span>
+                                <div className="kdc-d-swatch-row">
+                                  {ACCENTS.map((acc) => (
+                                    <Button
+                                      key={acc.id}
+                                      className={`kdc-d-color-dot${selectedStyle.accent === acc.id ? ' is-active' : ''}`}
+                                      style={{ background: acc.hex }}
+                                      title={acc.name}
+                                      aria-label={`强调色：${acc.name}`}
+                                      onClick={() =>
+                                        onUpdateNodeStyle(selectedNode.uuid, { accent: acc.id })
+                                      }
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="kdc-d-row-between">
+                                <span className="kdc-d-label">OLED 荧光</span>
+                                <SegmentedControl
+                                  aria-label="OLED 屏幕荧光色"
+                                  value={selectedStyle.oled}
+                                  onValueChange={(next) => {
+                                    if (
+                                      next === 'cyan' ||
+                                      next === 'amber' ||
+                                      next === 'green' ||
+                                      next === 'ice'
+                                    ) {
+                                      onUpdateNodeStyle(selectedNode.uuid, { oled: next });
+                                    }
+                                  }}
+                                  className="kdc-seg-sm"
+                                >
+                                  <SegmentedControlIndicator />
+                                  {OLEDS.map((o) => (
+                                    <SegmentedControlItem key={o.id} value={o.id} className="kdc-seg-sm-item">
+                                      <i className="kdc-d-pip" style={{ background: o.main }} />
+                                      <span>{o.name}</span>
+                                    </SegmentedControlItem>
+                                  ))}
+                                </SegmentedControl>
+                              </div>
+
+                              <Field className="kdc-d-field">
+                                <FieldLabel className="kdc-d-label">面板标签</FieldLabel>
+                                <div className="kdc-d-input-row">
+                                  <Input
+                                    className="kdc-d-input"
+                                    value={selectedStyle.tag}
+                                    maxLength={14}
+                                    onChange={(e) =>
+                                      onUpdateNodeStyle(selectedNode.uuid, { tag: e.target.value })
+                                    }
+                                  />
+                                  <Toggle
+                                    pressed={selectedNodeUidBlinking}
+                                    onPressedChange={() => onToggleUid(selectedNode.uuid)}
+                                    className="kdc-d-uid-toggle"
+                                  >
+                                    <Radio size={12} aria-hidden="true" />
+                                    <span>{selectedNodeUidBlinking ? 'UID 亮' : 'UID'}</span>
+                                  </Toggle>
+                                </div>
+                              </Field>
+                            </section>
+                          </>
+                        ) : (
+                          <section className="kdc-d-card">
+                            <div className="kdc-d-row-between">
+                              <span className="kdc-d-label">机位定位灯 (UID)</span>
+                              <Toggle
+                                pressed={selectedNodeUidBlinking}
+                                onPressedChange={() => onToggleUid(selectedNode.uuid)}
+                                className="kdc-d-uid-toggle"
+                              >
+                                <Radio size={12} aria-hidden="true" />
+                                <span>{selectedNodeUidBlinking ? 'UID 闪烁中' : '点亮定位'}</span>
+                              </Toggle>
+                            </div>
+                          </section>
+                        )}
+                      </>
+                    )}
+                  </TabsPanel>
+
+                  <TabsPanel value="api" className="kdc-d-panel">
+                    <section className="kdc-d-card">
+                      <div className="kdc-d-head">
+                        <h3 className="kdc-d-title">数据源模式</h3>
+                        <span className="kdc-d-tag">{isLiveMode ? 'KOMARI API' : 'LOCAL DEMO'}</span>
+                      </div>
+
+                      <SegmentedControl
+                        aria-label="切换数据源模式"
+                        value={config.api.mode}
+                        onValueChange={(next) => {
+                          if (next === 'demo' || next === 'live') onSwitchDataMode(next);
+                        }}
+                        className="kdc-seg-full"
+                      >
+                        <SegmentedControlIndicator />
+                        <SegmentedControlItem value="demo" className="kdc-seg-full-item">
+                          Demo 演示机房
+                        </SegmentedControlItem>
+                        <SegmentedControlItem value="live" className="kdc-seg-full-item">
+                          Komari 实况对接
+                        </SegmentedControlItem>
+                      </SegmentedControl>
+
+                      <Field className="kdc-d-field">
+                        <FieldLabel className="kdc-d-label">Komari 站点地址（同源部署留空）</FieldLabel>
+                        <div className="kdc-d-input-row">
+                          <Input
+                            className="kdc-d-input is-mono"
+                            placeholder="status.example.com 或 https://..."
+                            value={urlDraft}
+                            onChange={(e) => setUrlDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') onConnectKomari(urlDraft);
+                            }}
+                          />
+                          <Button
+                            data-variant="solid"
+                            className="kdc-d-btn-sm"
+                            onClick={() => onConnectKomari(urlDraft)}
+                          >
+                            连接
+                          </Button>
+                        </div>
+                        <FieldDescription className="kdc-d-note">
+                          远程连接需目标站在 Komari 后台开启 <code>allow_cors</code>；作为官方主题同源部署时留空即可自动直连。
+                        </FieldDescription>
+                      </Field>
+
+                      <div className="kdc-d-kv-box">
+                        <div className="kdc-d-kv-row">
+                          <span>LINK</span>
+                          <strong
+                            className={
+                              apiStatus === 'live'
+                                ? 'is-ok'
+                                : apiStatus === 'error' || apiStatus === 'auth_required'
+                                  ? 'is-err'
+                                  : ''
+                            }
+                          >
+                            {apiStatus === 'auth_required' ? 'AUTH REQUIRED' : apiStatus.toUpperCase()}
+                          </strong>
+                        </div>
+                        <div className="kdc-d-kv-row">
+                          <span>SITE</span>
+                          <strong>{isLiveMode ? publicInfo?.sitename ?? '--' : 'DEMO-HALL'}</strong>
+                        </div>
+                        <div className="kdc-d-kv-row">
+                          <span>NODES / WS</span>
+                          <strong>
+                            {nodes.length} 节点 · {wsFramesCount} 帧
+                          </strong>
+                        </div>
+                        <div className="kdc-d-kv-row">
+                          <span>ENV</span>
+                          <strong>
+                            {sameOriginDetected
+                              ? '同源 Komari 主题'
+                              : config.api.baseUrl
+                                ? '远程跨域连接'
+                                : '本地开发 / 演示'}
+                          </strong>
+                        </div>
+                        {publicInfo && (
+                          <div className="kdc-d-kv-row">
+                            <span>POLICY</span>
+                            <strong>
+                              {publicInfo.private_site ? 'PRIVATE' : 'PUBLIC'} ·{' '}
+                              {publicInfo.allow_cors ? 'CORS ON' : 'CORS OFF'}
+                            </strong>
+                          </div>
+                        )}
+                        {apiError && <div className="kdc-d-err-box">{apiError}</div>}
+                      </div>
+
+                      {apiStatus === 'auth_required' && (
+                        <Button
+                          className="kdc-d-btn is-full"
+                          render={
+                            <a
+                              href={adminUrl}
+                              target={config.api.baseUrl ? '_blank' : undefined}
+                              rel={config.api.baseUrl ? 'noreferrer' : undefined}
+                            />
+                          }
                         >
-                          {selectedNode.online ? '模拟离线' : '恢复上线'}
-                        </button>
+                          <ExternalLink size={12} aria-hidden="true" />
+                          <span>前往 Komari 后台登录 (/admin)</span>
+                        </Button>
                       )}
-                    </div>
-                  </section>
-                </>
-              );
-            })()}
+                    </section>
+
+                    {renderLayoutSyncCard()}
+
+                    <section className="kdc-d-card">
+                      <div className="kdc-d-head">
+                        <h3 className="kdc-d-title">本地配置备份 / 恢复</h3>
+                        <span className="kdc-d-tag">JSON</span>
+                      </div>
+                      <div className="kdc-d-two-col">
+                        <Button className="kdc-d-btn" onClick={onExportConfigJson}>
+                          <Copy size={12} aria-hidden="true" />
+                          <span>复制导出</span>
+                        </Button>
+                        <Button
+                          className="kdc-d-btn"
+                          disabled={!canEdit}
+                          onClick={() => {
+                            if (!canEdit) return;
+                            setShowImportBox((v) => !v);
+                            setImportErr(null);
+                          }}
+                        >
+                          <Upload size={12} aria-hidden="true" />
+                          <span>{showImportBox ? '收起导入' : canEdit ? '导入 JSON' : '导入 (只读)'}</span>
+                        </Button>
+                      </div>
+                      {showImportBox && canEdit && (
+                        <div className="kdc-d-import-box">
+                          <Textarea
+                            className="kdc-d-textarea"
+                            rows={4}
+                            placeholder="粘贴此前导出的 JSON..."
+                            value={importDraft}
+                            onChange={(e) => setImportDraft(e.target.value)}
+                          />
+                          {importErr && <p className="kdc-d-err-text">{importErr}</p>}
+                          <Button
+                            data-variant="solid"
+                            className="kdc-d-btn is-full"
+                            onClick={handleApplyImport}
+                          >
+                            应用配置
+                          </Button>
+                        </div>
+                      )}
+                    </section>
+                  </TabsPanel>
+                </ScrollAreaContent>
+              </ScrollAreaViewport>
+              <ScrollAreaScrollbar className="kdc-scrollbar">
+                <ScrollAreaThumb className="kdc-scrollbar-thumb" />
+              </ScrollAreaScrollbar>
+            </ScrollArea>
+          </Tabs>
+        </DrawerContent>
+      </Drawer>
+
+      <AlertDialog
+        open={confirmMeta !== null}
+        onOpenChange={(next) => {
+          if (!next) setConfirmAction(null);
+        }}
+      >
+        <AlertDialogBackdrop className="kdc-dialog-backdrop" />
+        <AlertDialogContent className="kdc-alert-content">
+          <AlertDialogTitle className="kdc-alert-title">{confirmMeta?.title}</AlertDialogTitle>
+          <AlertDialogDescription className="kdc-alert-desc">
+            {confirmMeta?.desc}
+          </AlertDialogDescription>
+          <div className="kdc-alert-actions">
+            <AlertDialogClose className="kdc-d-btn">取消</AlertDialogClose>
+            <Button
+              data-variant="destructive"
+              className="kdc-d-btn"
+              onClick={confirmMeta?.onConfirm}
+            >
+              {confirmMeta?.cta}
+            </Button>
           </div>
-        )}
-
-        {tab === 'api' && (
-          <div className="drawer-sections">
-            <section className="d-sec">
-              <div className="d-sec-head">
-                <h3 className="d-title">数据源模式</h3>
-                <span className="d-meta">{isLiveMode ? 'Komari API' : '本地演示'}</span>
-              </div>
-              <div className="d-mode-switch" role="group" aria-label="切换数据源">
-                <button
-                  type="button"
-                  className={`d-mode-btn${!isLiveMode ? ' is-active' : ''}`}
-                  onClick={() => onSwitchDataMode('demo')}
-                >
-                  Demo 演示
-                </button>
-                <button
-                  type="button"
-                  className={`d-mode-btn${isLiveMode ? ' is-active' : ''}`}
-                  onClick={() => onSwitchDataMode('live')}
-                >
-                  Komari 实况
-                </button>
-              </div>
-              <p className="d-note">演示与实况机柜编排独立持久化，随时切换互不覆盖。</p>
-            </section>
-
-            <section className="d-sec">
-              <div className="d-sec-head">
-                <h3 className="d-title">Komari 服务端</h3>
-                <span className="d-meta">{lastSyncAt ? `同步 ${lastSyncAt}` : '未同步'}</span>
-              </div>
-
-              <div className="d-field">
-                <label className="d-label" htmlFor="dc-komari-url">
-                  站点地址（支持直接填域名，留空使用同源 /api）
-                </label>
-                <div className="d-input-row">
-                  <input
-                    id="dc-komari-url"
-                    className="d-input d-mono"
-                    placeholder="status.example.com 或 https://..."
-                    value={urlDraft}
-                    onChange={(e) => setUrlDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') onConnectKomari(urlDraft);
-                    }}
-                  />
-                  <button type="button" className="d-primary-sm" onClick={() => onConnectKomari(urlDraft)}>
-                    连接
-                  </button>
-                </div>
-                <p className="d-note">
-                  远程连接需目标站在 Komari 后台开启 <code>allow_cors</code>；作为官方主题上传同源部署时留空即可自动免配直连。
-                </p>
-              </div>
-
-              <div className="d-status-box">
-                <div className="d-status-row">
-                  <span>LINK</span>
-                  <strong
-                    className={
-                      apiStatus === 'live'
-                        ? 'is-ok'
-                        : apiStatus === 'error' || apiStatus === 'auth_required'
-                          ? 'is-err'
-                          : ''
-                    }
-                  >
-                    {apiStatus === 'auth_required' ? 'AUTH REQUIRED' : apiStatus.toUpperCase()}
-                  </strong>
-                </div>
-                <div className="d-status-row">
-                  <span>SITE</span>
-                  <strong>{isLiveMode ? publicInfo?.sitename ?? '--' : 'DEMO-HALL'}</strong>
-                </div>
-                <div className="d-status-row">
-                  <span>NODES / WS</span>
-                  <strong>
-                    {nodes.length} 节点 · {wsFramesCount} 帧
-                  </strong>
-                </div>
-                <div className="d-status-row">
-                  <span>ENV</span>
-                  <strong>
-                    {sameOriginDetected
-                      ? '同源 Komari 主题'
-                      : config.api.baseUrl
-                        ? '远程跨域连接'
-                        : '本地开发 / 演示'}
-                  </strong>
-                </div>
-                {publicInfo && (
-                  <div className="d-status-row">
-                    <span>POLICY</span>
-                    <strong>
-                      {publicInfo.private_site ? 'PRIVATE' : 'PUBLIC'} · {publicInfo.allow_cors ? 'CORS ON' : 'CORS OFF'}
-                    </strong>
-                  </div>
-                )}
-                {apiError && <div className="d-status-err">{apiError}</div>}
-                {apiStatus === 'auth_required' && (
-                  <a
-                    className="d-ghost-btn d-btn-full d-admin-cta"
-                    href={adminUrl}
-                    target={config.api.baseUrl ? '_blank' : undefined}
-                    rel={config.api.baseUrl ? 'noreferrer' : undefined}
-                  >
-                    前往 Komari 后台登录 (/admin)
-                  </a>
-                )}
-              </div>
-            </section>
-
-            {renderLayoutSyncCard()}
-
-            <section className="d-sec">
-              <div className="d-sec-head">
-                <h3 className="d-title">本地配置备份 / 恢复</h3>
-                <span className="d-meta">JSON</span>
-              </div>
-              <div className="d-two-col">
-                <button type="button" className="d-ghost-btn" onClick={onExportConfigJson}>
-                  复制导出
-                </button>
-                <button
-                  type="button"
-                  className="d-ghost-btn"
-                  disabled={!canEdit}
-                  title={canEdit ? '导入 JSON 覆盖当前编排' : '需管理员进入编排模式后导入'}
-                  onClick={() => {
-                    if (!canEdit) return;
-                    setShowImportBox((v) => !v);
-                    setImportErr(null);
-                  }}
-                >
-                  {showImportBox ? '收起导入' : canEdit ? '导入 JSON' : '导入 (只读)'}
-                </button>
-              </div>
-              {showImportBox && canEdit && (
-                <div className="d-import-box">
-                  <textarea
-                    className="d-textarea"
-                    rows={4}
-                    placeholder="粘贴此前导出的 JSON..."
-                    value={importDraft}
-                    onChange={(e) => setImportDraft(e.target.value)}
-                  />
-                  {importErr && <p className="d-err-text">{importErr}</p>}
-                  <button type="button" className="d-primary-sm" onClick={handleApplyImport}>
-                    应用配置
-                  </button>
-                </div>
-              )}
-            </section>
-          </div>
-        )}
-      </div>
-      </aside>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

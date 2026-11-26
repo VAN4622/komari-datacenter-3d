@@ -1,0 +1,394 @@
+@layer base, ui-sdk;
+
+@import "@ui-sdk/core/web.css";
+
+:root {
+  --ui-font-serif: 'Newsreader', 'New York', 'Noto Serif SC', 'Songti SC', 'Source Han Serif SC', 'Hiragino Mincho ProN', 'STSong', Georgia, serif;
+  --ui-font-sans: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
+  --ui-font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  --ui-spacing: 0.25rem;
+  --ui-font-size: 0.8125rem;
+  --ui-line-height: 1.5;
+  --ui-radius: 7px;
+
+  --sig-ok: #2ea67a;
+  --sig-ok-soft: rgba(46, 166, 122, 0.14);
+  --sig-warn: #d4943a;
+  --sig-warn-soft: rgba(212, 148, 58, 0.15);
+  --sig-crit: #d45b52;
+  --sig-crit-soft: rgba(212, 91, 82, 0.15);
+  --sig-accent: #5b9bd5;
+  --sig-accent-soft: rgba(91, 155, 213, 0.14);
+  --sig-idle: #767d8a;
+}
+
+/* ============================================================================
+   Studio Dark (Default — Anodized Graphite Gallery Studio)
+   ============================================================================ */
+:root,
+:root[data-atmo="studio-dark"],
+.dc-app.atmo-studio-dark {
+  color-scheme: dark;
+  --ui-background: #14161c;
+  --ui-foreground: #efeee9;
+  --ui-muted: #1c1f27;
+  --ui-muted-foreground: #969da9;
+  --ui-border: rgba(255, 255, 255, 0.095);
+  --ui-input: rgba(255, 255, 255, 0.14);
+  --ui-primary: #efeee9;
+  --ui-primary-foreground: #12141a;
+  --ui-destructive: #e06b62;
+  --ui-ring: rgba(239, 238, 233, 0.24);
+  --ui-ring-border: rgba(239, 238, 233, 0.42);
+  --ui-overlay: rgba(5, 6, 9, 0.66);
+  --ui-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.52),
+    0 18px 46px -14px rgba(0, 0, 0, 0.78);
+
+  --kdc-canvas: #0a0b0e;
+  --kdc-surface: #13151b;
+  --kdc-surface-elevated: #191c24;
+  --kdc-surface-chrome: rgba(20, 22, 28, 0.9);
+  --kdc-surface-glass: rgba(18, 20, 26, 0.64);
+  --kdc-surface-glass-solid: rgba(18, 21, 28, 0.82);
+  --kdc-hairline: rgba(255, 255, 255, 0.08);
+  --kdc-hairline-strong: rgba(255, 255, 255, 0.145);
+  --kdc-subtle-fill: rgba(255, 255, 255, 0.036);
+  --kdc-hover-fill: rgba(255, 255, 255, 0.072);
+  --kdc-ink: #efeee9;
+  --kdc-ink-muted: #9b9fa9;
+  --kdc-ink-faint: #6a707d;
+
+  --kdc-tactile-panel: linear-gradient(180deg, #1b1e26 0%, #14171e 100%);
+  --kdc-tactile-key: linear-gradient(180deg, #272b35 0%, #1c1f28 100%);
+  --kdc-tactile-key-hover: linear-gradient(180deg, #2e333f 0%, #222630 100%);
+  --kdc-tactile-well: #0c0e13;
+  --kdc-tactile-well-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.6), inset 0 -1px 0 rgba(255, 255, 255, 0.045);
+  --kdc-tactile-inset: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+  --kdc-tactile-key-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13), inset 0 -1px 0 rgba(0, 0, 0, 0.42), 0 1px 2px rgba(0, 0, 0, 0.48);
+  --kdc-tactile-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 36px -12px rgba(0, 0, 0, 0.74);
+  --kdc-glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+
+  --studio-softbox:
+    radial-gradient(ellipse 66% 52% at 50% 8%, rgba(250, 248, 242, 0.065) 0%, rgba(180, 184, 196, 0.022) 44%, transparent 74%),
+    radial-gradient(circle at 50% 48%, rgba(235, 232, 224, 0.02) 0%, transparent 58%);
+  --studio-grid-dot: rgba(255, 255, 255, 0.055);
+  --studio-horizon: linear-gradient(180deg, transparent 0%, transparent 73%, rgba(255, 255, 255, 0.02) 73.2%, rgba(0, 0, 0, 0.32) 100%);
+  --studio-floor-line: rgba(255, 255, 255, 0.1);
+  --studio-vignette: radial-gradient(ellipse 84% 82% at 50% 48%, transparent 50%, rgba(0, 0, 0, 0.64) 100%);
+
+  --tether-line: rgba(239, 238, 233, 0.38);
+  --tether-node: #efeee9;
+  --tether-halo: rgba(239, 238, 233, 0.12);
+
+  --ssig-ink-top: #f2f0ea;
+  --ssig-ink-bot: #a9a69d;
+  --ssig-meta-ink: #828794;
+  --ssig-rule: rgba(255, 255, 255, 0.13);
+  --ssig-tone-ok: #38b386;
+  --ssig-tone-warn: #d99b3d;
+  --ssig-tone-crit: #d9645b;
+  --ssig-tone-idle: #767d8a;
+
+  --map-dot: rgba(239, 238, 233, 0.17);
+  --map-dot-active: rgba(239, 238, 233, 0.74);
+  --map-grat: rgba(239, 238, 233, 0.055);
+  --map-grat-major: rgba(239, 238, 233, 0.12);
+  --map-arc: rgba(239, 238, 233, 0.14);
+  --map-arc-flow: rgba(239, 238, 233, 0.28);
+  --map-arc-active: rgba(239, 238, 233, 0.48);
+  --map-arc-pulse: #8ec5f4;
+  --map-arc-head: #f7f6f1;
+  --map-arc-return: #52c99b;
+  --map-pin-top: #282d38;
+  --map-pin-bot: #191d25;
+  --map-pin-hover-top: #313745;
+  --map-pin-hover-bot: #1f242e;
+  --map-pin-sel-top: #f3f1ec;
+  --map-pin-sel-bot: #e3e0d8;
+  --map-pin-stroke: rgba(255, 255, 255, 0.17);
+  --map-pin-bevel: rgba(255, 255, 255, 0.22);
+  --map-pin-divider: rgba(255, 255, 255, 0.13);
+  --map-pin-sel-divider: rgba(24, 26, 31, 0.16);
+  --map-pin-shadow: rgba(0, 0, 0, 0.54);
+  --map-pin-flag-border: rgba(255, 255, 255, 0.22);
+  --map-pin-stem: rgba(239, 238, 233, 0.34);
+
+  --chart-s1: #60a5fa;
+  --chart-s2: #e08d4a;
+  --chart-s3: #38b386;
+  --chart-s4: #a78bfa;
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-axis: #7d8492;
+}
+
+/* ============================================================================
+   Studio Light (Warm Alabaster Porcelain Gallery)
+   ============================================================================ */
+:root[data-atmo="studio-light"],
+.dc-app.atmo-studio-light {
+  color-scheme: light;
+  --ui-background: #fbfaf7;
+  --ui-foreground: #191a1e;
+  --ui-muted: #eeece6;
+  --ui-muted-foreground: #5c606b;
+  --ui-border: rgba(25, 26, 30, 0.1);
+  --ui-input: rgba(25, 26, 30, 0.16);
+  --ui-primary: #1c1e24;
+  --ui-primary-foreground: #fbfaf7;
+  --ui-destructive: #c4443b;
+  --ui-ring: rgba(25, 26, 30, 0.18);
+  --ui-ring-border: rgba(25, 26, 30, 0.38);
+  --ui-overlay: rgba(22, 23, 28, 0.34);
+  --ui-shadow:
+    0 1px 2px rgba(20, 22, 28, 0.06),
+    0 16px 38px -14px rgba(20, 22, 28, 0.15);
+
+  --kdc-canvas: #f2f0ec;
+  --kdc-surface: #faf9f6;
+  --kdc-surface-elevated: #f4f2ed;
+  --kdc-surface-chrome: rgba(251, 250, 247, 0.92);
+  --kdc-surface-glass: rgba(252, 251, 248, 0.72);
+  --kdc-surface-glass-solid: rgba(252, 251, 248, 0.86);
+  --kdc-hairline: rgba(25, 26, 30, 0.09);
+  --kdc-hairline-strong: rgba(25, 26, 30, 0.17);
+  --kdc-subtle-fill: rgba(25, 26, 30, 0.035);
+  --kdc-hover-fill: rgba(25, 26, 30, 0.065);
+  --kdc-ink: #181a1f;
+  --kdc-ink-muted: #555963;
+  --kdc-ink-faint: #7c808b;
+
+  --kdc-tactile-panel: linear-gradient(180deg, #ffffff 0%, #f5f3ee 100%);
+  --kdc-tactile-key: linear-gradient(180deg, #ffffff 0%, #f1efe9 100%);
+  --kdc-tactile-key-hover: linear-gradient(180deg, #ffffff 0%, #eae7e0 100%);
+  --kdc-tactile-well: #e7e4dd;
+  --kdc-tactile-well-shadow: inset 0 1.5px 3px rgba(25, 26, 30, 0.095), inset 0 -1px 0 rgba(255, 255, 255, 0.88);
+  --kdc-tactile-inset: inset 0 1px 0 rgba(255, 255, 255, 0.96), inset 0 -1px 0 rgba(25, 26, 30, 0.05);
+  --kdc-tactile-key-shadow: inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(25, 26, 30, 0.07), 0 1px 2px rgba(25, 26, 30, 0.09);
+  --kdc-tactile-shadow: 0 1px 2px rgba(25, 26, 30, 0.06), 0 14px 32px -14px rgba(25, 26, 30, 0.15);
+  --kdc-glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(25, 26, 30, 0.04);
+
+  --studio-softbox:
+    radial-gradient(ellipse 74% 56% at 50% 6%, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.38) 48%, transparent 76%);
+  --studio-grid-dot: rgba(25, 26, 30, 0.075);
+  --studio-horizon: linear-gradient(180deg, transparent 0%, transparent 73%, rgba(25, 26, 30, 0.025) 73.2%, rgba(25, 26, 30, 0.06) 100%);
+  --studio-floor-line: rgba(25, 26, 30, 0.11);
+  --studio-vignette: radial-gradient(ellipse 88% 84% at 50% 48%, transparent 58%, rgba(25, 26, 30, 0.075) 100%);
+
+  --tether-line: rgba(24, 26, 31, 0.34);
+  --tether-node: #181a1f;
+  --tether-halo: rgba(24, 26, 31, 0.1);
+
+  --ssig-ink-top: #1d1f24;
+  --ssig-ink-bot: #4b4e57;
+  --ssig-meta-ink: #646873;
+  --ssig-rule: rgba(25, 26, 30, 0.15);
+  --ssig-tone-ok: #1f7f5c;
+  --ssig-tone-warn: #b3711a;
+  --ssig-tone-crit: #b93d35;
+  --ssig-tone-idle: #646873;
+
+  --map-dot: rgba(25, 26, 30, 0.2);
+  --map-dot-active: rgba(25, 26, 30, 0.82);
+  --map-grat: rgba(25, 26, 30, 0.06);
+  --map-grat-major: rgba(25, 26, 30, 0.13);
+  --map-arc: rgba(25, 26, 30, 0.13);
+  --map-arc-flow: rgba(25, 26, 30, 0.26);
+  --map-arc-active: rgba(25, 26, 30, 0.44);
+  --map-arc-pulse: #2b6cb0;
+  --map-arc-head: #181a1f;
+  --map-arc-return: #1f7f5c;
+  --map-pin-top: #ffffff;
+  --map-pin-bot: #f2f0ea;
+  --map-pin-hover-top: #ffffff;
+  --map-pin-hover-bot: #eae7df;
+  --map-pin-sel-top: #262932;
+  --map-pin-sel-bot: #171920;
+  --map-pin-stroke: rgba(25, 26, 30, 0.16);
+  --map-pin-bevel: rgba(255, 255, 255, 0.96);
+  --map-pin-divider: rgba(25, 26, 30, 0.12);
+  --map-pin-sel-divider: rgba(255, 255, 255, 0.18);
+  --map-pin-shadow: rgba(20, 22, 28, 0.18);
+  --map-pin-flag-border: rgba(25, 26, 30, 0.18);
+  --map-pin-stem: rgba(25, 26, 30, 0.32);
+
+  --chart-s1: #2563eb;
+  --chart-s2: #c2591a;
+  --chart-s3: #1f7f5c;
+  --chart-s4: #6d28d9;
+  --chart-grid: rgba(25, 26, 30, 0.08);
+  --chart-axis: #606470;
+
+  --sig-ok: #1f7f5c;
+  --sig-ok-soft: rgba(31, 127, 92, 0.11);
+  --sig-warn: #b3711a;
+  --sig-warn-soft: rgba(179, 113, 26, 0.12);
+  --sig-crit: #b93d35;
+  --sig-crit-soft: rgba(185, 61, 53, 0.11);
+  --sig-accent: #2563eb;
+  --sig-accent-soft: rgba(37, 99, 235, 0.11);
+}
+
+/* Surface Style Modifiers (Refined Light Skeuomorphism vs Frosted Crystal Glass) */
+:root[data-ui-style="tactile"] {
+  --ui-radius: 7px;
+}
+
+:root[data-ui-style="glass"] {
+  --ui-radius: 11px;
+}
+
+:root[data-ui-style="tactile"] :is(
+  [data-slot="menu-content"],
+  [data-slot="select-content"],
+  [data-slot="popover-content"],
+  [data-slot="dialog-content"],
+  [data-slot="alert-dialog-content"],
+  [data-slot="drawer-content"],
+  [data-slot="toast"]
+) {
+  background: var(--kdc-tactile-panel);
+  box-shadow: var(--kdc-tactile-inset), var(--kdc-tactile-shadow);
+}
+
+:root[data-ui-style="tactile"] [data-slot="segmented-control"] {
+  background: var(--kdc-tactile-well);
+  box-shadow: var(--kdc-tactile-well-shadow);
+}
+
+:root[data-ui-style="tactile"] [data-slot="segmented-control-indicator"] {
+  background: var(--kdc-tactile-key);
+  border-color: var(--kdc-hairline-strong);
+  box-shadow: var(--kdc-tactile-key-shadow);
+}
+
+:is([data-slot="button"], [data-slot="toolbar-button"])[data-variant="solid"] {
+  border-color: var(--ui-primary);
+  background: var(--ui-primary);
+  color: var(--ui-primary-foreground);
+  font-weight: 600;
+}
+
+:is([data-slot="button"], [data-slot="toolbar-button"])[data-variant="solid"]:hover:not([data-disabled]) {
+  background: color-mix(in oklab, var(--ui-primary) 88%, var(--ui-background));
+  color: var(--ui-primary-foreground);
+}
+
+:root[data-ui-style="tactile"] :is([data-slot="button"], [data-slot="toolbar-button"])[data-variant="solid"] {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.24),
+    0 1px 3px rgba(0, 0, 0, 0.26);
+}
+
+:root[data-atmo="studio-dark"][data-ui-style="tactile"] :is([data-slot="button"], [data-slot="toolbar-button"])[data-variant="solid"] {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.16),
+    0 1px 4px rgba(0, 0, 0, 0.36);
+}
+
+:root[data-ui-style="tactile"] :is(
+  [data-slot="input"],
+  [data-slot="textarea"]
+):not(.kdc-cmd-input, .kdc-map-search) {
+  background: var(--kdc-tactile-well);
+  box-shadow: var(--kdc-tactile-well-shadow);
+}
+
+:root[data-ui-style="glass"] [data-slot="menu-content"],
+:root[data-ui-style="glass"] [data-slot="select-content"],
+:root[data-ui-style="glass"] [data-slot="popover-content"],
+:root[data-ui-style="glass"] [data-slot="dialog-content"],
+:root[data-ui-style="glass"] [data-slot="alert-dialog-content"],
+:root[data-ui-style="glass"] [data-slot="drawer-content"],
+:root[data-ui-style="glass"] [data-slot="toast"] {
+  background: var(--kdc-surface-glass-solid);
+  box-shadow: var(--kdc-glass-rim), var(--ui-shadow);
+  backdrop-filter: blur(26px) saturate(160%);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+}
+
+[data-slot="drawer-content"] {
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease;
+}
+
+[data-slot="drawer-content"][data-side="right"]:is([data-starting-style], [data-ending-style]) {
+  transform: translate3d(100%, 0, 0);
+  opacity: 0.7;
+}
+
+[data-slot="drawer-content"][data-side="bottom"]:is([data-starting-style], [data-ending-style]) {
+  transform: translate3d(0, 100%, 0);
+  opacity: 0.7;
+}
+
+/* Smooth micro-transitions on ui-sdk popups & indicators */
+[data-slot="segmented-control-indicator"] {
+  transition:
+    top 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    left 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-slot="tabs-indicator"] {
+  transition:
+    left 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-slot="menu-content"],
+[data-slot="select-content"],
+[data-slot="popover-content"],
+[data-slot="tooltip-content"] {
+  transition:
+    opacity 130ms ease,
+    transform 130ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-slot="menu-content"]:is([data-starting-style], [data-ending-style]),
+[data-slot="select-content"]:is([data-starting-style], [data-ending-style]),
+[data-slot="popover-content"]:is([data-starting-style], [data-ending-style]),
+[data-slot="tooltip-content"]:is([data-starting-style], [data-ending-style]) {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.985);
+}
+
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  transition:
+    opacity 160ms ease,
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-slot="dialog-content"]:is([data-starting-style], [data-ending-style]),
+[data-slot="alert-dialog-content"]:is([data-starting-style], [data-ending-style]) {
+  opacity: 0;
+  transform: translateY(6px) scale(0.985);
+}
+
+[data-slot="dialog-backdrop"],
+[data-slot="alert-dialog-backdrop"],
+[data-slot="drawer-backdrop"] {
+  transition: opacity 180ms ease;
+}
+
+[data-slot="dialog-backdrop"]:is([data-starting-style], [data-ending-style]),
+[data-slot="alert-dialog-backdrop"]:is([data-starting-style], [data-ending-style]),
+[data-slot="drawer-backdrop"]:is([data-starting-style], [data-ending-style]) {
+  opacity: 0;
+}
+
+[data-slot="toast-region"] {
+  z-index: 70;
+}
+
+[data-slot="tooltip-content"] {
+  z-index: 80;
+  font-size: 11.5px;
+  padding: 4px 8px;
+  max-width: 240px;
+}

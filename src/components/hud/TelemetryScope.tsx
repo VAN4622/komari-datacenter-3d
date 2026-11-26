@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Toggle } from '@ui-sdk/react/toggle';
+import { LineChart, Table2 } from 'lucide-react';
 import { formatNetSpeed } from '@/lib/formatters';
 import type { PingProbeSeries, RecordHours, TelemetryPoint } from '@/types/rack';
 
@@ -183,13 +185,15 @@ function LatencyScopeCard({
           </p>
         </div>
         <div className="scope-tools">
-          <button
-            type="button"
-            className={`scope-btn${showTable ? ' is-active' : ''}`}
-            onClick={() => setShowTable((v) => !v)}
+          <Toggle
+            pressed={showTable}
+            onPressedChange={setShowTable}
+            className="scope-btn"
+            aria-label={showTable ? '切换到延迟曲线图' : '切换到延迟明细表'}
           >
-            {showTable ? '图' : '表'}
-          </button>
+            {showTable ? <LineChart size={12} aria-hidden="true" /> : <Table2 size={12} aria-hidden="true" />}
+            <span>{showTable ? '图' : '表'}</span>
+          </Toggle>
         </div>
       </div>
 
@@ -206,23 +210,25 @@ function LatencyScopeCard({
         <>
           {effectiveProbes.length > 1 && (
             <div className="scope-probe-row" role="group" aria-label="筛选延迟探针">
-              <button
-                type="button"
-                className={`scope-probe-chip${selectedProbeId === 'all' ? ' is-active' : ''}`}
-                onClick={() => setSelectedProbeId('all')}
+              <Toggle
+                pressed={selectedProbeId === 'all'}
+                onPressedChange={() => setSelectedProbeId('all')}
+                className="scope-probe-chip"
               >
                 全部 ({effectiveProbes.length})
-              </button>
+              </Toggle>
               {effectiveProbes.map((probe, idx) => (
-                <button
+                <Toggle
                   key={probe.id}
-                  type="button"
-                  className={`scope-probe-chip${selectedProbeId === probe.id ? ' is-active' : ''}`}
-                  onClick={() => setSelectedProbeId((cur) => (cur === probe.id ? 'all' : probe.id))}
+                  pressed={selectedProbeId === probe.id}
+                  onPressedChange={() =>
+                    setSelectedProbeId((cur) => (cur === probe.id ? 'all' : probe.id))
+                  }
+                  className="scope-probe-chip"
                 >
                   <i className="scope-probe-dot" style={{ background: SLOT_COLORS[idx % SLOT_COLORS.length] }} />
                   <span>{probe.name}</span>
-                </button>
+                </Toggle>
               ))}
             </div>
           )}
@@ -248,7 +254,9 @@ function LatencyScopeCard({
             <div className="scope-kpi">
               <span>丢包</span>
               <strong>
-                {summary.loss > 0 && <i className={`scope-loss-dot${summary.loss >= 5 ? ' is-high' : ''}`} />}
+                {summary.loss > 0 && (
+                  <i className={`scope-loss-dot ${summary.loss >= 5 ? 'is-crit' : 'is-warn'}`} />
+                )}
                 {online ? `${summary.loss}%` : '--'}
               </strong>
             </div>
@@ -369,7 +377,7 @@ function LatencyScopeCard({
                                   cx={xFor(i)}
                                   cy={pad.top + plotH - 2}
                                   r={2.6}
-                                  fill="var(--studio-bg, #0c1017)"
+                                  fill="var(--kdc-surface)"
                                   stroke="#ef4444"
                                   strokeWidth={1.4}
                                 />
@@ -381,7 +389,7 @@ function LatencyScopeCard({
                               cy={yFor(vals[lastValidIdx]!)}
                               r={3.2}
                               fill={color}
-                              stroke="var(--studio-bg, #0c1017)"
+                              stroke="var(--kdc-surface)"
                               strokeWidth={1.2}
                             />
                           )}
@@ -428,7 +436,7 @@ function LatencyScopeCard({
                               cy={yFor(v)}
                               r={4}
                               fill={SLOT_COLORS[origIdx % SLOT_COLORS.length]}
-                              stroke="var(--studio-bg, #0c1017)"
+                              stroke="var(--kdc-surface)"
                               strokeWidth={1.5}
                             />
                           );
@@ -534,13 +542,15 @@ function LoadScopeCard({
           </p>
         </div>
         <div className="scope-tools">
-          <button
-            type="button"
-            className={`scope-btn${showTable ? ' is-active' : ''}`}
-            onClick={() => setShowTable((v) => !v)}
+          <Toggle
+            pressed={showTable}
+            onPressedChange={setShowTable}
+            className="scope-btn"
+            aria-label={showTable ? '切换到负载曲线图' : '切换到负载明细表'}
           >
-            {showTable ? '图' : '表'}
-          </button>
+            {showTable ? <LineChart size={12} aria-hidden="true" /> : <Table2 size={12} aria-hidden="true" />}
+            <span>{showTable ? '图' : '表'}</span>
+          </Toggle>
         </div>
       </div>
 
@@ -645,7 +655,7 @@ function LoadScopeCard({
                       cy={yFor(last.cpu)}
                       r={3.4}
                       fill={cpuColor}
-                      stroke="var(--studio-bg, #0c1017)"
+                      stroke="var(--kdc-surface)"
                       strokeWidth={1.2}
                     />
                     <circle
@@ -653,7 +663,7 @@ function LoadScopeCard({
                       cy={yFor(last.ram)}
                       r={3.4}
                       fill={ramColor}
-                      stroke="var(--studio-bg, #0c1017)"
+                      stroke="var(--kdc-surface)"
                       strokeWidth={1.2}
                     />
                     <text
@@ -715,7 +725,7 @@ function LoadScopeCard({
                       cy={yFor(activePt.cpu)}
                       r={4}
                       fill={cpuColor}
-                      stroke="var(--studio-bg, #0c1017)"
+                      stroke="var(--kdc-surface)"
                       strokeWidth={1.5}
                     />
                     <circle
@@ -723,7 +733,7 @@ function LoadScopeCard({
                       cy={yFor(activePt.ram)}
                       r={4}
                       fill={ramColor}
-                      stroke="var(--studio-bg, #0c1017)"
+                      stroke="var(--kdc-surface)"
                       strokeWidth={1.5}
                     />
                   </g>
@@ -848,13 +858,15 @@ function ThroughputScopeCard({
           </p>
         </div>
         <div className="scope-tools">
-          <button
-            type="button"
-            className={`scope-btn${showTable ? ' is-active' : ''}`}
-            onClick={() => setShowTable((v) => !v)}
+          <Toggle
+            pressed={showTable}
+            onPressedChange={setShowTable}
+            className="scope-btn"
+            aria-label={showTable ? '切换到吞吐曲线图' : '切换到吞吐明细表'}
           >
-            {showTable ? '图' : '表'}
-          </button>
+            {showTable ? <LineChart size={12} aria-hidden="true" /> : <Table2 size={12} aria-hidden="true" />}
+            <span>{showTable ? '图' : '表'}</span>
+          </Toggle>
         </div>
       </div>
 
@@ -958,7 +970,7 @@ function ThroughputScopeCard({
                   cy={yForBps(points[points.length - 1].netDown ?? 0)}
                   r={3.2}
                   fill={rxColor}
-                  stroke="var(--studio-bg, #0c1017)"
+                  stroke="var(--kdc-surface)"
                   strokeWidth={1.2}
                 />
                 <circle
@@ -966,7 +978,7 @@ function ThroughputScopeCard({
                   cy={yForBps(points[points.length - 1].netUp ?? 0)}
                   r={3.2}
                   fill={txColor}
-                  stroke="var(--studio-bg, #0c1017)"
+                  stroke="var(--kdc-surface)"
                   strokeWidth={1.2}
                 />
 
@@ -1002,7 +1014,7 @@ function ThroughputScopeCard({
                       cy={yForBps(activePt.netDown ?? 0)}
                       r={4}
                       fill={rxColor}
-                      stroke="var(--studio-bg, #0c1017)"
+                      stroke="var(--kdc-surface)"
                       strokeWidth={1.5}
                     />
                     <circle
@@ -1010,7 +1022,7 @@ function ThroughputScopeCard({
                       cy={yForBps(activePt.netUp ?? 0)}
                       r={4}
                       fill={txColor}
-                      stroke="var(--studio-bg, #0c1017)"
+                      stroke="var(--kdc-surface)"
                       strokeWidth={1.5}
                     />
                   </g>

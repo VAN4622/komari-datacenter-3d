@@ -6,6 +6,39 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { Button } from '@ui-sdk/react/button';
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from '@ui-sdk/react/collapsible';
+import {
+  Meter,
+  MeterIndicator,
+  MeterLabel,
+  MeterTrack,
+  MeterValue,
+} from '@ui-sdk/react/meter';
+import { Separator } from '@ui-sdk/react/separator';
+import { Toggle } from '@ui-sdk/react/toggle';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@ui-sdk/react/tooltip';
+import {
+  Activity,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  GripVertical,
+  MapPin,
+  Palette,
+  Radio,
+  RotateCcw,
+  X,
+} from 'lucide-react';
 import { RegionFlag } from '@/components/ui/RegionFlag';
 import { formatBytesGiB } from '@/data/fleet';
 import { formatNetSpeed } from '@/lib/formatters';
@@ -61,9 +94,9 @@ function getLoadTone(pct: number, warnAt = 78, critAt = 92): 'normal' | 'warn' |
 }
 
 const DESKTOP_BREAKPOINT = 900;
-const HUD_DEFAULT_W = 312;
-const HUD_EST_H_EXPANDED = 264;
-const HUD_EST_H_COLLAPSED = 88;
+const HUD_DEFAULT_W = 320;
+const HUD_EST_H_EXPANDED = 286;
+const HUD_EST_H_COLLAPSED = 90;
 
 export function ServerStatusHud({
   node,
@@ -127,6 +160,9 @@ export function ServerStatusHud({
     const frameEl =
       document.querySelector<HTMLElement>('.studio-aisle-slot.is-active .srack-cabinet') ??
       document.querySelector<HTMLElement>('.srack-cabinet');
+    const sideFaceEl =
+      document.querySelector<HTMLElement>('.studio-aisle-slot.is-active .srack-face-right') ??
+      document.querySelector<HTMLElement>('.srack-face-right');
 
     if (cardRef.current) {
       const cr = cardRef.current.getBoundingClientRect();
@@ -146,10 +182,14 @@ export function ServerStatusHud({
 
     const ar = anchorEl.getBoundingClientRect();
     const cabRect = frameEl?.getBoundingClientRect();
+    const isSideView = Boolean(frameEl?.closest('.studio-pivot.angle-side'));
+    const sideRect = isSideView ? sideFaceEl?.getBoundingClientRect() : null;
     const anchorX = ar.left + ar.width / 2;
     const anchorY = ar.top + ar.height / 2;
     const rackLeft = cabRect ? cabRect.left : ar.left - 340;
-    const rackRight = cabRect ? cabRect.right : ar.right;
+    const baseRight = cabRect ? cabRect.right : ar.right;
+    const rackRight =
+      sideRect && sideRect.width > 4 ? Math.max(baseRight, sideRect.right) : baseRight;
 
     setGeom({
       anchorX,
@@ -249,17 +289,20 @@ export function ServerStatusHud({
 
   if (!node) return null;
 
+  if (drawerOpen) {
+    return null;
+  }
+
   if (!visible) {
     return (
-      <button
-        type="button"
-        className="lg-pill lg-hud-restore"
+      <Button
+        className="kdc-hud-restore"
         onClick={onShow}
-        title="显示节点浮窗"
+        aria-label={`恢复节点 ${node.name} 悬浮状态卡`}
       >
-        <span className={`lg-status-dot ${node.online ? 'is-on' : 'is-off'}`} />
+        <span className={`kdc-sig-dot ${node.online ? 'is-live' : 'is-err'}`} aria-hidden="true" />
         <span>{node.name}</span>
-      </button>
+      </Button>
     );
   }
 
@@ -268,14 +311,13 @@ export function ServerStatusHud({
   const diskPct = Math.min(100, Math.max(0, Math.round(node.disk)));
   const geo = resolveNodeGeo(node);
 
-  // Dynamically compute free-floating Liquid Glass HUD coordinates relative to the selected server & viewport
   const cardW = cardSize.w || HUD_DEFAULT_W;
   const cardH = cardSize.h || (collapsed ? HUD_EST_H_COLLAPSED : HUD_EST_H_EXPANDED);
-  const topBound = 72;
-  const bottomBound = geom.vh - 82;
-  const rightSafeLimit = drawerOpen ? geom.vw - 414 : geom.vw - 22;
-  const leftSafeLimit = 22;
-  const gap = 58;
+  const topBound = 66;
+  const bottomBound = geom.vh - 78;
+  const rightSafeLimit = drawerOpen ? geom.vw - 434 : geom.vw - 20;
+  const leftSafeLimit = 20;
+  const gap = 56;
 
   let autoX = Math.max(leftSafeLimit, rightSafeLimit - cardW);
   let autoY = Math.max(topBound, Math.min(bottomBound - cardH, geom.vh * 0.5 - cardH * 0.5));
@@ -406,59 +448,26 @@ export function ServerStatusHud({
 
   return (
     <>
-      {/* Full-Viewport Minimal Optical Glass Filament Tether */}
       {tether.visible && (
         <svg
-          className={`lg-tether-layer${node.online ? '' : ' is-offline'}${rackSwitching ? ' is-rack-switching' : ''}`}
+          className={`kdc-tether-layer${node.online ? '' : ' is-offline'}${rackSwitching ? ' is-rack-switching' : ''}`}
           viewBox={`0 0 ${geom.vw} ${geom.vh}`}
           width={geom.vw}
           height={geom.vh}
           aria-hidden="true"
         >
-          <defs>
-            <linearGradient
-              id="lgTetherGrad"
-              gradientUnits="userSpaceOnUse"
-              x1={tether.anchorX}
-              y1={tether.anchorY}
-              x2={tether.portX}
-              y2={tether.portY}
-            >
-              <stop offset="0%" stopColor="var(--tether-start)" stopOpacity="0.88" />
-              <stop offset="52%" stopColor="var(--tether-mid)" stopOpacity="0.46" />
-              <stop offset="100%" stopColor="var(--tether-end)" stopOpacity="0.72" />
-            </linearGradient>
-
-            <filter id="lgTetherBloom" x="-25%" y="-25%" width="150%" height="150%">
-              <feGaussianBlur stdDeviation="2.2" />
-            </filter>
-          </defs>
-
-          {/* Soft refractive aura behind the filament */}
           <path
             d={tether.pathD}
             fill="none"
-            stroke="url(#lgTetherGrad)"
-            strokeWidth="4"
-            strokeLinecap="round"
-            opacity="0.22"
-            filter="url(#lgTetherBloom)"
-          />
-
-          {/* Razor-thin continuous optical hair-line */}
-          <path
-            d={tether.pathD}
-            fill="none"
-            stroke="url(#lgTetherGrad)"
-            strokeWidth="1.25"
+            className="kdc-tether-line"
+            strokeWidth="1"
             strokeLinecap="round"
           />
 
-          {/* Single subtle light pulse gliding smoothly from hardware to glass panel */}
           {node.online && (
-            <circle r="2.3" className="lg-tether-pulse" filter="url(#lgTetherBloom)">
+            <circle r="2" className="kdc-tether-pulse">
               <animateMotion
-                dur="3.4s"
+                dur="3.2s"
                 repeatCount="indefinite"
                 path={tether.pathD}
                 calcMode="spline"
@@ -468,21 +477,24 @@ export function ServerStatusHud({
             </circle>
           )}
 
-          {/* Minimal Hardware Anchor Pin */}
           <g transform={`translate(${tether.anchorX}, ${tether.anchorY})`}>
-            <circle r="5.5" className="lg-anchor-halo" />
-            <circle r="2.4" className="lg-anchor-core" />
+            <circle r="5.5" className="kdc-anchor-ring" />
+            <circle r="2" className="kdc-anchor-core" />
           </g>
 
-          {/* Minimal Glass Card Edge Bead */}
-          <circle cx={tether.portX} cy={tether.portY} r="2.3" className="lg-dock-bead" />
+          <rect
+            x={tether.portX - 2.5}
+            y={tether.portY - 2.5}
+            width="5"
+            height="5"
+            className="kdc-dock-node"
+          />
         </svg>
       )}
 
-      {/* Apple Liquid Glass Floating Inspector Panel */}
       <aside
         ref={cardRef}
-        className={`lg-hud-card${collapsed ? ' is-collapsed' : ''}${node.online ? '' : ' is-offline'}${isMobile ? ' is-mobile' : ' is-floating'}${dragging ? ' is-dragging' : ''}`}
+        className={`kdc-hud-card${collapsed ? ' is-collapsed' : ''}${node.online ? '' : ' is-offline'}${isMobile ? ' is-mobile' : ' is-floating'}${dragging ? ' is-dragging' : ''}`}
         style={
           isMobile
             ? undefined
@@ -492,213 +504,241 @@ export function ServerStatusHud({
         }
         aria-label="当前节点实时状态"
       >
-        {/* Draggable Liquid Glass Header */}
-        <div
-          className="lg-hud-head"
-          onPointerDown={handleDragStart}
-          onPointerMove={handleDragMove}
-          onPointerUp={handleDragEnd}
-          onPointerCancel={handleDragEnd}
-          title={isMobile ? undefined : '拖动以自由摆放浮窗位置'}
+        <Collapsible
+          open={!collapsed}
+          onOpenChange={(nextOpen) => {
+            if (nextOpen === collapsed) onToggleCollapse();
+          }}
         >
-          <div className="lg-head-row">
-            <button
-              type="button"
-              className="lg-hud-identity"
-              onClick={onToggleCollapse}
-              title={collapsed ? '展开详情' : '收起详情'}
+          {isMobile && (
+            <CollapsibleTrigger
+              className="kdc-mobile-grab"
+              aria-label={collapsed ? '展开节点详情' : '收起节点详情'}
             >
-              <span className={`lg-status-dot ${node.online ? 'is-on' : 'is-off'}`} />
-              <div className="lg-title-col">
-                <div className="lg-name-line">
-                  <span className="lg-flag">
+              <span />
+            </CollapsibleTrigger>
+          )}
+
+          <div
+            className="kdc-hud-head"
+            onPointerDown={handleDragStart}
+            onPointerMove={handleDragMove}
+            onPointerUp={handleDragEnd}
+            onPointerCancel={handleDragEnd}
+          >
+            <div className="kdc-hud-head-left">
+              {!isMobile && (
+                <GripVertical size={13} className="kdc-drag-grip" aria-hidden="true" />
+              )}
+              <span className={`kdc-sig-dot ${node.online ? 'is-live' : 'is-err'}`} aria-hidden="true" />
+              <div className="kdc-hud-identity">
+                <div className="kdc-hud-name-line">
+                  <span className="kdc-hud-flag">
                     <RegionFlag code={geo.code} size="sm" />
                   </span>
-                  <span className="lg-name">{node.name}</span>
+                  <span className="kdc-hud-name">{node.name}</span>
                 </div>
-                <span className="lg-sub">
+                <span className="kdc-hud-sub">
                   {geo.name}
                   {shortRack ? ` · ${shortRack}` : ''}
                   {` · ${node.cpu_cores}C ${formatBytesGiB(node.mem_total)}`}
                 </span>
               </div>
-            </button>
+            </div>
 
-            <div className="lg-head-controls">
+            <div className="kdc-hud-controls">
               {totalNodes > 1 && (
-                <div className="lg-nav-group">
-                  <button
-                    type="button"
-                    className="lg-icon-btn"
-                    onClick={onPrevNode}
-                    aria-label="上一台服务器"
-                    title="上一台"
-                  >
-                    ‹
-                  </button>
-                  <span className="lg-idx">
+                <div className="kdc-hud-stepper">
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          className="kdc-icon-btn"
+                          onClick={onPrevNode}
+                          aria-label="上一台服务器"
+                        />
+                      }
+                    >
+                      <ChevronLeft size={13} aria-hidden="true" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top">上一台节点</TooltipContent>
+                  </Tooltip>
+                  <span className="kdc-hud-idx">
                     {nodeIndex + 1}/{totalNodes}
                   </span>
-                  <button
-                    type="button"
-                    className="lg-icon-btn"
-                    onClick={onNextNode}
-                    aria-label="下一台服务器"
-                    title="下一台"
-                  >
-                    ›
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          className="kdc-icon-btn"
+                          onClick={onNextNode}
+                          aria-label="下一台服务器"
+                        />
+                      }
+                    >
+                      <ChevronRight size={13} aria-hidden="true" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top">下一台节点</TooltipContent>
+                  </Tooltip>
                 </div>
               )}
 
               {!isMobile && manualPos && (
-                <button
-                  type="button"
-                  className="lg-icon-btn is-tinted"
-                  onClick={() => setManualPos(null)}
-                  title="恢复自动跟随"
-                  aria-label="恢复自动跟随"
-                >
-                  ↺
-                </button>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        className="kdc-icon-btn"
+                        onClick={() => setManualPos(null)}
+                        aria-label="恢复自动跟随位置"
+                      />
+                    }
+                  >
+                    <RotateCcw size={12} aria-hidden="true" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top">恢复自动跟随</TooltipContent>
+                </Tooltip>
               )}
 
-              <button
-                type="button"
-                className="lg-icon-btn"
-                onClick={onToggleCollapse}
+              <CollapsibleTrigger
+                className="kdc-icon-btn"
                 aria-label={collapsed ? '展开浮窗' : '收起浮窗'}
-                title={collapsed ? '展开' : '收起'}
               >
-                {collapsed ? '＋' : '−'}
-              </button>
+                {collapsed ? (
+                  <ChevronUp size={13} aria-hidden="true" />
+                ) : (
+                  <ChevronDown size={13} aria-hidden="true" />
+                )}
+              </CollapsibleTrigger>
 
-              <button
-                type="button"
-                className="lg-icon-btn"
+              <Button
+                className="kdc-icon-btn"
                 onClick={onHide}
                 aria-label="关闭浮窗"
-                title="关闭"
               >
-                ×
-              </button>
+                <X size={13} aria-hidden="true" />
+              </Button>
             </div>
           </div>
-        </div>
 
-        {collapsed ? (
-          <div
-            className="lg-compact-strip"
-            onClick={onToggleCollapse}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') onToggleCollapse();
-            }}
-          >
-            <span>CPU <b>{cpuPct}%</b></span>
-            <span>内存 <b>{ramPct}%</b></span>
-            <span>↓ <b>{node.online ? formatNetSpeed(node.netDown, true) : '0 B/s'}</b></span>
-            <span><b>{node.online && node.ping > 0 ? `${node.ping}ms` : '—'}</b></span>
-          </div>
-        ) : (
-          <div className="lg-hud-body">
-            {/* Precision Minimal Resource Meters */}
-            <div className="lg-meters">
-              <div className="lg-meter-row">
-                <span className="lg-meter-lbl">CPU</span>
-                <div className="lg-meter-track">
-                  <span
-                    className={`lg-meter-fill tone-${getLoadTone(cpuPct)}`}
-                    style={{ width: `${cpuPct}%` }}
-                  />
-                </div>
-                <span className="lg-meter-val">{cpuPct}%</span>
-              </div>
+          {collapsed && (
+            <Button className="kdc-compact-strip" onClick={onToggleCollapse}>
+              <span>
+                CPU <b>{cpuPct}%</b>
+              </span>
+              <span>
+                RAM <b>{ramPct}%</b>
+              </span>
+              <span>
+                ↓ <b>{node.online ? formatNetSpeed(node.netDown, true) : '0 B/s'}</b>
+              </span>
+              <span>
+                <b>{node.online && node.ping > 0 ? `${node.ping}ms` : '—'}</b>
+              </span>
+            </Button>
+          )}
 
-              <div className="lg-meter-row">
-                <span className="lg-meter-lbl">内存</span>
-                <div className="lg-meter-track">
-                  <span
-                    className={`lg-meter-fill tone-${getLoadTone(ramPct, 82, 93)}`}
-                    style={{ width: `${ramPct}%` }}
-                  />
-                </div>
-                <span className="lg-meter-val">{ramPct}%</span>
-              </div>
-
-              <div className="lg-meter-row">
-                <span className="lg-meter-lbl">存储</span>
-                <div className="lg-meter-track">
-                  <span
-                    className={`lg-meter-fill tone-${getLoadTone(diskPct, 85, 95)}`}
-                    style={{ width: `${diskPct}%` }}
-                  />
-                </div>
-                <span className="lg-meter-val">{diskPct}%</span>
-              </div>
-            </div>
-
-            {/* Clean Frosted Glass Telemetry Well */}
-            <div className="lg-metrics-well">
-              <div className="lg-metric-cell">
-                <span>下行</span>
-                <b>{node.online ? formatNetSpeed(node.netDown) : '0 B/s'}</b>
-              </div>
-              <div className="lg-metric-cell">
-                <span>上行</span>
-                <b>{node.online ? formatNetSpeed(node.netUp) : '0 B/s'}</b>
-              </div>
-              <div className="lg-metric-cell">
-                <span>延迟</span>
-                <b>{node.online && node.ping > 0 ? `${node.ping} ms` : '—'}</b>
-              </div>
-              <div className="lg-metric-cell">
-                <span>运行</span>
-                <b>{node.online ? node.uptime : '离线'}</b>
-              </div>
-            </div>
-
-            {/* Refined Action Pills */}
-            <div className="lg-actions">
-              <button
-                type="button"
-                className={`lg-act-btn${uidBlinking ? ' is-active' : ''}`}
-                onClick={onToggleUid}
-                title="点亮服务器前面板蓝色 UID 定位灯"
-              >
-                {uidBlinking ? 'UID 闪烁' : 'UID'}
-              </button>
-
-              <button
-                type="button"
-                className="lg-act-btn"
-                onClick={() => onLocateOnMap(geo.code)}
-                title="在世界地图中定位该区域"
-              >
-                地图
-              </button>
-
-              <button
-                type="button"
-                className="lg-act-btn is-primary"
-                onClick={onOpenTelemetry}
-              >
-                遥测
-              </button>
-
-              {canEdit && (
-                <button
-                  type="button"
-                  className="lg-act-btn"
-                  onClick={onOpenStyle}
+          <CollapsiblePanel className="kdc-hud-panel">
+            <Separator className="kdc-hud-sep" />
+            <div className="kdc-hud-body">
+              <div className="kdc-meters-col">
+                <Meter
+                  value={cpuPct}
+                  min={0}
+                  max={100}
+                  className={`kdc-meter tone-${getLoadTone(cpuPct)}`}
                 >
-                  涂装
-                </button>
-              )}
+                  <MeterLabel className="kdc-meter-lbl">CPU</MeterLabel>
+                  <MeterTrack className="kdc-meter-track">
+                    <MeterIndicator className="kdc-meter-ind" />
+                  </MeterTrack>
+                  <MeterValue className="kdc-meter-val" />
+                </Meter>
+
+                <Meter
+                  value={ramPct}
+                  min={0}
+                  max={100}
+                  className={`kdc-meter tone-${getLoadTone(ramPct, 82, 93)}`}
+                >
+                  <MeterLabel className="kdc-meter-lbl">内存</MeterLabel>
+                  <MeterTrack className="kdc-meter-track">
+                    <MeterIndicator className="kdc-meter-ind" />
+                  </MeterTrack>
+                  <MeterValue className="kdc-meter-val" />
+                </Meter>
+
+                <Meter
+                  value={diskPct}
+                  min={0}
+                  max={100}
+                  className={`kdc-meter tone-${getLoadTone(diskPct, 85, 95)}`}
+                >
+                  <MeterLabel className="kdc-meter-lbl">存储</MeterLabel>
+                  <MeterTrack className="kdc-meter-track">
+                    <MeterIndicator className="kdc-meter-ind" />
+                  </MeterTrack>
+                  <MeterValue className="kdc-meter-val" />
+                </Meter>
+              </div>
+
+              <div className="kdc-kv-grid">
+                <div className="kdc-kv-cell">
+                  <span>下行</span>
+                  <b>{node.online ? formatNetSpeed(node.netDown) : '0 B/s'}</b>
+                </div>
+                <div className="kdc-kv-cell">
+                  <span>上行</span>
+                  <b>{node.online ? formatNetSpeed(node.netUp) : '0 B/s'}</b>
+                </div>
+                <div className="kdc-kv-cell">
+                  <span>延迟</span>
+                  <b>{node.online && node.ping > 0 ? `${node.ping} ms` : '—'}</b>
+                </div>
+                <div className="kdc-kv-cell">
+                  <span>运行</span>
+                  <b>{node.online ? node.uptime : '离线'}</b>
+                </div>
+              </div>
+
+              <div className="kdc-hud-actions">
+                <Toggle
+                  pressed={uidBlinking}
+                  onPressedChange={() => onToggleUid()}
+                  className="kdc-hud-act"
+                  aria-label="切换物理定位灯 UID"
+                >
+                  <Radio size={12} aria-hidden="true" />
+                  <span>{uidBlinking ? 'UID 亮' : 'UID'}</span>
+                </Toggle>
+
+                <Button
+                  className="kdc-hud-act"
+                  onClick={() => onLocateOnMap(geo.code)}
+                >
+                  <MapPin size={12} aria-hidden="true" />
+                  <span>地图</span>
+                </Button>
+
+                <Button
+                  data-variant="solid"
+                  className="kdc-hud-act is-primary"
+                  onClick={onOpenTelemetry}
+                >
+                  <Activity size={12} aria-hidden="true" />
+                  <span>遥测</span>
+                </Button>
+
+                {canEdit && (
+                  <Button className="kdc-hud-act" onClick={onOpenStyle}>
+                    <Palette size={12} aria-hidden="true" />
+                    <span>涂装</span>
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          </CollapsiblePanel>
+        </Collapsible>
       </aside>
     </>
   );
