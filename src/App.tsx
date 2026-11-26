@@ -1474,7 +1474,6 @@ export default function App() {
         />
       )}
 
-      {/* Architectural 3D Micro-Tilted Vertical Status Typography (Rack Stage only) */}
       {stageView === 'rack' && (
         <StudioStatusSignage
           nodes={nodes}

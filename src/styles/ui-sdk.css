@@ -154,10 +154,6 @@
   --tether-node: #efeee9;
   --tether-halo: rgba(239, 238, 233, 0.12);
 
-  --ssig-ink-top: #f2f0ea;
-  --ssig-ink-bot: #a9a69d;
-  --ssig-meta-ink: #828794;
-  --ssig-rule: rgba(255, 255, 255, 0.13);
   --ssig-tone-ok: #38b386;
   --ssig-tone-warn: #d99b3d;
   --ssig-tone-crit: #d9645b;
@@ -165,8 +161,6 @@
 
   --map-dot: rgba(239, 238, 233, 0.17);
   --map-dot-active: rgba(239, 238, 233, 0.74);
-  --map-grat: rgba(239, 238, 233, 0.055);
-  --map-grat-major: rgba(239, 238, 233, 0.12);
   --map-arc: rgba(239, 238, 233, 0.14);
   --map-arc-flow: rgba(239, 238, 233, 0.28);
   --map-arc-active: rgba(239, 238, 233, 0.48);
@@ -186,6 +180,16 @@
   --map-pin-shadow: rgba(0, 0, 0, 0.54);
   --map-pin-flag-border: rgba(255, 255, 255, 0.22);
   --map-pin-stem: rgba(239, 238, 233, 0.34);
+  --globe-sphere-hi: #222733;
+  --globe-sphere-mid: #141720;
+  --globe-sphere-edge: #0a0c12;
+  --globe-rim: rgba(239, 238, 233, 0.16);
+  --globe-rim-spec: rgba(255, 255, 255, 0.24);
+  --globe-halo: rgba(239, 238, 233, 0.055);
+  --globe-shadow: rgba(0, 0, 0, 0.48);
+  --globe-dot-base: rgba(239, 238, 233, 0.27);
+  --globe-dot-active: rgba(239, 238, 233, 0.72);
+  --globe-dot-focus: rgba(247, 246, 241, 0.96);
 
   --chart-s1: #60a5fa;
   --chart-s2: #e08d4a;
@@ -252,10 +256,6 @@
   --tether-node: #181a1f;
   --tether-halo: rgba(24, 26, 31, 0.1);
 
-  --ssig-ink-top: #1d1f24;
-  --ssig-ink-bot: #4b4e57;
-  --ssig-meta-ink: #646873;
-  --ssig-rule: rgba(25, 26, 30, 0.15);
   --ssig-tone-ok: #1f7f5c;
   --ssig-tone-warn: #b3711a;
   --ssig-tone-crit: #b93d35;
@@ -263,8 +263,6 @@
 
   --map-dot: rgba(25, 26, 30, 0.2);
   --map-dot-active: rgba(25, 26, 30, 0.82);
-  --map-grat: rgba(25, 26, 30, 0.06);
-  --map-grat-major: rgba(25, 26, 30, 0.13);
   --map-arc: rgba(25, 26, 30, 0.13);
   --map-arc-flow: rgba(25, 26, 30, 0.26);
   --map-arc-active: rgba(25, 26, 30, 0.44);
@@ -284,6 +282,16 @@
   --map-pin-shadow: rgba(20, 22, 28, 0.18);
   --map-pin-flag-border: rgba(25, 26, 30, 0.18);
   --map-pin-stem: rgba(25, 26, 30, 0.32);
+  --globe-sphere-hi: #ffffff;
+  --globe-sphere-mid: #f4f1ea;
+  --globe-sphere-edge: #e1ddd3;
+  --globe-rim: rgba(25, 26, 30, 0.15);
+  --globe-rim-spec: rgba(255, 255, 255, 0.92);
+  --globe-halo: rgba(25, 26, 30, 0.045);
+  --globe-shadow: rgba(20, 22, 28, 0.15);
+  --globe-dot-base: rgba(25, 26, 30, 0.24);
+  --globe-dot-active: rgba(25, 26, 30, 0.74);
+  --globe-dot-focus: rgba(24, 26, 31, 0.96);
 
   --chart-s1: #2563eb;
   --chart-s2: #c2591a;

@@ -32,6 +32,7 @@ export interface DataLinkArc {
   ctrlY: number;
   midX: number;
   midY: number;
+  angularSpanRad: number;
   trafficBps: number;
   durationSec: number;
   active: boolean;
@@ -39,6 +40,24 @@ export interface DataLinkArc {
 
 export const MAP_WIDTH = 1000;
 export const MAP_HEIGHT = 480;
+
+const DEG_TO_RAD = Math.PI / 180;
+
+export function greatCircleAngleRad(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const p1 = lat1 * DEG_TO_RAD;
+  const p2 = lat2 * DEG_TO_RAD;
+  const dLat = p2 - p1;
+  const dLon = (lon2 - lon1) * DEG_TO_RAD;
+  const sinLat = Math.sin(dLat / 2);
+  const sinLon = Math.sin(dLon / 2);
+  const a = sinLat * sinLat + Math.cos(p1) * Math.cos(p2) * sinLon * sinLon;
+  return 2 * Math.atan2(Math.sqrt(Math.max(0, a)), Math.sqrt(Math.max(0, 1 - a)));
+}
 
 /**
  * Projects geographic coordinates (lat/lon) with a smooth Robinson-inspired pseudocylindrical curve
@@ -342,36 +361,95 @@ export function buildInterRegionLinks(clusters: RegionCluster[]): DataLinkArc[] 
   const pool = clusters;
 
   const pairs = new Map<string, [RegionCluster, RegionCluster]>();
+  const parent = new Map<string, string>();
+  for (const cluster of pool) {
+    parent.set(cluster.hub.code, cluster.hub.code);
+  }
+
+  const findRoot = (code: string): string => {
+    let cur = code;
+    while (parent.get(cur) !== cur) {
+      cur = parent.get(cur) ?? cur;
+    }
+    return cur;
+  };
+
+  const union = (aCode: string, bCode: string) => {
+    const ra = findRoot(aCode);
+    const rb = findRoot(bCode);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+
   const addPair = (a: RegionCluster, b: RegionCluster) => {
     if (a.hub.code === b.hub.code) return;
     const key = [a.hub.code, b.hub.code].sort().join('--');
     if (!pairs.has(key)) {
       pairs.set(key, [a, b]);
+      union(a.hub.code, b.hub.code);
     }
   };
 
-  // 1. Connect primary hub to top 2 other regions
-  const primary = pool[0];
-  for (let i = 1; i < Math.min(pool.length, 3); i++) {
-    addPair(primary, pool[i]);
-  }
-
-  // 2. Connect each cluster to its closest neighbor for clean regional & inter-continental relays
+  // 1. Connect each cluster to its spherical nearest neighbor for clean regional relays
   for (const src of pool) {
     const sorted = pool
       .filter((c) => c.hub.code !== src.hub.code)
       .sort((a, b) => {
-        const da = Math.hypot(a.x - src.x, a.y - src.y);
-        const db = Math.hypot(b.x - src.x, b.y - src.y);
+        const da = greatCircleAngleRad(src.hub.lat, src.hub.lon, a.hub.lat, a.hub.lon);
+        const db = greatCircleAngleRad(src.hub.lat, src.hub.lon, b.hub.lat, b.hub.lon);
         return da - db;
       });
     if (sorted[0]) addPair(src, sorted[0]);
   }
 
-  // 3. Ensure one clean trans-oceanic / cross-continental trunk
-  const sortedByX = [...pool].sort((a, b) => a.x - b.x);
-  if (sortedByX.length >= 2) {
-    addPair(sortedByX[0], sortedByX[sortedByX.length - 1]);
+  // 2. Bridge disconnected continental clusters with shortest great-circle trunks (MST completion)
+  const allEdges: { a: RegionCluster; b: RegionCluster; angle: number }[] = [];
+  for (let i = 0; i < pool.length; i++) {
+    for (let j = i + 1; j < pool.length; j++) {
+      allEdges.push({
+        a: pool[i],
+        b: pool[j],
+        angle: greatCircleAngleRad(
+          pool[i].hub.lat,
+          pool[i].hub.lon,
+          pool[j].hub.lat,
+          pool[j].hub.lon,
+        ),
+      });
+    }
+  }
+  allEdges.sort((e1, e2) => e1.angle - e2.angle);
+  for (const edge of allEdges) {
+    if (findRoot(edge.a.hub.code) !== findRoot(edge.b.hub.code)) {
+      addPair(edge.a, edge.b);
+    }
+  }
+
+  // 3. Add one clean trans-Pacific trunk if both Americas and East Asia/Oceania exist
+  const americas = pool.filter((c) => c.hub.lon < -35);
+  const pacificAsia = pool.filter((c) => c.hub.lon > 95);
+  if (americas.length > 0 && pacificAsia.length > 0) {
+    let bestPair: [RegionCluster, RegionCluster] | null = null;
+    let bestAngle = Infinity;
+    for (const am of americas) {
+      for (const ap of pacificAsia) {
+        const ang = greatCircleAngleRad(am.hub.lat, am.hub.lon, ap.hub.lat, ap.hub.lon);
+        if (ang < bestAngle) {
+          bestAngle = ang;
+          bestPair = [am, ap];
+        }
+      }
+    }
+    if (bestPair) addPair(bestPair[0], bestPair[1]);
+  }
+
+  // 4. Add one trans-Eurasian or inter-hemisphere ring link for visual balance when >= 4 clusters
+  if (pool.length >= 4 && pairs.size < 9) {
+    const europe = pool.filter((c) => c.hub.lon >= -15 && c.hub.lon <= 45);
+    if (europe.length > 0 && pacificAsia.length > 0) {
+      const euHub = europe[0];
+      const apHub = pacificAsia[0];
+      addPair(euHub, apHub);
+    }
   }
 
   const arcs: DataLinkArc[] = [];
@@ -379,6 +457,12 @@ export function buildInterRegionLinks(clusters: RegionCluster[]): DataLinkArc[] 
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const dist = Math.hypot(dx, dy);
+    const angularSpanRad = greatCircleAngleRad(
+      from.hub.lat,
+      from.hub.lon,
+      to.hub.lat,
+      to.hub.lon,
+    );
 
     // Gentle parabolic arch (subtle, refined, never exaggerated)
     const archLift = Math.min(92, Math.max(20, dist * 0.21));
@@ -391,8 +475,8 @@ export function buildInterRegionLinks(clusters: RegionCluster[]): DataLinkArc[] 
 
     const trafficBps =
       from.totalNetDown + from.totalNetUp + to.totalNetDown + to.totalNetUp;
-    // Deterministic transit duration based on geographic span so CSS animations never stutter/reset
-    const durationSec = Math.round((3.0 + Math.min(2.6, dist / 280)) * 10) / 10;
+    // Deterministic transit duration based on true spherical angular span
+    const durationSec = Math.round((2.6 + Math.min(3.0, angularSpanRad * 1.45)) * 10) / 10;
 
     arcs.push({
       id: key,
@@ -403,11 +487,12 @@ export function buildInterRegionLinks(clusters: RegionCluster[]): DataLinkArc[] 
       ctrlY,
       midX,
       midY,
+      angularSpanRad,
       trafficBps,
       durationSec,
       active: from.onlineCount > 0 && to.onlineCount > 0,
     });
   }
 
-  return arcs.slice(0, 10);
+  return arcs.slice(0, 12);
 }

@@ -1,8 +1,8 @@
 {
   "name": "Komari Data Center Studio",
   "short": "komari-datacenter-3d",
-  "description": "极简影棚纯 CSS 3D 拟物机柜监控主题（零 Three.js 零 WebGL），基于 @ui-sdk/react 全量重构：衬线编辑排版与等宽遥测字体、Retina 高清矢量服务器面板与加深纵深 3D 滑轨机柜、轻拟物与 Apple Liquid Glass 双材质界面、⌘K 命令面板、克制竖排状态标牌、带国旗标牌与流光动态弧线的扁平全球节点地图、单平面多探针遥测抽屉及管理员云端编排。",
-  "version": "3.0.1",
+  "description": "极简影棚纯 CSS 3D 拟物机柜监控主题（零 Three.js 零 WebGL），基于 @ui-sdk/react 全量重构：衬线编辑排版与等宽遥测字体、Retina 高清矢量服务器面板与加深纵深 3D 滑轨机柜、轻拟物与 Apple Liquid Glass 双材质界面、⌘K 命令面板、横排画廊式集群状态铭牌、可旋转 3D 虚拟地球仪与纯国旗节点标牌、单平面多探针遥测抽屉及管理员云端编排。",
+  "version": "3.1.0",
   "author": "VAN4622",
   "url": "https://github.com/VAN4622/komari-datacenter-3d",
   "preview": "preview.png",
