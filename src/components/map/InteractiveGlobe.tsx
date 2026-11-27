@@ -51,11 +51,6 @@ interface GlobePalette {
   arcPulse: string;
   arcHead: string;
   arcReturn: string;
-  pinStem: string;
-  ink: string;
-  sigOk: string;
-  sigWarn: string;
-  sigCrit: string;
 }
 
 interface CameraState {
@@ -81,9 +76,8 @@ interface PointerSlot {
   posY: number;
 }
 
-interface ProjectedPin {
+interface ProjectedFlag {
   cluster: RegionCluster;
-  anchor: GlobePlacardAnchor;
   pinX: number;
   pinY: number;
   depthZ: number;
@@ -92,6 +86,9 @@ interface ProjectedPin {
   cardY: number;
   halfW: number;
   halfH: number;
+  fallbackDirX: number;
+  fallbackDirY: number;
+  inViewport: boolean;
   isSelected: boolean;
   isHovered: boolean;
 }
@@ -133,11 +130,6 @@ function readGlobePalette(hostEl: HTMLElement | null): GlobePalette {
     arcPulse: token('--map-arc-pulse', '#8ec5f4'),
     arcHead: token('--map-arc-head', '#f7f6f1'),
     arcReturn: token('--map-arc-return', '#52c99b'),
-    pinStem: token('--map-pin-stem', 'rgba(239, 238, 233, 0.34)'),
-    ink: token('--kdc-ink', '#efeee9'),
-    sigOk: token('--sig-ok', '#2ea67a'),
-    sigWarn: token('--sig-warn', '#d4943a'),
-    sigCrit: token('--sig-crit', '#d45b52'),
   };
 }
 
@@ -319,7 +311,7 @@ export function InteractiveGlobe({
       placardRefs.current.forEach((btn, code) => {
         const width = btn.offsetWidth;
         const height = btn.offsetHeight;
-        if (width > 12 && height > 10) {
+        if (width > 8 && height > 6) {
           map.set(code, { halfW: width / 2, halfH: height / 2 });
         }
       });
@@ -363,7 +355,7 @@ export function InteractiveGlobe({
         radius: stageMetricsRef.current.radius,
       };
       placardRefs.current.forEach((btn, code) => {
-        if (btn.offsetWidth > 12 && btn.offsetHeight > 10) {
+        if (btn.offsetWidth > 8 && btn.offsetHeight > 6) {
           placardSizesRef.current.set(code, {
             halfW: btn.offsetWidth / 2,
             halfH: btn.offsetHeight / 2,
@@ -490,7 +482,6 @@ export function InteractiveGlobe({
 
       const centerX = width / 2;
       const centerY = height / 2 - (isCompact ? 6 : 8);
-      const padBottom = isCompact ? 30 : 28;
 
       const lonRad = cam.lon * DEG_TO_RAD;
       const latRad = cam.lat * DEG_TO_RAD;
@@ -780,10 +771,9 @@ export function InteractiveGlobe({
 
       const curClusters = clustersRef.current;
       const anchors = anchorsRef.current;
-      const projectedPins: ProjectedPin[] = [];
-      const defaultHalfW = isCompact ? 11.5 : 13;
-      const defaultHalfH = isCompact ? 9 : 10;
-      const stemScale = clampVal(radius / 185, 0.78, 1.12);
+      const projectedFlags: ProjectedFlag[] = [];
+      const defaultHalfW = isCompact ? 9 : 10.5;
+      const defaultHalfH = isCompact ? 6 : 7;
 
       for (let idx = 0; idx < curClusters.length; idx++) {
         const cluster = curClusters[idx];
@@ -800,7 +790,7 @@ export function InteractiveGlobe({
           cosLat,
           sinLat,
         );
-        const vis = smoothstep(-0.04, 0.16, rotPos.z);
+        const vis = smoothstep(-0.02, 0.16, rotPos.z);
         const pinX = centerX + rotPos.x * radius;
         const pinY = centerY - rotPos.y * radius;
 
@@ -813,174 +803,140 @@ export function InteractiveGlobe({
           cosLat,
           sinLat,
         );
-
-        let dirX = rotTan.x;
-        let dirY = -rotTan.y;
-        const tanLen = Math.hypot(dirX, dirY);
+        let fallbackDirX = rotTan.x;
+        let fallbackDirY = -rotTan.y;
+        const tanLen = Math.hypot(fallbackDirX, fallbackDirY);
         if (tanLen > 0.001) {
-          dirX /= tanLen;
-          dirY /= tanLen;
+          fallbackDirX /= tanLen;
+          fallbackDirY /= tanLen;
         } else {
-          dirX = 0;
-          dirY = -1;
-        }
-
-        const limbBlend = 1 - smoothstep(0.08, 0.42, rotPos.z);
-        if (limbBlend > 0.01) {
-          const radLen = Math.hypot(rotPos.x, rotPos.y) || 1;
-          const outX = rotPos.x / radLen;
-          const outY = -rotPos.y / radLen;
-          dirX = dirX * (1 - limbBlend * 0.72) + outX * (limbBlend * 0.72);
-          dirY = dirY * (1 - limbBlend * 0.72) + outY * (limbBlend * 0.72);
-          const mixLen = Math.hypot(dirX, dirY) || 1;
-          dirX /= mixLen;
-          dirY /= mixLen;
+          fallbackDirX = 0;
+          fallbackDirY = -1;
         }
 
         const measured = placardSizesRef.current.get(code);
         const halfW = measured?.halfW ?? defaultHalfW;
         const halfH = measured?.halfH ?? defaultHalfH;
-        const support = Math.hypot(dirX * halfW, dirY * halfH);
-        const offsetDist = anchor.stemLen * stemScale + support;
-        const cardX = clampVal(pinX + dirX * offsetDist, halfW + 8, width - halfW - 8);
-        const cardY = clampVal(pinY + dirY * offsetDist, halfH + 8, height - halfH - padBottom);
+        const inViewport =
+          pinX >= -halfW - 14 &&
+          pinX <= width + halfW + 14 &&
+          pinY >= -halfH - 14 &&
+          pinY <= height + halfH + 14;
 
-        projectedPins.push({
+        projectedFlags.push({
           cluster,
-          anchor,
           pinX,
           pinY,
           depthZ: rotPos.z,
           vis,
-          cardX,
-          cardY,
+          cardX: pinX,
+          cardY: pinY,
           halfW,
           halfH,
+          fallbackDirX,
+          fallbackDirY,
+          inViewport,
           isSelected: activeRegion === code,
           isHovered: hoveredRegion === code,
         });
       }
 
-      const visibleForRelax = projectedPins.filter((item) => item.vis > 0.04);
-      for (let pass = 0; pass < 4; pass++) {
+      const visibleForRelax = projectedFlags.filter((item) => item.vis > 0.04 && item.inViewport);
+      const maxDrift = isCompact ? 26 : 36;
+      for (let pass = 0; pass < 6; pass++) {
+        const relaxFactor = pass === 5 ? 1 : 0.78;
         for (let first = 0; first < visibleForRelax.length; first++) {
           const itemA = visibleForRelax[first];
           for (let second = first + 1; second < visibleForRelax.length; second++) {
             const itemB = visibleForRelax[second];
             const diffX = itemB.cardX - itemA.cardX;
             const diffY = itemB.cardY - itemA.cardY;
-            const reqX = itemA.halfW + itemB.halfW + 5;
+            const reqX = itemA.halfW + itemB.halfW + 4;
             const reqY = itemA.halfH + itemB.halfH + 4;
             const overlapX = reqX - Math.abs(diffX);
             const overlapY = reqY - Math.abs(diffY);
             if (overlapX <= 0 || overlapY <= 0) continue;
 
-            const weightA = itemA.isHovered || itemA.isSelected ? 0.25 : 0.5;
-            const weightB = itemB.isHovered || itemB.isSelected ? 0.25 : 0.5;
+            let dirX = diffX;
+            let dirY = diffY;
+            let dirLen = Math.hypot(dirX, dirY);
+            if (dirLen < 0.5) {
+              dirX = itemB.pinX - itemA.pinX;
+              dirY = itemB.pinY - itemA.pinY;
+              dirLen = Math.hypot(dirX, dirY);
+            }
+            if (dirLen < 0.5) {
+              dirX = itemB.fallbackDirX - itemA.fallbackDirX;
+              dirY = itemB.fallbackDirY - itemA.fallbackDirY;
+              dirLen = Math.hypot(dirX, dirY);
+            }
+            if (dirLen < 0.001) {
+              dirX = 1;
+              dirY = 0;
+              dirLen = 1;
+            }
+
+            const ux = dirX / dirLen;
+            const uy = dirY / dirLen;
+            const absUx = Math.abs(ux);
+            const absUy = Math.abs(uy);
+            const clearX = absUx > 1e-4 ? (reqX - Math.abs(diffX)) / absUx : Infinity;
+            const clearY = absUy > 1e-4 ? (reqY - Math.abs(diffY)) / absUy : Infinity;
+            const pushDist = Math.min(clearX, clearY) * relaxFactor;
+
+            const weightA = itemA.isHovered || itemA.isSelected ? 0.2 : 0.5;
+            const weightB = itemB.isHovered || itemB.isSelected ? 0.2 : 0.5;
             const sumW = weightA + weightB;
             const shareA = weightA / sumW;
             const shareB = weightB / sumW;
 
-            if (overlapY <= overlapX * 1.15) {
-              const signY = diffY === 0 ? (itemA.pinY <= itemB.pinY ? 1 : -1) : Math.sign(diffY);
-              itemA.cardY -= signY * overlapY * shareA;
-              itemB.cardY += signY * overlapY * shareB;
-            } else {
-              const signX = diffX === 0 ? (itemA.pinX <= itemB.pinX ? 1 : -1) : Math.sign(diffX);
-              itemA.cardX -= signX * overlapX * shareA;
-              itemB.cardX += signX * overlapX * shareB;
-            }
+            itemA.cardX -= ux * pushDist * shareA;
+            itemA.cardY -= uy * pushDist * shareA;
+            itemB.cardX += ux * pushDist * shareB;
+            itemB.cardY += uy * pushDist * shareB;
 
-            itemA.cardX = clampVal(itemA.cardX, itemA.halfW + 8, width - itemA.halfW - 8);
-            itemA.cardY = clampVal(itemA.cardY, itemA.halfH + 8, height - itemA.halfH - padBottom);
-            itemB.cardX = clampVal(itemB.cardX, itemB.halfW + 8, width - itemB.halfW - 8);
-            itemB.cardY = clampVal(itemB.cardY, itemB.halfH + 8, height - itemB.halfH - padBottom);
+            const driftA = Math.hypot(itemA.cardX - itemA.pinX, itemA.cardY - itemA.pinY);
+            if (driftA > maxDrift) {
+              const scaleA = maxDrift / driftA;
+              itemA.cardX = itemA.pinX + (itemA.cardX - itemA.pinX) * scaleA;
+              itemA.cardY = itemA.pinY + (itemA.cardY - itemA.pinY) * scaleA;
+            }
+            const driftB = Math.hypot(itemB.cardX - itemB.pinX, itemB.cardY - itemB.pinY);
+            if (driftB > maxDrift) {
+              const scaleB = maxDrift / driftB;
+              itemB.cardX = itemB.pinX + (itemB.cardX - itemB.pinX) * scaleB;
+              itemB.cardY = itemB.pinY + (itemB.cardY - itemB.pinY) * scaleB;
+            }
           }
         }
       }
 
-      for (let idx = 0; idx < projectedPins.length; idx++) {
-        const item = projectedPins[idx];
+      for (let idx = 0; idx < projectedFlags.length; idx++) {
+        const item = projectedFlags[idx];
         const code = item.cluster.hub.code;
         const btn = placardRefs.current.get(code);
+        if (!btn) continue;
 
-        if (item.vis <= 0.01) {
-          if (btn) {
-            btn.style.visibility = 'hidden';
-            btn.style.opacity = '0';
-            btn.style.pointerEvents = 'none';
-          }
+        if (item.vis <= 0.01 || !item.inViewport) {
+          btn.style.visibility = 'hidden';
+          btn.style.opacity = '0';
+          btn.style.pointerEvents = 'none';
           continue;
         }
 
         const isDimmed = spotlightRegion !== null && spotlightRegion !== code;
-        const pinAlpha = item.vis * (isDimmed ? 0.48 : 1);
-        const statusColor =
-          item.cluster.onlineCount === 0
-            ? palette.sigCrit
-            : item.cluster.onlineCount < item.cluster.nodes.length
-              ? palette.sigWarn
-              : palette.sigOk;
-
-        const edgeX = clampVal(item.pinX, item.cardX - item.halfW, item.cardX + item.halfW);
-        const edgeY = clampVal(item.pinY, item.cardY - item.halfH, item.cardY + item.halfH);
-
-        ctx.save();
-        ctx.globalAlpha = pinAlpha;
-
-        if (item.cluster.onlineCount > 0 && !reducedMotion) {
-          const pulseT = ((elapsedSec + item.anchor.pulseOffsetSec) % 3.4) / 3.4;
-          const pulseR = 4.2 + pulseT * 10.5;
-          ctx.beginPath();
-          ctx.arc(item.pinX, item.pinY, pulseR, 0, Math.PI * 2);
-          ctx.strokeStyle = statusColor;
-          ctx.lineWidth = 1;
-          ctx.globalAlpha = pinAlpha * Math.pow(1 - pulseT, 1.65) * 0.48;
-          ctx.stroke();
-          ctx.globalAlpha = pinAlpha;
-        }
-
-        ctx.beginPath();
-        ctx.moveTo(item.pinX, item.pinY);
-        ctx.lineTo(edgeX, edgeY);
-        ctx.strokeStyle = item.isHovered || item.isSelected ? palette.ink : palette.pinStem;
-        ctx.lineWidth = item.isHovered || item.isSelected ? 1.15 : 0.9;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(edgeX, edgeY, 1.35, 0, Math.PI * 2);
-        ctx.fillStyle = item.isHovered || item.isSelected ? palette.ink : palette.pinStem;
-        ctx.fill();
-
-        const outerR = item.isSelected || item.isHovered ? 5.1 : 4.2;
-        ctx.beginPath();
-        ctx.arc(item.pinX, item.pinY, outerR, 0, Math.PI * 2);
-        ctx.fillStyle = palette.sphereMid;
-        ctx.fill();
-        ctx.strokeStyle = statusColor;
-        ctx.lineWidth = item.isSelected || item.isHovered ? 1.65 : 1.25;
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(item.pinX, item.pinY, item.isSelected || item.isHovered ? 2.2 : 1.85, 0, Math.PI * 2);
-        ctx.fillStyle = statusColor;
-        ctx.fill();
-        ctx.restore();
-
-        if (btn) {
-          const scale = 0.88 + item.vis * 0.12;
-          const zOrder = item.isHovered
-            ? 50
-            : item.isSelected
-              ? 40
-              : Math.round(10 + item.depthZ * 20);
-          btn.style.visibility = 'visible';
-          btn.style.opacity = String(Number(pinAlpha.toFixed(3)));
-          btn.style.pointerEvents = item.depthZ > 0.05 && !isDragging ? 'auto' : 'none';
-          btn.style.zIndex = String(zOrder);
-          btn.style.transform = `translate3d(${item.cardX.toFixed(1)}px, ${item.cardY.toFixed(1)}px, 0) translate(-50%, -50%) scale(${scale.toFixed(3)})`;
-        }
+        const flagAlpha = item.vis * (isDimmed ? 0.44 : 1);
+        const depthScale = 0.82 + 0.18 * Math.sqrt(clampVal(item.depthZ, 0, 1));
+        const zOrder = item.isHovered
+          ? 50
+          : item.isSelected
+            ? 40
+            : Math.round(10 + item.depthZ * 20);
+        btn.style.visibility = 'visible';
+        btn.style.opacity = String(Number(flagAlpha.toFixed(3)));
+        btn.style.pointerEvents = item.depthZ > 0.05 && !isDragging ? 'auto' : 'none';
+        btn.style.zIndex = String(zOrder);
+        btn.style.transform = `translate3d(${item.cardX.toFixed(1)}px, ${item.cardY.toFixed(1)}px, 0) translate(-50%, -50%) scale(${depthScale.toFixed(3)})`;
       }
 
       rafHandle = window.requestAnimationFrame(renderFrame);
@@ -1205,17 +1161,12 @@ export function InteractiveGlobe({
     >
       <canvas ref={canvasRef} className="kdc-globe-canvas" aria-hidden="true" />
 
-      <div className="kdc-globe-placards" aria-label="全球区域节点标牌">
+      <div className="kdc-globe-placards" aria-label="全球区域国旗">
         {clusters.map((cluster) => {
           const code = cluster.hub.code;
           const isSelected = activeCode === code;
           const isHovered = hoveredCode === code;
-          const toneClass =
-            cluster.onlineCount === 0
-              ? ' is-off'
-              : cluster.onlineCount < cluster.nodes.length
-                ? ' is-warn'
-                : '';
+          const isOffline = cluster.onlineCount === 0;
 
           return (
             <button
@@ -1228,7 +1179,7 @@ export function InteractiveGlobe({
                 }
               }}
               type="button"
-              className={`kdc-globe-placard${isSelected ? ' is-selected' : ''}${isHovered ? ' is-hovered' : ''}${toneClass}`}
+              className={`kdc-globe-placard${isSelected ? ' is-selected' : ''}${isHovered ? ' is-hovered' : ''}${isOffline ? ' is-off' : ''}`}
               aria-pressed={isSelected}
               aria-label={`${cluster.hub.name}，在线 ${cluster.onlineCount}/${cluster.nodes.length}`}
               onClick={() => handlePlacardClick(code)}
@@ -1237,7 +1188,7 @@ export function InteractiveGlobe({
               onFocus={() => onHoverRegion(code)}
               onBlur={() => onHoverRegion(null)}
             >
-              <RegionFlag code={code} size="sm" className="kdc-globe-placard-flag" />
+              <RegionFlag code={code} size="md" className="kdc-globe-placard-flag" />
             </button>
           );
         })}

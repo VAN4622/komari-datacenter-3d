@@ -33,12 +33,8 @@ export interface GlobeArcGeometry {
 export interface GlobePlacardAnchor {
   code: string;
   pos: Vec3;
-  /** Unit tangent direction vector on the sphere pointing away from nearby clusters */
+  /** Unit tangent direction vector on the sphere used as a tie-breaker for ultra-close clusters */
   tangentDir: Vec3;
-  /** Preferred stem length in CSS pixels at reference radius */
-  stemLen: number;
-  /** Deterministic animation phase delay in seconds */
-  pulseOffsetSec: number;
 }
 
 /**
@@ -312,7 +308,6 @@ export function computeGlobePlacardAnchors(
 
   for (let idx = 0; idx < positions.length; idx++) {
     const cur = positions[idx];
-    const closeCount = rawAngles[idx].closeCount;
     const dirEast = Math.cos(angles[idx]);
     const dirNorth = Math.sin(angles[idx]);
 
@@ -321,15 +316,10 @@ export function computeGlobePlacardAnchors(
     const tz = cur.basis.east.z * dirEast + cur.basis.north.z * dirNorth;
     const tLen = Math.hypot(tx, ty, tz) || 1;
 
-    const stemLen =
-      closeCount === 0 ? 10 : closeCount === 1 ? 14 : Math.min(22, 14 + closeCount * 3);
-
     anchorMap.set(cur.cluster.hub.code, {
       code: cur.cluster.hub.code,
       pos: cur.pos,
       tangentDir: { x: tx / tLen, y: ty / tLen, z: tz / tLen },
-      stemLen,
-      pulseOffsetSec: stableHashUnit(cur.cluster.hub.code) * 3.4,
     });
   }
 
